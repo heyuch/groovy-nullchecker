@@ -1,0 +1,192 @@
+# Corpus manifest
+#
+# One block per fixture, introduced by its path relative to corpus/:
+#
+#   positive/nonnull_return.groovy
+#   rule=R01
+#   strict=any
+#   expect=some
+#
+# Keys
+#   rule     rule id this fixture exercises; must exist in CorpusRules
+#   strict   any | only | never
+#              any  : same expectation with and without strict mode
+#              only : must fire with strict, must be silent without it
+#              never: must stay silent in both modes
+#   expect   none | some | <n>
+#   note     free text
+#
+# The gate fails when a fixture on disk is undeclared, when a declaration has no file,
+# when a rule id is unknown, or when a rule is never exercised by any fixture. Drift
+# and uncovered rules must be impossible rather than merely discouraged.
+#
+# `expect=some` means "at least one". Repeated rule ids are deliberate: several
+# fixtures exercise different shapes of the same rule.
+
+# ── R01: null returned from an @NonNull method ───────────────────────────────
+positive/nonnull_return.groovy
+rule=R01
+strict=any
+expect=some
+
+# ── R02: @Nullable value returned from an @NonNull method ────────────────────
+positive/nonnull_return_nullable_value.groovy
+rule=R02
+strict=any
+expect=some
+
+# ── R03: null assigned to an @NonNull field or local ────────────────────────
+positive/nonnull_field_assignment.groovy
+rule=R03
+strict=any
+expect=some
+
+positive/nonnull_local_declaration.groovy
+rule=R03
+strict=any
+expect=some
+note=locally declared annotation; sits on a different AST node in Groovy 4.
+note=In strict mode this fixture also trips R05 (the null value then gets
+note=dereferenced), which is exactly the kind of extra finding expected=some allows.
+
+# ── R04: null re-assigned to a @MonotonicNonNull variable ───────────────────
+positive/monotonic_nonnull_reassign.groovy
+rule=R04
+strict=any
+expect=some
+
+# ── R05: dereference of a potentially-null value ────────────────────────────
+positive/nullable_deref_param.groovy
+rule=R05
+strict=any
+expect=some
+note=@Nullable parameter dereferenced without a guard
+
+positive/nullable_return_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=result of an @Nullable-returning method dereferenced
+
+positive/safe_nav_result_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=safe-navigation result dereferenced with a plain dot
+
+positive/nullable_property_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=property with an @Nullable getter dereferenced
+
+strict/flow_local_null_deref.groovy
+rule=R05
+strict=only
+expect=some
+note=flow analysis only; nothing is annotated
+
+strict/flow_reassigned_null.groovy
+rule=R05
+strict=only
+expect=some
+note=null reaches the variable by assignment, not by its initialiser
+
+# ── R06: dereference of a literal null ──────────────────────────────────────
+positive/deref_null_literal.groovy
+rule=R06
+strict=any
+expect=some
+
+# ── R07 / R08: null passed to an @NonNull parameter ─────────────────────────
+positive/nonnull_param_null.groovy
+rule=R07
+strict=any
+expect=some
+
+positive/nonnull_param_nullable.groovy
+rule=R08
+strict=any
+expect=some
+
+# ── R09: @NonNull field not definitely initialized (strict only) ────────────
+strict/nonnull_field_no_init.groovy
+rule=R09
+strict=only
+expect=some
+
+strict/nonnull_field_partial_ctors.groovy
+rule=R09
+strict=only
+expect=some
+note=initialised by some constructors but not all
+
+# ── Negative corpus: the guards, which must never produce a finding ──────────
+negative/guards_null_comparison.groovy
+rule=N01
+strict=never
+expect=none
+
+negative/guards_while.groovy
+rule=N01
+strict=never
+expect=none
+note=while-loop condition is the same guard shape
+
+negative/guards_short_circuit.groovy
+rule=N02
+strict=never
+expect=none
+
+negative/guards_safe_navigation.groovy
+rule=N03
+strict=never
+expect=none
+
+negative/guards_groovy_truth.groovy
+rule=N04
+strict=never
+expect=none
+
+negative/guards_instanceof.groovy
+rule=N05
+strict=never
+expect=none
+
+negative/guards_utility_objects.groovy
+rule=N06
+strict=never
+expect=none
+
+negative/guards_assert.groovy
+rule=N07
+strict=never
+expect=none
+
+negative/guards_elvis_ternary.groovy
+rule=N07
+strict=never
+expect=none
+note=elvis/ternary also establish a non-null value
+
+negative/guards_validators.groovy
+rule=N08
+strict=never
+expect=none
+
+negative/guards_test_assertions.groovy
+rule=N09
+strict=never
+expect=none
+
+negative/guards_early_exit.groovy
+rule=N01
+strict=never
+expect=none
+note=early return/throw after a null test
+
+negative/no_false_positive_clean.groovy
+rule=N01
+strict=never
+expect=none
+note=the plain happy path; catches "the checker never ran"
