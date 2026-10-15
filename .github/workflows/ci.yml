@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Supersede runs on the same branch: these are the slow part of a change, and only the newest
+# commit's result is worth waiting for.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # Nothing has to be staged first, which is worth stating because it is not obvious and it
+      # is not true of every project like this. `check` runs both halves of the gate:
+      #
+      #   * the corpus gate -- every rule exercised by a fixture that must be reported, every
+      #     guard form by one that must stay silent, so a rule cannot be added without evidence
+      #     that it fires;
+      #   * the plugin's TestKit functional tests, which drive real Gradle builds and whose inner
+      #     builds resolve the checker from ~/.m2 -- the functionalTest task installs it there
+      #     itself, so a fresh runner needs no prior publish.
+      - name: Check
+        run: ./gradlew check
+
+      # Not part of `check`, and deliberately not gated: PORT.md §4.1 records one divergence
+      # against Groovy 6's own checker as expected, so a diff is a thing to look at rather than a
+      # failure. It runs here because it is the project's strongest evidence and costs seconds --
+      # and because drift against upstream is only visible if something runs the comparison.
+      - name: Dual run against Groovy 6's checker
+        run: ./gradlew dualRun
+
+      - name: Upload the dual-run reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dual-run-reports
+          path: nullchecker/build/reports/dual-run/
+          if-no-files-found: ignore
