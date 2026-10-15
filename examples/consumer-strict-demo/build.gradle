@@ -1,0 +1,104 @@
+plugins {
+    id 'groovy'
+}
+
+dependencies {
+    // The consumer brings its own Groovy, as any Groovy project does. The checker
+    // must match it: type-checking extensions are compiler plugins.
+    implementation 'org.apache.groovy:groovy:4.0.30'
+
+    // The checker. compileOnly: it is needed while compiling, never at runtime,
+    // so it does not leak into your runtime classpath or your published POM.
+    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    // Deliberately no groovy-typecheckers: this library replaces it on Groovy 4,
+    // and both at once would put two org.apache.groovy.typecheckers.* on the classpath.
+}
+
+tasks.withType(GroovyCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Approach A + B: check the sources at compile time
+//
+// The configuration script injects the checker globally, so existing sources need
+// no annotation. Turn it off with -Pnullcheck.enabled=false while trying things out.
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.withType(GroovyCompile).configureEach {
+    if (project.findProperty('nullcheck.enabled') != 'false') {
+        groovyOptions.configurationScript = file('config/nullcheck.groovy')
+    }
+    // Approach C: strict (flow-sensitive) mode.
+    //
+    // Groovy 4 cannot accept 'NullChecker(strict: true)' -- its extension loader
+    // loadClass()es the whole string, so the parameterised name is never found and
+    // the failure message misleadingly says "not found on the classpath". Use one of
+    // these instead. GroovyCompile has NO systemProperty method, hence jvmArgs.
+    if (project.findProperty('nullcheck.strict') == 'true') {
+        options.forkOptions.jvmArgs = (options.forkOptions.jvmArgs ?: []) +
+                ['-Dgroovy.nullchecker.strict=true']
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reporting task: run the checker over a target tree and print a list.
+//
+// Useful for sizing up an existing codebase before making the check a gate: it
+// reports and keeps going, rather than flooding you with compiler output.
+// Requires the checker jar to carry the CLI, which it does.
+// ─────────────────────────────────────────────────────────────────────────────
+configurations {
+    nullcheckTool
+}
+
+dependencies {
+    nullcheckTool 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    // The checker declares Groovy as compileOnly on purpose -- it must not drag a
+    // Groovy version into your project. The tool that RUNS it does need one, so name
+    // it explicitly here instead of letting the library pick for you.
+    nullcheckTool 'org.apache.groovy:groovy:4.0.30'
+}
+
+tasks.register('nullcheck', JavaExec) {
+    group = 'verification'
+    description = 'Report potential null-safety problems without failing the build'
+
+    // The tool configuration brings its own Groovy transitive dependency, so the
+    // check runs on a known-good pair rather than whatever the project compiles with.
+    classpath = configurations.nullcheckTool
+    // A real class, shipped inside the published jar: no need to check out the
+    // checker's own repository to run it.
+    mainClass = 'io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli'
+
+    // The deliberately broken sample needs the annotations on the classpath, and they
+    // are compiled by this project. --support also shares stub classes with the
+    // analysed sources, which is how you keep helper types in one place.
+    classpath += files(sourceSets.main.output)
+    def targets = (project.findProperty('nullcheck.targets') ?: 'src/main/groovy,samples/broken')
+            .toString().split(',')*.trim()
+    def options = ['--support', file('samples/broken').absolutePath]
+    if (project.findProperty('nullcheck.strict') == 'true') {
+        options << '--strict'
+    }
+    args = options + targets
+
+    // Findings exit with 1; anything else means the tool itself failed (bad classpath,
+    // missing extension, no inputs). Do not let a broken invocation look like a clean
+    // result -- that is the failure mode this whole library is built to avoid.
+    ignoreExitValue = true
+    doLast {
+        int status = executionResult.get().exitValue
+        if (status == 0) {
+            logger.lifecycle('nullcheck: no findings')
+        } else if (status == 1) {
+            logger.lifecycle('nullcheck: findings reported (exit 1)')
+            if (project.findProperty('nullcheck.failOnError') == 'true') {
+                throw new GradleException('nullcheck: findings reported')
+            }
+        } else {
+            throw new GradleException("nullcheck: tool failed with exit code ${status} -- " +
+                    'the check did NOT run, so this is not a clean result')
+        }
+    }
+    outputs.upToDateWhen { false }
+}

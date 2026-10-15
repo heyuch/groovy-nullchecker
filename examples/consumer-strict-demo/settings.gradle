@@ -1,0 +1,11 @@
+rootProject.name = 'consumer-strict-demo'
+
+// Gradle does NOT add mavenLocal() by default -- without it, the locally published
+// checker cannot be resolved and the build fails with "Could not find
+// io.github.heyuch:groovy4-nullchecker". mavenCentral() is still needed for Groovy.
+dependencyResolutionManagement {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+}
