@@ -114,7 +114,7 @@ tasks.register('printTestClasspath') {
 
 // ── 双跑对照：同一套语料在 Groovy 4（本实现）与 Groovy 6（官方）下各跑一遍 ──
 //
-// 这是本项目最重要的一条证据：§PORT.md 的「语义等价性」不是靠读代码得出的，
+// 这是本项目最重要的一条证据：PORT.md 的「Behavioural comparison with upstream」不是靠读代码得出的，
 // 而是靠同一套语料在两份实现下产出【逐行可比】的报告，再 diff 出来。
 //
 // 隔离手法：Groovy 6 只出现在一个独立 configuration 里，并且只通过 JavaExec

@@ -1,263 +1,226 @@
-# PORT.md — Groovy 6 `NullChecker` → Groovy 4 回移说明
+# Port notes, deviations and known limitations
 
-> 本文记录**回移的每一处偏离**、**为什么**，以及**怎么验证的**。
-> 凡标注「实测」的都有可复现命令；标注「未证」的请先验证再依赖。
->
-> 上游基线：`apache/groovy` tag **`GROOVY_6_0_0`**
-> 　`NullChecker.groovy`　sha256 `0ed46916b516157883d1fb593eb1891f66c7839a926966f3904ef8e5837c3e0b`
-> 　`CheckingVisitor.groovy`　sha256 `99df010de442efd25184200a1bcdf8331b5e1e41a661580950057e53a30d6e8f`
+This checker is a source-level back-port of Apache Groovy's `NullChecker` (tag
+`GROOVY_6_0_0`) to Groovy 4.0.x. This document records what differs from upstream, why, and
+what is known not to work — so you can judge whether it is safe for your codebase instead of
+discovering the edges yourself.
+
+Upstream baseline:
+
+| file | sha256 |
+| --- | --- |
+| `NullChecker.groovy` | `0ed46916b516157883d1fb593eb1891f66c7839a926966f3904ef8e5837c3e0b` |
+| `CheckingVisitor.groovy` | `99df010de442efd25184200a1bcdf8331b5e1e41a661580950057e53a30d6e8f` |
 
 ---
 
-## 1. 结论
+## 1. Why the source was ported rather than the jar reused
 
-**可行，已完成。** 2 个文件、905 行源码级回移；**没有任何分析逻辑被重写**。
-全部改动是 4 处 API 适配 + 1 处注解节点适配。
+Groovy 4's `org.apache.groovy:groovy-typecheckers` ships only `RegexChecker`; `NullChecker`
+was added in 6.0.0 and is not present in any 4.x release (verified through 4.0.33). Moving
+the Groovy 6 jar onto a Groovy 4 classpath fails at link time, because Groovy 6's
+`groovy-macro` module needs AST classes that do not exist in 4.
 
-验证方式不是「读起来兼容」，而是：
-
-| 验证 | 结果（实测）|
-| --- | --- |
-| 用 Groovy 4.0.30 编译上游源码 | ✅ 成功 |
-| 语料门禁（30 个语料 × 2 模式）| ✅ 全绿，18 条规则全被覆盖 |
-| 与 Groovy 6 官方实现双跑对照 | ✅ 85/87 行一致，**1 处已知偏离**（见 §5）|
-| 跨 Groovy 4.x 运行 | ✅ 4.0.30 编译的产物在 4.0.24 上同样正常 |
+Recompiling the source against Groovy 4 works. No analysis logic was rewritten: the
+deviations below are the complete set.
 
 ---
 
-## 2. 偏离清单（全部）
+## 2. Deviations from upstream
 
-### 2.1 编译期必需（3 处）
+### 2.1 Compile-time adaptations (3)
 
-| # | 文件:行 | 上游写法 | Groovy 4 现实 | 处置 |
-| --- | --- | --- | --- | --- |
-| 1 | `NullChecker.groovy:21,142` | `import org.apache.groovy.lang.annotation.Incubating` + `@Incubating` | 该注解是 6.0 新增 | 删除。纯标记性注解，无语义 |
-| 2 | `NullChecker.groovy`（原 173）| `StaticTypesMarker.INFERRED_NON_NULL_RETURN_VIOLATIONS` | `StaticTypesMarker` 在 4.0.30 只有 19 个字段（6.0.0 有 23 个）| 改为字符串键 `'INFERRED_NON_NULL_RETURN_VIOLATIONS'`；`getNodeMetaData` 本就按字符串取值。**功能降级** |
-| 3 | `NullChecker.groovy`（原 670）| `StaticTypesMarker.INFERRED_NON_NULL` | 同上缺失 | 同上。**功能降级** |
+| # | Upstream | Groovy 4 reality | What was done |
+| --- | --- | --- | --- |
+| 1 | `@Incubating` on the class | Annotation added in 6.0 | Removed. It is a marker only, with no semantics |
+| 2 | `StaticTypesMarker.INFERRED_NON_NULL_RETURN_VIOLATIONS` | Absent: Groovy 4's `StaticTypesMarker` has 19 fields against Groovy 6's 23 | Read by string key. **Capability loss**, see §3.1 |
+| 3 | `StaticTypesMarker.INFERRED_NON_NULL` | Absent, as above | Read by string key. **Capability loss**, see §3.1 |
 
-> 穷举验证：脚本抽取两个源文件里**所有** import 到的 Groovy 侧类成员引用，逐条 `javap` 核对 4.0.30，
-> 缺失项恰好就是上面这些 —— 即「缺失 3 个成员 + 1 个注解」，**没有任何 Groovy API 类缺失**。
+An exhaustive audit of every Groovy-side class member referenced by both source files found
+exactly these, plus the two items below. No Groovy API class is missing.
 
-### 2.2 运行期必需（1 处）：`options` / `strict`
+### 2.2 Extension options: `strict` is configured out of band (1)
 
-**上游**：`boolean strict = options?.strict ?: false`，配合
-`@TypeChecked(extensions = 'groovy.typecheckers.NullChecker(strict: true)')`。
-Groovy 6 在 `GroovyTypeCheckingExtensionSupport` 里新增了
-`parseParameters()` / `getOptions()` / `resolvedPath` 来支持这种带参写法。
-
-**Groovy 4 的现实**（实测读 4.0.30 源码）：`setup()` 直接
-`transformLoader.loadClass(scriptPath, false, true)` —— **scriptPath 是整个字符串**，
-所以 `"…NullChecker(strict: true)"` 必然 ClassNotFound，回退找同名资源文件，最后报一句
-**误导性**的 `Static type checking extension '…(strict: true)' was not found on the classpath.`
-
-三种绕过尝试都**实测失败**：
-
-| 尝试 | 结果 |
-| --- | --- |
-| 给 `NullChecker` 加 `NullChecker(Map options)` 构造器 | ❌ 走不到构造器，先在 `loadClass` 断了 |
-| 写 `PortExtensionSupport extends GroovyTypeCheckingExtensionSupport` 子类剥参数 | ❌ `StaticTypesTransformation` **硬编码** `new GroovyTypeCheckingExtensionSupport(...)`，你的子类永远不会被用 |
-| **静态/全局配置** | ✅ 采用 |
-
-**采用的方案**（`NullChecker` 内新增约 45 行，语义等价于上游 `getOptions()`）：
+Upstream reads `boolean strict = options?.strict`, which Groovy 6 populates from a
+parameterised extension name:
 
 ```groovy
-private static final Map<String, Object> PORT_OPTIONS = [:]
-static final String STRICT_PROPERTY = 'groovy.nullchecker.strict'
-
-static void setOptions(Map<String, Object> options)   // 对应上游 getOptions() 的写入侧
-Map<String, Object> getOptions()                      // 与上游同名，便于移植代码
-static void clearOptions()
-private static boolean isStrictEnabled() {
-    PORT_OPTIONS.strict == true || Boolean.getBoolean(STRICT_PROPERTY)
-}
+@TypeChecked(extensions = 'groovy.typecheckers.NullChecker(strict: true)')   // Groovy 6 only
 ```
 
-三种启用方式：
+**Groovy 4 cannot do this.** Its `GroovyTypeCheckingExtensionSupport.setup()` calls
+`loadClass()` on the *whole* string, so a parameterised name is never found; and
+`StaticTypesTransformation` hard-codes that support class, so a subclass is never consulted
+either. The resulting message — `... was not found on the classpath` — reads like a typo,
+which makes this easy to misdiagnose.
+
+Use one of these instead:
 
 ```groovy
-// 1) 注解（默认，注解驱动）—— 注意【不能】写 (strict: true)
-@TypeChecked(extensions = 'io.github.heyuch.groovy4.nullchecker.NullChecker')
-
-// 2) 构建期全局
-System.setProperty('groovy.nullchecker.strict', 'true')   // 或 JVM 参数 -Dgroovy.nullchecker.strict=true
-
-// 3) 程序化（编译插件/自定义 Gradle 任务）
+// programmatic, for a plugin or a custom task
 NullChecker.setOptions([strict: true])
+
+// build-wide
+-Dgroovy.nullchecker.strict=true
+
+// environment, most convenient for CI
+GROOVY_NULLCHECKER_STRICT=true
 ```
 
-> ⚠️ **这是 Groovy 4 上最容易踩的坑**：`'X(strict: true)'` 会失败，而失败信息是
-> 「not found on the classpath」——它指向的是名字问题，不是参数语法问题，很容易误判成写错类名。
-> 与 PORT 坑清单里的其他条目一样，**症状是静默/误导失效**。
+### 2.3 Local variable declarations: annotations are read from a different node (1)
 
-### 2.3 注解节点适配（1 处，**仅本地变量声明**）
+For `@Nullable String x`, Groovy 6 attaches the annotation to `decl.variableExpression` while
+Groovy 4 attaches it to the `DeclarationExpression` itself. Upstream's single-node lookup
+therefore finds nothing on Groovy 4, making **every annotation rule about local declarations
+silently skip**.
 
-**这是唯一一处行为偏离**，而且是语料门禁逼出来的 —— 静态的 API 审计**发现不了它**。
+The port checks whichever node carries the annotation, so the same code is correct on both.
+This is the one place where behaviour differs from upstream — see §4.1.
 
-- **上游**（`visitDeclarationExpression`）：把注解查在 `decl.variableExpression` 上。
-- **Groovy 4 实测**：`@Nullable String x` 的注解挂在 **`DeclarationExpression`** 上，
-  `variableExpression` 上**是空的**：
+### 2.4 Package name
 
-```
-DECL expr.annos      = [NonNull]     ← Groovy 4 挂在这里
-DECL ve.annos        = []            ← 上游查的是这里 ⇒ 永远查不到
-```
+Upstream's two classes live in `groovy.typecheckers` and `org.apache.groovy.typecheckers`.
+Neither name can be reused:
 
-⇒ 若照抄上游，Groovy 4 上**所有「本地变量声明」类规则都会静默失效**。
+- `org.apache.groovy.typecheckers.CheckingVisitor` **already exists in Groovy 4.0.x**, and
+  Groovy 4's own `RegexChecker` uses it. The two are not interchangeable: Groovy 4 declares
+  `findTargetVariable` as `static`, Groovy 6 as an instance method. Shadowing it would break
+  `RegexChecker`.
 
-**处置**：新增 `declAnnoCarrier(decl, ve)` —— 哪边有注解就用哪边，两个 Groovy 版本下都正确：
-
-```groovy
-private static AnnotatedNode declAnnoCarrier(DeclarationExpression decl, VariableExpression ve) {
-    if (!ve.annotations.isEmpty() || !ve.type.annotations.isEmpty()) {
-        return ve
-    }
-    decl
-}
-```
-
-行为差异见 §5（这正是双跑对照组里唯一的分歧）。
-
-### 2.4 换包名（**必须**，否则踩冲突）
-
-上游两个类分别在 `groovy.typecheckers` 与 `org.apache.groovy.typecheckers`。**两个包名都不能沿用**：
-
-- `org/apache/groovy/typecheckers/CheckingVisitor` **在 Groovy 4.0.30 里已经存在**
-  （`groovy-typecheckers-4.0.30.jar`，实测），而且 4.0.30 自带的 `RegexChecker` **正在使用它**。
-- 两者**不兼容**：4.0.30 的 `findTargetVariable` 是 **`static`**，6.0.0 是**实例方法**（`javap` 实测）。
-  ⇒ 覆盖它会**连带弄坏同项目的 `RegexChecker`**。
-
-⇒ 两个类都放进本项目自己的包：
-
-```
-io.github.heyuch.groovy4.nullchecker.NullChecker      ← 对外唯一入口（使用者要写这个字符串）
-io.github.heyuch.groovy4.nullchecker.CheckingVisitor  ← 内部基类，仅包名改动
-```
+Both classes therefore live in `io.github.heyuch.groovy4.nullchecker`.
 
 ---
 
-## 3. 未改动（澄清）
+## 3. Known capability loss
 
-- **`x in y` 运算符**（上游 L404、L459）：因为是在 Groovy 4 上**重新编译源码**，
-  编译期会生成 4 自己的实现。实测 `'a' in ['a','b']` 在 Groovy 4 运行时正常。
-  （`ScriptBytecodeAdapter.isIn` 在 4.0.30 确实不存在，但这只影响**搬运 jar**，不影响回移源码。）
-- **其余全部 Groovy API**：`ClassHelper.VOID_TYPE` / `isPrimitiveType` / `Types.*` /
-  `StaticTypesMarker.{INFERRED_TYPE,DIRECT_METHOD_CALL_TARGET}` /
-  `GroovyTypeCheckingExtensionSupport.TypeCheckingDSL` 及全部 DSL 钩子 —— 签名一致。
+### 3.1 Type-inference-driven checks are weaker
 
----
+The two absent `StaticTypesMarker` fields (§2.1) mean the two code paths that consult
+Groovy's *inferred* non-null information go quiet on Groovy 4. The annotation-driven paths
+still cover the same situations when you annotate explicitly, but if you rely on inference
+alone this port may report **less** than Groovy 6 would.
 
-## 4. 坑清单（每个都让「检查」静默失效过）
+### 3.2 Locally declared annotations behave differently
 
-继承前一轮交接文档的结论并继续遵守。**共同症状都是「报告无发现」**。
+See §4.1. In short: this port reports a locally declared `@NonNull` initialised with null;
+Groovy 6 does not.
 
-| # | 坑 | 症状 | 正确做法 |
-| --- | --- | --- | --- |
-| 1 | 编译相停太早 | 任何输入都「无发现」 | 必须到 **`Phases.INSTRUCTION_SELECTION`**（早于 `OUTPUT`，不写 class）|
-| 2 | 注入扩展时传了 Class | 静默无发现 | `ASTTransformationCustomizer` **只认 String** |
-| 3 | 用「没抛异常」判断「无发现」 | 无法区分「干净」与「没查」 | 编译正常返回后**仍要查 `errorCollector.errors`** |
-| 4 | 没有阳性对照 | 「全绿」毫无意义 | 每条规则都要有必须被报出的输入，且放进**被测的那棵树** |
-| 5 | 注解依赖随库传递 | 使用者被迫引入 JSR-305 | 注解用 **`compileOnly`** |
-| 6 | 把它当一般库 | 想一个 jar 支持 4/5/6 | 类型检查扩展是**编译器插件**，必须与编译器同版本 ⇒ **按大版本分档** |
-| 7 | **带参扩展名**（本次新增）| `'X(strict: true)'` 报「not found on the classpath」 | Groovy 4 用系统属性 / `setOptions()`，见 §2.2 |
-| 8 | **注解保留策略**（本次新增）| `@Nullable` 完全不识别，**静默漏报** | 语料/使用方的注解必须 `@Retention(RUNTIME)`；`CLASS` 保留实测漏报 |
-| 9 | **本地变量注解节点**（本次新增）| Groovy 4 上「本地变量声明」类规则**全部静默失效** | 注解可能挂在 `DeclarationExpression` 而非 `variableExpression` 上，见 §2.3 |
-| 10 | **`@CompileStatic` 被静默跳过**（接入反馈新增）| **整个静态编译的项目报 `0 findings`** —— 而那个 0 的意思是「什么都没查」 | 注册相必须用包装器声明（`CANONICALIZATION`）；**裸 `ASTTransformationCustomizer` 与源码里的 `@TypeChecked` 都到不了这类类**。见 README §3.2 / §12.1 |
-| 11 | **覆盖计数被每次 `run()` 重置**（接入反馈新增）| 43 个文件报 `classes=1`，看起来像覆盖率数据，其实是错的 | Groovy **每个类都会新建一个 DSL 实例并调用一次 `run()`**（实测 43 文件 = 50 次 `run()`）⇒ 计数**不能在 `run()` 里重置**，只能由调用方每次编译重置一次 |
-| 12 | **Gradle configuration script 的类加载器是隔离的**（接入反馈新增）| `import io.github…NullCheckCustomizer` 报 "unable to resolve class"；改成 `Class.forName` 仍 `ClassNotFoundException`；把依赖从 `compileOnly` 改成 `implementation` 也**不行** | 包装器必须**内联在 configuration script 里**，只用 Groovy 自带类。或改用 CLI 路线 |
-| 13 | **依赖只在本地 maven 仓库**（接入反馈新增）| 别人的 `check` 依赖你先跑 `publishToMavenLocal`；拿不到时可能**静默变绿** | 发布到可访问仓库；或在拿不到时**明确失败** |
+### 3.3 Precompiled package annotations need runtime retention
 
-**第 1/2/3/7/8/9/10/11/12 条都真实发生过**，且**每一次都表现为「无发现」或误报「已覆盖」**。
-唯一把它们抓出来的办法只有两个：**阳性对照**（现在是 CLI 里的常驻 canary）+ **覆盖计数**。
+Package-level defaults are resolved from three sources: a source `package-info` in the same
+compilation, Groovy's package node, and — for a precompiled dependency — a reflective lookup
+of `<pkg>.package-info`. The reflective path can only see annotations with `RUNTIME`
+retention. The common nullness annotations (JSpecify, JSR-305, JetBrains, Checker Framework)
+are runtime-retained, so this rarely matters, but a `CLASS`-retained package annotation in a
+dependency will be invisible.
 
-> 第 4 条（没有阳性对照）因此从「纪律」升级成了「机制」：CLI 在报告任何结果前先跑
-> 内置 canary，其中**包含一个 `@CompileStatic` 类**；canary 不报就 `exit 2`，绝不报 0。
-> 变异测试验证过：把注册相改回 `INSTRUCTION_SELECTION`，canary 立刻让 CLI 退出 2
-> 并指出「the canary's @CompileStatic sample was NOT reported」。
+### 3.4 Monotonic state does not cross method boundaries
+
+For `@MonotonicNonNull`, the state that tracks "this has held a non-null value" is per
+visited method body. Setting the field in one method and reassigning it to `null` in another
+is not reported. Keep the initialisation and the invalidating assignment in the same method
+if you rely on this rule.
 
 ---
 
-## 5. 语义等价性证据（双跑对照）
+## 4. Behavioural comparison with upstream
 
-`./gradlew dualRun` 用同一套语料（29 个 fixture × 2 模式）跑两份实现，输出逐行可比报告：
+The corpus is run under both implementations and the results are diffed
+(`./gradlew dualRun`). Everything matches except one case.
 
-```
-build/reports/dual-run/groovy4.txt      ← 本实现
-build/reports/dual-run/groovy6.txt      ← Groovy 6 官方
-build/reports/dual-run/diff.txt         ← 差异
-```
+### 4.1 The one divergence
 
-**实测结果：85 行 vs 87 行，唯一分歧是 §2.3 的本地变量声明：**
+| Fixture | This port | Groovy 6 |
+| --- | --- | --- |
+| `positive/nonnull_local_declaration.groovy` (`@NonNull String s = null` as a *local*) | **reports** | does not report |
 
-| 语料 | 本实现（Groovy 4）| Groovy 6 官方 | 说明 |
-| --- | --- | --- | --- |
-| `positive/nonnull_local_declaration.groovy` [annotations] | **1 条** | **0 条** | 见下 |
+This is deliberately kept rather than aligned away. Removing the local-declaration check
+would cost Groovy 4 users a whole rule family, and the difference is an overlay of
+implementation, AST and Groovy-version behaviour that cannot be isolated without changing
+verified behaviour.
 
-**分析**：`@NonNull String s = null` 作为**方法内**局部声明。
-双跑的变量不止一个实现，还有两代 Groovy 的注解挂载差异：
+### 4.2 Everything that does match
 
-- Groovy 4 把注解挂 `DeclarationExpression` ⇒ 本实现（用 `declAnnoCarrier`）能读到 ⇒ 报。
-- Groovy 6 把注解挂 `variableExpression` —— **但实测官方 `NullChecker` 在此处仍报 0 条**。
+Annotated returns, parameters and fields; `@MonotonicNonNull` reassignment; dereferences of
+`@Nullable` values, `@Nullable`-returning calls, safe-navigation results and `@Nullable`
+properties; `null` passed to `@NonNull` parameters; and in strict mode flow-sensitive
+dereferences and definite-initialisation of `@NonNull` fields.
 
-即：这**不能**简单归因为「本实现更严」或「官方漏报」，它是
-**「实现差异 × AST 差异 × 版本差异」的叠加**，无法在不改变已核实行为的前提下消除。
+All guard forms are silent in both implementations: `if (x != null)`, `else` branches, early
+`return`/`throw`, `?.`, Groovy truth, `&&`/`||`, `instanceof`, `Objects.nonNull`/`isNull`,
+`assert`, elvis, ternary, `while`, `requireNonNull`/`checkNotNull`, `assertNotNull` and
+fluent `assertThat(x).isNotNull()` chains.
 
-**处置**：作为**已知偏离**保留并记录在此，**不**为了对齐而关掉本地变量检查
-（关掉会让 Groovy 4 用户丢掉一整类规则）。其余全部语料**逐字对齐**。
+### 4.3 One intentional difference in scope
 
-**其余对齐的部分**（全部实测一致）：
-
-- 注解驱动：`@NonNull` 方法返回 null / 返回 `@Nullable` 值；给 `@NonNull` 字段或本地变量赋 null；
-  `@MonotonicNonNull` 非空后回赋 null；`@Nullable` 参数/返回值/属性解引用；字面 null 解引用；
-  传 null 或 `@Nullable` 值给 `@NonNull` 参数。
-- `strict` 流敏感：变量经赋值/初始化变 null 后解引用；`@NonNull` 字段未初始化 / 未被所有构造器初始化。
-- 守卫（**全部 0 误报**，两代实现一致）：`if (x != null)` / `if (x == null) else` / 提前 `return` /
-  提前 `throw` / `?.` / `if (x)` / `if (!x)` / `&&` / `||` / `instanceof` / `!instanceof` /
-  `Objects.nonNull` / `Objects.isNull` / `assert x` / `assert x != null` / elvis / 三元 /
-  `while (x != null)` / `requireNonNull` / `checkNotNull` / `assertNotNull`（含 message 参数）/
-  `assertThat(x).isNotNull()`。
-
-> ⚠️ **双跑自身的坑（本轮踩到）**：最初语料把扩展名**写死**成本实现的 FQCN，
-> Groovy 6 加载不到该类 ⇒ **每个 fixture 都「无发现」**，看起来像「两边完全一致」。
-> 这是**最危险的一种假绿**。现在 fixture 写占位符 `@NULLCHECKER_EXTENSION@`，
-> 由运行方替换成各自实现的名字。任何「双跑结果完全一致」的结论，
-> 都必须先确认**参考实现那边真的跑起来了**（本项目的 `dualRun` 会打印 reference 的行数，
-> 为 0 就说明没跑，而不是「干净」）。
+**Package-level defaults are not supported by upstream at all** — Groovy 6's `NullChecker`
+does not read package annotations, so a `@NullMarked` package has no effect there. This port
+does read them. That difference appears on the `only-in-port` side of the `dualRun` diff, and
+it is a feature rather than a regression.
 
 ---
 
-## 6. 已知降级 / 局限
+## 5. Notes on the porting work
 
-| # | 事项 | 影响 | 说明 |
-| --- | --- | --- | --- |
-| 1 | 两个 `StaticTypesMarker` 缺失（§2.1）| 依赖**类型推断**产出非空信息的两条快路在 4 下不生效 | 注解路径兜底，但依赖推断的场景可能比 6 **少报** |
-| 2 | `strict` 语法不兼容（§2.2）| 功能等价，**语法不兼容** | 4 不能用 `'X(strict: true)'` |
-| 3 | 本地变量声明（§2.3）| **1 处**已知偏离 | 见 §5 |
-| 4 | `@MonotonicNonNull` 跨方法跟踪 | 在 A 方法置非空、B 方法回赋 null **不报** | 检查器按方法体跟踪，上游同样如此。语料把初始化与失效放在同一方法内 |
-| 5 | `deref_null_literal` 类语料 | 触发通用静态类型错误而非本规则 | 用 `null.toString()` 才能触发 R06；`null.length()` 会先被 Groovy 自身的类型检查拦下 |
-| 6 | 动态代码（无 `@CompileStatic`）| 大型真实代码库上的噪音/漏报比例**未测** | 需要先在真实项目上观察模式跑一轮 |
-| 7 | 全面语义等价性 | **未证**；仅在现有 29 个语料 × 2 模式上逐字对齐（除已知偏离）| 靠持续扩语料 + 双跑守 |
+These were the parts that were not obvious, recorded so they are not rediscovered.
+
+### 5.1 `@CompileStatic` classes need an explicit registration phase
+
+Registering the checker with a bare `ASTTransformationCustomizer` never reaches
+`@CompileStatic` classes, and the failure is silent: a project whose classes are all
+statically compiled reports zero findings that mean "nothing was checked". A source-level
+`@TypeChecked` does not help either.
+
+The fix is to declare the registration phase, which needs a wrapper because
+`ASTTransformationCustomizer` cannot be subclassed from Groovy — its constructor assigns
+`annotationNode` through a dynamic property write, which throws
+`MissingPropertyException: No such property: annotationNode` as soon as a Groovy subclass is
+instantiated. `NullCheckCustomizer` wraps it by composition.
+
+Measured against a `@CompileStatic` class: `CONVERSION`, `SEMANTIC_ANALYSIS` and
+`CANONICALIZATION` all report; `INSTRUCTION_SELECTION` does not, because the type-checking
+transformation has already been processed by then.
+
+### 5.2 Groovy instantiates the type-checking DSL once per class
+
+Coverage counters must not be reset inside `run()`: Groovy creates a new DSL instance and
+calls `run()` once per checked class (measured: 50 calls for 43 sources), so a reset there
+leaves the counters describing only the last class seen. The reset belongs to the caller,
+once per compilation.
+
+### 5.3 Gradle compiles configuration scripts with an isolated classloader
+
+A Gradle `configurationScript` cannot import classes from the project's compile classpath,
+and `Class.forName` does not help — it throws `ClassNotFoundException` even with the checker
+declared as a dependency, including when the dependency is changed from `compileOnly` to
+`implementation`. A wrapper used from a configuration script must therefore be self-contained.
+`NullCheckCustomizer` is intended for programmatic use; the `nullcheck` task avoids the
+problem entirely by running the CLI in its own process.
+
+### 5.4 `extensions` must be a String
+
+The annotation member is declared `Class[]`, but at runtime only a `String` is honoured.
+Passing a `Class` or `ClassExpression` is silently ignored, producing a green build that
+checked nothing.
+
+### 5.5 Annotations must be `RUNTIME`-retained
+
+With `CLASS` retention the checker does not see the annotation and every rule based on it
+goes silent. This one is easy to hit with a hand-written annotation.
+
+### 5.6 `x in y` is not an obstacle
+
+`ScriptBytecodeAdapter.isIn` does not exist in Groovy 4.0.30, but because the source is
+recompiled against Groovy 4 rather than the jar being moved, the compiler emits Groovy 4's own
+implementation. No rewriting was needed.
 
 ---
 
-## 7. 复现
+## 6. What is not verified
 
-```bash
-cd groovy4-nullchecker
-
-./gradlew check       # 语料门禁：29 fixture × 2 模式 + 覆盖率门禁
-./gradlew dualRun     # 双跑对照：本实现 vs Groovy 6 官方，输出 diff
-./gradlew publishToMavenLocal
-
-# 单独跑 CLI（产物 + 注解都在 test classpath 上）
-CP="build/classes/groovy/main:build/classes/java/test:$(./gradlew -q printTestClasspath)"
-java -cp "$CP" groovy.ui.GroovyMain tools/nullcheck.groovy --support corpus/support corpus/positive
-```
-
-取上游源码重做基线：
-
-```bash
-B=https://raw.githubusercontent.com/apache/groovy/GROOVY_6_0_0/subprojects/groovy-typecheckers/src/main/groovy
-curl -sS -o NullChecker.groovy     "$B/groovy/typecheckers/NullChecker.groovy"
-curl -sS -o CheckingVisitor.groovy "$B/org/apache/groovy/typecheckers/CheckingVisitor.groovy"
-shasum -a 256 NullChecker.groovy CheckingVisitor.groovy   # 对照文首哈希
-```
+- **Semantic equivalence beyond the corpus.** The comparison in §4 covers the fixtures in
+  `corpus/`. Type inference in Groovy 4 and 6 is not identical, and the corpus is not a proof
+  of equivalence on arbitrary code.
+- **Noise and miss rates on large codebases.** The checker has been run on multi-module
+  projects of moderate size, but the false-positive and false-negative rate on a large legacy
+  codebase is not measured. Start in report mode.
