@@ -1,0 +1,213 @@
+// groovy4-nullchecker —— 把 Groovy 6 的 NullChecker 回移到 Groovy 4.0.x
+//
+// 设计要点（每一条都对应一个实测过的坑，见 PORT.md）：
+//   · 只支持 Groovy 4.0.x，不做跨大版本 —— 类型检查扩展是【编译器插件】，
+//     必须与被检查的编译器同版本。
+//   · groovy 本身是 compileOnly：调用方自带 Groovy，我们不传递、不绑定。
+//   · 注解依赖（JSR-305 / JetBrains）也是 compileOnly：只为编译期按【简单名】识别，
+//     不随发布传递，使用者不会被逼着引入 JSR-305。
+//   · 语料门禁跑在 check 里，且必须有【阳性对照】：一个不能区分「查过且干净」
+//     和「根本没查」的门禁，比没有门禁更危险。
+
+plugins {
+    id 'groovy'
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = project.property('projectGroup')
+version = project.property('nullcheckerVersion')
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    // Gradle 8 自带的 Groovy 未必是我们要编译/验证的那一份，显式钉住一个来源
+    groovy4
+    // 仅 dualRun 用：Groovy 6 官方实现，绝不进入 main/test 的任何 classpath
+    referenceChecker
+    // 语料用的注解（JSR-305 / JetBrains），只为跑语料
+    corpusAnnotations
+}
+
+dependencies {
+    compileOnly "org.apache.groovy:groovy:${groovyVersion}"
+    groovy4 "org.apache.groovy:groovy:${groovyVersion}"
+
+    // 只为「编译语料、让分析器看到注解类型」而引入；识别是按【简单名】做的，
+    // 所以运行期根本不需要它们 ⇒ compileOnly，不随发布传递。
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    compileOnly 'org.jetbrains:annotations:13.0'
+
+    testImplementation "org.apache.groovy:groovy:${groovyVersion}"
+    testImplementation "org.spockframework:spock-core:${spockVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    corpusAnnotations 'com.google.code.findbugs:jsr305:3.0.2'
+    corpusAnnotations 'org.jetbrains:annotations:13.0'
+
+    referenceChecker "org.apache.groovy:groovy:${referenceGroovyVersion}"
+    referenceChecker "org.apache.groovy:groovy-typecheckers:${referenceGroovyVersion}"
+}
+
+// 参考实现的 classpath 必须【精确】到 groovy 6 及其配套模块：一旦混进本项目产物或
+// 另一份 groovy，同一个类加载器里就会出现两份 groovy.lang/AST，症状是诡异的
+// NoClassDefFoundError。这里按「大版本 6」筛，避免把 Groovy 4 拖进来。
+def referenceClasspath = {
+    configurations.referenceChecker.resolve().findAll { File f ->
+        f.name.startsWith('groovy-6') || f.name.startsWith('groovy-typecheckers-6')
+    }
+}
+
+tasks.withType(GroovyCompile).configureEach {
+    groovyClasspath = configurations.groovy4
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+// ── 语料门禁 ────────────────────────────────────────────────────────────────
+// 语料自带注解与桩类（corpus/support）**不复制**到 src/test，而是直接作为测试源码树的一部分
+// 参与编译：语料因此是自包含的，也能被 tools/nullcheck.groovy --support corpus/support 复用。
+// 只有 Java 注解源需要这么做；corpus/support 里的 .groovy 桩由门禁在编译单元里一起编。
+sourceSets.test.java.srcDir 'corpus/support'
+
+// 一个测试类跑完全部语料：每个文件都要在 annotation / strict 两种模式下过一遍。
+// 拆成「一个语料一个 feature」会让每个 feature 重新编译一遍语料，且模式失效时容易只红一半。
+tasks.withType(Test).configureEach {
+    systemProperty 'corpus.dir', layout.projectDirectory.dir('corpus').asFile.absolutePath
+    systemProperty 'nullchecker.extension', 'io.github.heyuch.groovy4.nullchecker.NullChecker'
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.named('check') {
+    dependsOn 'test'
+}
+
+// 便利任务：打印跑 CLI/门禁所需的 classpath，供 tools/nullcheck.groovy 手动调用。
+// （Gradle 的测试 classpath 是「产物 + 注解 + Groovy」，直接抄不可行，所以导出一个。）
+tasks.register('printTestClasspath') {
+    group = 'help'
+    description = '打印手动运行 tools/nullcheck.groovy 所需的 classpath'
+    def entries = files(sourceSets.test.runtimeClasspath)
+    doLast {
+        println entries.asPath
+    }
+}
+
+// ── 双跑对照：同一套语料在 Groovy 4（本实现）与 Groovy 6（官方）下各跑一遍 ──
+//
+// 这是本项目最重要的一条证据：§PORT.md 的「语义等价性」不是靠读代码得出的，
+// 而是靠同一套语料在两份实现下产出【逐行可比】的报告，再 diff 出来。
+//
+// 隔离手法：Groovy 6 只出现在一个独立 configuration 里，并且只通过 JavaExec
+// （独立 JVM + 独立 classpath）运行 ⇒ 永远不会渗进 main/test 的编译或运行 classpath。
+//
+// 语料里的注解是 RUNTIME 保留的，所以必须带上编译后的注解类
+// （corpus/support 已并入 test 源码树，见上）。
+def corpusDir = layout.projectDirectory.dir('corpus')
+def dualRunReportDir = layout.buildDirectory.dir('reports/dual-run')
+
+tasks.register('dualRunReference', JavaExec) {
+    group = 'verification'
+    description = '用 Groovy 6 官方 NullChecker 跑语料，生成对照报告'
+    mainClass = 'groovy.ui.GroovyMain'
+    classpath = files(referenceClasspath()) +
+            sourceSets.test.output +
+            configurations.corpusAnnotations
+    args = [
+            layout.projectDirectory.file('tools/dual-run.groovy').asFile.absolutePath,
+            corpusDir.asFile.absolutePath,
+            'groovy.typecheckers.NullChecker',
+            dualRunReportDir.get().file('groovy6.txt').asFile.absolutePath,
+    ]
+    // 只有 Groovy 6 认这种带参扩展名；本实现不能用（见 PORT.md）
+    systemProperty 'gate.extensionParams', 'true'
+    dependsOn 'testClasses'
+    outputs.upToDateWhen { false }
+}
+
+tasks.register('dualRunPort', JavaExec) {
+    group = 'verification'
+    description = '用本实现跑语料，生成对照报告'
+    mainClass = 'groovy.ui.GroovyMain'
+    classpath = sourceSets.test.runtimeClasspath
+    args = [
+            layout.projectDirectory.file('tools/dual-run.groovy').asFile.absolutePath,
+            corpusDir.asFile.absolutePath,
+            'io.github.heyuch.groovy4.nullchecker.NullChecker',
+            dualRunReportDir.get().file('groovy4.txt').asFile.absolutePath,
+    ]
+    dependsOn 'testClasses'
+    outputs.upToDateWhen { false }
+}
+
+// 两份报告逐行 diff。差异【不一定】是 bug：本实现对语料里的注解识别靠声明节点，
+// 而 Groovy 4/6 把注解挂在不同的 AST 节点上。所以这里把差异打出来供人判断，
+// 真正的门禁是 :test 里的语料断言。
+tasks.register('dualRun') {
+    group = 'verification'
+    description = '双跑对照（本实现 vs Groovy 6 官方），输出两份报告与差异'
+    dependsOn 'dualRunPort', 'dualRunReference'
+
+    doLast {
+        File portReport = dualRunReportDir.get().file('groovy4.txt').asFile
+        File referenceReport = dualRunReportDir.get().file('groovy6.txt').asFile
+        File diffFile = dualRunReportDir.get().file('diff.txt').asFile
+        Closure<List<String>> normalize = { File f ->
+            f.readLines().findAll { String line -> line.startsWith('--- ') || line.startsWith('    ') }
+        }
+        List<String> port = normalize(portReport)
+        List<String> reference = normalize(referenceReport)
+        diffFile.text = port == reference ? 'identical\n'
+                : "only-in-port:\n${(port - reference).join('\n')}\n\n" +
+                  "only-in-reference:\n${(reference - port).join('\n')}\n"
+
+        logger.lifecycle("dualRun: port=${port.size()} lines, reference=${reference.size()} lines, " +
+                "diff=${port == reference ? 'identical' : 'see ' + diffFile}")
+        logger.lifecycle("dualRun reports: ${dualRunReportDir.get().asFile}")
+
+        // Fail loudly when the REFERENCE side produced nothing. A reference run that
+        // cannot load its own checker reports zero findings for every fixture, which
+        // looks exactly like "the two implementations agree perfectly". This bit us
+        // once already; a comparison whose control group never ran is worse than no
+        // comparison, because it manufactures confidence.
+        if (!reference.any { String line -> !line.startsWith('---') }) {
+            throw new GradleException(
+                    "dualRun: the Groovy ${project.property('referenceGroovyVersion')} reference " +
+                    "reported nothing at all -- check that it actually ran before trusting the diff. " +
+                    "See ${referenceReport}")
+        }
+    }
+    outputs.upToDateWhen { false }
+}
+
+// ── 发布 ──
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            pom {
+                name = 'groovy4-nullchecker'
+                description = 'Groovy 6 NullChecker back-ported to Groovy 4.0.x'
+            }
+        }
+    }
+}
