@@ -1,4 +1,4 @@
-# 在本地项目里试用 groovy4-nullchecker
+# 在本地项目里试用 nullchecker
 
 这是一个**可直接复制**的示例消费者工程，演示三种接入方式。
 
@@ -10,7 +10,7 @@ Gradle 侧只需要把仓库加一个 `mavenLocal()`，`build.gradle` 里不需�
 
 ## 0. 一次性：把检查器装进本地仓库
 
-在 `groovy4-nullchecker` 工程里：
+在 `nullchecker` 工程里：
 
 ```bash
 ./gradlew publishToMavenLocal
@@ -19,10 +19,10 @@ Gradle 侧只需要把仓库加一个 `mavenLocal()`，`build.gradle` 里不需�
 产物落在：
 
 ```
-~/.m2/repository/io/github/heyuch/groovy4-nullchecker/0.1.0/
-├── groovy4-nullchecker-0.1.0.jar      # 检查器 + CLI 本体
-├── groovy4-nullchecker-0.1.0.pom      # 无任何依赖声明
-└── groovy4-nullchecker-0.1.0.module   # Gradle metadata
+~/.m2/repository/io/github/heyuch/groovy/nullchecker/0.1.0/
+├── nullchecker-0.1.0.jar      # 检查器 + CLI 本体
+├── nullchecker-0.1.0.pom      # 无任何依赖声明
+└── nullchecker-0.1.0.module   # Gradle metadata
 ```
 
 > ⚠️ **同版本号重发后必须刷新依赖缓存。**
@@ -40,12 +40,12 @@ Gradle 侧只需要把仓库加一个 `mavenLocal()`，`build.gradle` 里不需�
 ### `settings.gradle`：加 `mavenLocal()`
 
 Gradle **不会**默认把 `mavenLocal()` 放进仓库列表。不加的话会直接报
-`Could not find io.github.heyuch:groovy4-nullchecker:0.1.0`：
+`Could not find io.github.heyuch:groovy-nullchecker:0.1.0`：
 
 ```groovy
 dependencyResolutionManagement {
     repositories {
-        mavenLocal()      // ← 让本地仓库里的 groovy4-nullchecker 可被解析
+        mavenLocal()      // ← 让本地仓库里的 nullchecker 可被解析
         mavenCentral()    // ← Groovy 本身还是从中央仓库来
     }
 }
@@ -59,7 +59,7 @@ dependencyResolutionManagement {
 dependencies {
     implementation 'org.apache.groovy:groovy:4.0.30'   // 你的 Groovy 版本
 
-    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.1.0'
 }
 ```
 
@@ -77,7 +77,7 @@ dependencies {
 ```groovy
 import groovy.transform.TypeChecked
 
-@TypeChecked(extensions = 'io.github.heyuch.groovy4.nullchecker.NullChecker')
+@TypeChecked(extensions = 'io.github.heyuch.groovy.nullchecker.NullChecker')
 class MyService {
     // ...
 }
@@ -121,7 +121,7 @@ Groovy 4 **不能**用 `'NullChecker(strict: true)'` 这种带参扩展名（会
 
 ```groovy
 // ① 编程方式（自定义 Gradle 任务 / 编译插件）
-io.github.heyuch.groovy4.nullchecker.NullChecker.setOptions([strict: true])
+io.github.heyuch.groovy.nullchecker.NullChecker.setOptions([strict: true])
 
 // ② 系统属性 —— 注意传给【编译所在的 JVM】
 tasks.withType(GroovyCompile).configureEach {
@@ -145,7 +145,7 @@ CLI 对所有构建系统都一样、零侵入（不改源码、不写 configura
 configurations { nullcheckTool }
 
 dependencies {
-    nullcheckTool 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    nullcheckTool 'io.github.heyuch:groovy-nullchecker:0.1.0'
     // 检查器把 Groovy 声明为 compileOnly（不污染你的运行时依赖），
     // 所以"运行检查器"的那份 classpath 要自己给出 Groovy
     nullcheckTool 'org.apache.groovy:groovy:4.0.30'
@@ -153,7 +153,7 @@ dependencies {
 
 tasks.register('nullcheck', JavaExec) {
     classpath = configurations.nullcheckTool + files(sourceSets.main.output)
-    mainClass = 'io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli'
+    mainClass = 'io.github.heyuch.groovy.nullchecker.harness.NullCheckCli'
     // src/main/java 也要走一遍，否则 package-info.java 里的包级默认看不见
     args = ['src/main/groovy', 'src/main/java', 'samples/broken']
     ignoreExitValue = true
@@ -256,7 +256,7 @@ GROOVY_NULLCHECKER_STRICT=true ./gradlew clean compileGroovy
 而你通常想先"看看有多少问题"再决定是否当门禁。
 
 `nullcheck` 任务用的是发布产物里自带的 CLI 类
-（`io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli`），
+（`io.github.heyuch.groovy.nullchecker.harness.NullCheckCli`），
 所以它**不需要**本仓库的源码就能跑起来 —— 你复制这个工程到别处也能用。
 
 > 注意 `nullcheckTool` 这个 configuration 里**显式声明了 Groovy**。

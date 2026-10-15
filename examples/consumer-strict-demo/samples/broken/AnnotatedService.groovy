@@ -12,7 +12,7 @@ import groovy.transform.TypeChecked
  * The @TypeChecked annotation is required here because samples/ is not part of the
  * project's compile, so the global configuration script is not applied to it.
  */
-@TypeChecked(extensions = 'io.github.heyuch.groovy4.nullchecker.NullChecker')
+@TypeChecked(extensions = 'io.github.heyuch.groovy.nullchecker.NullChecker')
 class BrokenService {
 
     /** Reported: an @NonNull method must not return null. */

@@ -5,12 +5,11 @@
 
 ## 一次性准备
 
-插件与检查器都还没发到公开仓库，所以先各自装进本地 Maven 仓库：
+插件与检查器都还没发到公开仓库，所以先装进本地 Maven 仓库（两者同属一个构建，一条命令装齐）：
 
 ```bash
-# 在 groovy4-nullchecker 仓库里
+# 在 groovy-nullchecker 仓库里
 ./gradlew publishToMavenLocal
-./gradlew -p nullchecker-gradle-plugin publishToMavenLocal
 ```
 
 ## 你的项目里改什么
@@ -32,7 +31,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'   // ← 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'   // ← 版本号必填
 }
 
 repositories {

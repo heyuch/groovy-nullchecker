@@ -46,7 +46,7 @@ class NullCheckRegistration extends CompilationCustomizer implements Compilation
 // The extension name MUST be a String: passing a Class or ClassExpression is silently
 // ignored, which produces a green build that checked nothing.
 def inner = new ASTTransformationCustomizer(
-        [extensions: ['io.github.heyuch.groovy4.nullchecker.NullChecker']],
+        [extensions: ['io.github.heyuch.groovy.nullchecker.NullChecker']],
         Class.forName('groovy.transform.TypeChecked'))
 
 configuration.addCompilationCustomizers(

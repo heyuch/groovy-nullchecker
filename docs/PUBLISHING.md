@@ -1,41 +1,41 @@
 # Releasing
 
-Two artifacts are published independently:
+Two artifacts ship from one build:
 
 | Artifact | Coordinates | Built from |
 | --- | --- | --- |
-| The checker | `io.github.heyuch:groovy4-nullchecker` | this build |
-| The Gradle plugin | `io.github.heyuch:nullchecker-gradle-plugin`, plus the plugin marker `io.github.heyuch.groovy4-nullchecker.gradle.plugin` | `nullchecker-gradle-plugin/` (a separate included build) |
+| The checker | `io.github.heyuch:groovy-nullchecker` | `nullchecker/` |
+| The Gradle plugin | `io.github.heyuch:nullchecker-gradle-plugin`, plus the plugin marker `io.github.heyuch.groovy-nullchecker.gradle.plugin` | `nullchecker-gradle-plugin/` |
 
-The plugin is a separate build on purpose: it depends on the checker and is versioned on its
-own, so the checker's build stays a plain library.
+They are sibling subprojects of the same build and share a version. The plugin deliberately does
+**not** depend on `:nullchecker`: it reaches the checker by coordinate at execution time and never
+compiles against its types.
 
 ## Version
 
-The version lives in two places today and they must agree:
+The version lives in one place: `gradle.properties` → `nullcheckerVersion`. The root
+`build.gradle` applies it to both subprojects, so the two cannot drift apart.
 
-- `gradle.properties` → `nullcheckerVersion` (used by this build)
-- `nullchecker-gradle-plugin/build.gradle` → `version`
+This used to be a two-file duplication — `gradle.properties` and the plugin's own `build.gradle` —
+kept in sync by hand. Collapsing it was already flagged here as worth doing before the first
+release.
 
-The plugin's default `toolVersion` (in `NullCheckPlugin`) must also point at the version of
-the checker being released.
-
-> Worth collapsing into one source of truth before the first release: the plugin build has no
-> access to this build's `gradle.properties`, so they are duplicated rather than derived.
+The plugin's default `toolVersion` (`NullCheckPlugin.DEFAULT_TOOL_VERSION`) is no longer a
+literal either. It is baked into `nullchecker.properties` at build time from the plugin's own
+version, which is the same value — so a plugin release can no longer point at a checker version
+that does not exist. There is nothing to keep in sync by hand any more.
 
 ## Before publishing
 
 ```bash
-# The checker's own verification. This is the gate that matters: every rule must be
-# exercised by a fixture that is reported, and every guard form by one that stays silent.
+# Both halves of the gate: the checker's corpus gate, and the plugin's TestKit functional tests.
+# functionalTest resolves the checker from mavenLocal, so that task installs it first; a clean
+# checkout runs this in one go.
 ./gradlew clean check
 
 # Compare against Apache Groovy 6's NullChecker over the same corpus, and diff the results.
 # One divergence is expected and documented in PORT.md §4.1; anything else is a regression.
 ./gradlew dualRun
-
-# The plugin, which drives real Gradle builds through TestKit.
-./gradlew -p nullchecker-gradle-plugin clean check
 ```
 
 ## Publish to the local Maven repository
@@ -44,7 +44,6 @@ Useful for trying the artifacts in another project before releasing:
 
 ```bash
 ./gradlew publishToMavenLocal
-./gradlew -p nullchecker-gradle-plugin publishToMavenLocal
 ```
 
 Consumers then need `mavenLocal()` in **two** places, because Gradle resolves plugins and
@@ -61,7 +60,7 @@ repositories { mavenLocal(); mavenCentral() }
 ```
 
 The plugin marker requires an explicit version in the `plugins` block:
-`id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'`. Without a version Gradle reports
+`id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'`. Without a version Gradle reports
 "plugin dependency must include a version number", which reads like the plugin is missing.
 
 Publishing the same version again does not invalidate Gradle's dependency cache. Consumers
@@ -69,48 +68,72 @@ must run `./gradlew --refresh-dependencies`.
 
 ## Publish to Maven Central
 
-Both artifacts go through the standard `maven-publish` flow. What still needs to be added to
-`build.gradle` for each:
+Both artifacts go through the Central Portal. The root `settings.gradle` applies
+`com.gradleup.nmcp.settings`, which uploads every publication of the build as **one** bundle to
+the publisher API — so the checker, the plugin and its marker now travel together as a single
+deployment instead of two. There is no staging repository to close and no
+`distributionManagement`; that whole flow belonged to OSSRH, which is shut down.
 
-1. **A repository** — Sonatype's OSSRH or the Central Portal:
+What the two `build.gradle` files carry:
 
-   ```groovy
-   publishing {
-       repositories {
-           maven {
-               name = 'central'
-               url = 'https://...'
-               credentials { /* from environment or gradle.properties, never committed */ }
-           }
-       }
-   }
-   ```
+1. **Signing** for every publication. Central requires a signature beside every file. The key
+   comes from `MAVEN_GPG_KEY` (ASCII-armoured secret key) and the passphrase from
+   `MAVEN_GPG_PASSPHRASE`. With no key present, signing is skipped entirely, so
+   `publishToMavenLocal` still works on a machine that has never held the key.
 
-2. **A signing configuration** for the `maven` publication, since Central requires signatures:
+2. **POM metadata** — `url`, `licenses`, `developers` and `scm`. Central rejects a bundle whose
+   POM is missing any of them. The plugin has no hand-written publication (see below), so its
+   metadata goes through `publications.configureEach`.
 
-   ```groovy
-   plugins { id 'signing' }
-   signing { sign publishing.publications.maven }
-   ```
+3. **`-sources.jar` and `-javadoc.jar`**, also mandatory. Note the javadoc jar here is close to
+   empty: the javadoc task reads `.java` only, and this project's main sources are Groovy.
+   Validation only requires the file to exist, so it passes. Feeding the `groovydoc` task into
+   the jar would give it real content if that is ever wanted.
 
-3. **POM metadata** — Central requires more than the current POM carries: `url`, `licenses`,
-   `developers` and `scm`. The Apache 2.0 license is already reflected in the source headers.
-
-Then:
+Then, with `MAVEN_CENTRAL_USERNAME` and `MAVEN_CENTRAL_PASSWORD` holding a
+[user token](https://central.sonatype.com/usertoken):
 
 ```bash
-./gradlew publish
-./gradlew -p nullchecker-gradle-plugin publish
+./gradlew publishAggregationToCentralPortal
 ```
 
-Credentials must come from the environment or an untracked properties file. Nothing secret
-should be committed.
+The publishing type defaults to `AUTOMATIC`, which publishes the moment validation passes.
+Coordinates on Central are permanent and cannot be withdrawn, so to look at the bundle before
+it goes live:
+
+```bash
+./gradlew publishAggregationToCentralPortal -PcentralPublishingType=USER_MANAGED
+```
+
+That leaves the deployment sitting in `VALIDATED` until it is released from the portal UI.
+
+Nothing secret is ever committed: the credentials are read from the environment, and an empty
+value fails loudly at the portal rather than silently publishing something unverifiable.
 
 ## Gradle Plugin Portal
 
-The plugin marker is already produced by the `java-gradle-plugin` plugin. Publishing to the
-Plugin Portal needs the `com.gradle.plugin-publish` plugin and its own credentials; the
-artifact coordinates above do not change.
+`nullchecker-gradle-plugin` also goes to the Plugin Portal, which is a separate registry with
+its own credentials (`GRADLE_PUBLISH_KEY` and `GRADLE_PUBLISH_SECRET`):
+
+```bash
+./gradlew :nullchecker-gradle-plugin:publishPlugins
+```
+
+The plugin marker is already produced by the `java-gradle-plugin` plugin, so the coordinates
+above do not change. The first submission is reviewed by hand and takes days to appear.
+
+## Automation
+
+`.github/workflows/release.yml` runs all of the above when a GitHub Release is published. The
+secrets sit on the `release` environment, restricted to `v*` tags, rather than on the
+repository: the signing key can publish artifacts that can never be withdrawn, so it should
+only reach a runner that is deploying a tag.
+
+The workflow also checks that the release tag matches `nullcheckerVersion`. The other half of the
+old check — comparing that property against a `version` hardcoded in the plugin's own
+`build.gradle` — is gone with the duplication it guarded: both modules now read the same property,
+so they cannot disagree. The tag check stays, because the tag can still disagree with the
+property.
 
 ## Consumers before a public release
 

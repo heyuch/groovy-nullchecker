@@ -1,4 +1,4 @@
-# groovy4-nullchecker
+# nullchecker
 
 Compile-time null checking for **Groovy 4**.
 
@@ -32,7 +32,21 @@ extension is a compiler plugin and must match the compiler's major version.
 
 ## Getting started
 
-### 1. Add the dependency
+Three ways in. They ask different things of your build — in particular, **only two of them
+need a dependency**:
+
+| | what you add | where the checker comes from |
+| --- | --- | --- |
+| **A. Gradle plugin** | one line in `plugins {}` | the plugin resolves it when the task runs |
+| **B. `@TypeChecked(extensions = …)`** | a `compileOnly` dependency | your compile classpath |
+| **C. CLI** | a dependency, or an explicit `-cp` | whatever you put on the classpath |
+
+Option A needs no dependency because the plugin never links the checker: it holds the artifact's
+coordinates and resolves it at task time, so one line is genuinely enough. What it *does* need is
+a repository that can serve the artifact — `mavenCentral()` once it is published, `mavenLocal()`
+before that.
+
+Options B and C do need the jar, because there the compiler has to load the extension class:
 
 ```groovy
 repositories {
@@ -41,23 +55,20 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.1.0'
 }
 ```
 
 You do **not** need `groovy-typecheckers`, and you do not need to add an annotation library —
 use whichever your project already has.
 
-### 2. Turn the check on
+### A. Gradle plugin (recommended — one line)
 
-Pick whichever fits. The plugin is the least work; the CLI works anywhere.
-
-**Option A — Gradle plugin (recommended).** Full DSL in
-[nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
+Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'
 }
 ```
 
@@ -65,13 +76,15 @@ plugins {
 ./gradlew nullcheck
 ```
 
-**Option B — annotate the classes you want checked.** No build changes at all, which is the
-safest way to try it on an existing codebase:
+### B. Annotate the classes you want checked
+
+No build changes beyond the `compileOnly` dependency above, which makes this the safest way to
+try it on an existing codebase:
 
 ```groovy
 import groovy.transform.TypeChecked
 
-@TypeChecked(extensions = 'io.github.heyuch.groovy4.nullchecker.NullChecker')
+@TypeChecked(extensions = 'io.github.heyuch.groovy.nullchecker.NullChecker')
 class OrderService {
     // ...
 }
@@ -81,12 +94,13 @@ class OrderService {
 > must be registered at the right compiler phase. Use option A or C, or the wrapper described
 > in [PORT.md §5.1](PORT.md).
 
-**Option C — run it over a source tree, unmodified.** Everything the plugin does is available
-as a CLI, which suits any build system:
+### C. Run it over a source tree, unmodified
+
+Everything the plugin does is available as a CLI, which suits any build system:
 
 ```bash
 java -cp <checker jar>:<groovy 4 jar>:<your compile classpath> \
-     io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli src/main/groovy
+     io.github.heyuch.groovy.nullchecker.harness.NullCheckCli src/main/groovy
 ```
 
 Runnable consumer projects for both paths are in [examples/](examples/).
@@ -235,7 +249,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'
 }
 
 nullcheck {
@@ -253,7 +267,7 @@ Full DSL and behaviour: [nullchecker-gradle-plugin/README.md](nullchecker-gradle
 
 | Item | Difference |
 | --- | --- |
-| Class name | `io.github.heyuch.groovy4.nullchecker.NullChecker`, not `groovy.typecheckers.NullChecker` |
+| Class name | `io.github.heyuch.groovy.nullchecker.NullChecker`, not `groovy.typecheckers.NullChecker` |
 | `strict` | Configured out of band, not as an extension parameter |
 | Annotations | Must be `RUNTIME`-retained |
 | Local declarations | This port reports a locally declared `@NonNull` initialised with null; Groovy 6 does not |
@@ -266,24 +280,31 @@ The complete list, with reasons and limits, is in **[PORT.md](PORT.md)**.
 
 ## Project layout
 
-```
-src/main/groovy/io/github/heyuch/groovy4/nullchecker/
-├── NullChecker.groovy           the checker (back-ported from Apache Groovy)
-├── CheckingVisitor.groovy       its base visitor
-├── NullCheckCustomizer.groovy   registration that also covers @CompileStatic classes
-└── harness/
-    ├── NullCheckHarness.groovy  the compiler invocation, in one place
-    ├── NullCheckCli.groovy      command-line entry point
-    ├── NullCheckCanary.groovy   the built-in self-check sample
-    ├── CorpusGate.groovy        corpus gate used by the tests
-    └── CorpusRules.groovy       rule inventory behind the coverage gate
+Two sibling subprojects under a root that holds no source of its own:
 
-corpus/                      paired fixtures: every rule must report, every guard must stay silent
+```
+nullchecker/                 the checker itself
+├── src/main/groovy/io/github/heyuch/groovy/nullchecker/
+│   ├── NullChecker.groovy           the checker (back-ported from Apache Groovy)
+│   ├── CheckingVisitor.groovy       its base visitor
+│   ├── NullCheckCustomizer.groovy   registration that also covers @CompileStatic classes
+│   └── harness/
+│       ├── NullCheckHarness.groovy  the compiler invocation, in one place
+│       ├── NullCheckCli.groovy      command-line entry point
+│       ├── NullCheckCanary.groovy   the built-in self-check sample
+│       ├── CorpusGate.groovy        corpus gate used by the tests
+│       └── CorpusRules.groovy       rule inventory behind the coverage gate
+├── corpus/                  paired fixtures: every rule must report, every guard must stay silent
+└── tools/                   the CLI wrapper and the comparison probe
+
+nullchecker-gradle-plugin/   the Gradle plugin
 examples/                    runnable consumer projects (plugin and CLI)
-tools/                       the CLI wrapper and the comparison probe
-nullchecker-gradle-plugin/   the Gradle plugin (a separate build)
 docs/                        publishing notes
 ```
+
+The plugin does not depend on `:nullchecker`. It passes the checker's class names as string
+constants and lets a detached configuration resolve the artifact by coordinate at execution
+time, so the two modules compile independently.
 
 ---
 
@@ -292,7 +313,7 @@ docs/                        publishing notes
 ```bash
 ./gradlew check                # corpus gate: every rule covered, every guard silent
 ./gradlew dualRun              # run the corpus under this port and under Groovy 6, then diff
-./gradlew publishToMavenLocal
+./gradlew publishToMavenLocal  # install both modules into ~/.m2
 ```
 
 `./gradlew check` is the core of the project rather than a formality. Every rule needs a
@@ -300,10 +321,11 @@ fixture that **must** be reported, every guard form needs one that must stay sil
 rule no fixture exercises fails the build — so a rule cannot be added without evidence that
 it fires.
 
-The Gradle plugin is a separate build:
+The plugin's functional tests drive real Gradle builds through TestKit, so they are the
+slower half of the same gate:
 
 ```bash
-./gradlew -p nullchecker-gradle-plugin check    # drives real Gradle builds via TestKit
+./gradlew :nullchecker-gradle-plugin:functionalTest
 ```
 
 Releasing is documented in [docs/PUBLISHING.md](docs/PUBLISHING.md).

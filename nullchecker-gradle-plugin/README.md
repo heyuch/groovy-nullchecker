@@ -15,9 +15,8 @@
 尚未发布到 Gradle Plugin Portal，所以先从本地 Maven 仓库取：
 
 ```bash
-# 在 groovy4-nullchecker 仓库里
-./gradlew publishToMavenLocal                      # 检查器本体
-./gradlew -p nullchecker-gradle-plugin publishToMavenLocal   # 插件 + plugin marker
+# 在 groovy-nullchecker 仓库里；两个模块同属一个构建，一条命令装齐
+./gradlew publishToMavenLocal
 ```
 
 ## 使用
@@ -38,7 +37,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'   // 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'   // 版本号必填
 }
 
 repositories {
@@ -129,7 +128,7 @@ nullcheck: findings reported (exit 1)
 
 ## 已验证
 
-`./gradlew -p nullchecker-gradle-plugin functionalTest` —— 6 个用例，每个都**真跑一次 Gradle 构建**（TestKit）：
+`./gradlew :nullchecker-gradle-plugin:functionalTest` —— 8 个用例，每个都**真跑一次 Gradle 构建**（TestKit）：
 
 | 用例 | 断言 |
 | --- | --- |

@@ -1,13 +1,66 @@
-rootProject.name = 'groovy4-nullchecker'
+plugins {
+    // Provisions the JDK 17 toolchain on machines that do not have one, rather than
+    // requiring it to be installed by hand.
+    //
+    // The pin itself is worth keeping. A toolchain decides which APIs the compiler can see,
+    // and options.release only constrains Java sources -- a Groovy source compiled on a
+    // newer JDK can reach a newer API with no warning at all, producing a jar that fails on
+    // Java 17. Compiling with 17 removes that class of mistake. Tying the bytecode level to
+    // sourceCompatibility/targetCompatibility instead would pin the output but not the API
+    // surface, so it is not an equivalent swap.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
 
-// The Gradle plugin lives in its own build rather than as a subproject.
+    // Releases go through the Central Portal publisher API. The old OSSRH staging
+    // repository is shut down, so this is the only live route to Maven Central.
+    id 'com.gradleup.nmcp.settings' version '1.6.2'
+}
+
+nmcpSettings {
+    centralPortal {
+        // Resolved to plain strings rather than passed in as providers. nmcpSettings
+        // registers a GradleLifecycle callback that captures this whole configuration object,
+        // and Gradle isolates (serialises) that callback. A Property holding a Provider does
+        // not survive it -- ValueSourceProvider is not serialisable -- and the build dies with
+        // "Failed to isolate 'GradleLifecycle' action" before any task runs.
+        // The upshot is that credentials are read once, at configuration time, which is what
+        // CI wants anyway.
+        username = providers.environmentVariable('MAVEN_CENTRAL_USERNAME').getOrElse('')
+        password = providers.environmentVariable('MAVEN_CENTRAL_PASSWORD').getOrElse('')
+        // AUTOMATIC publishes the moment validation passes. Coordinates on Central are
+        // permanent and cannot be withdrawn, so to inspect the uploaded bundle before it
+        // goes live, override:
+        //   ./gradlew publishAggregationToCentralPortal -PcentralPublishingType=USER_MANAGED
+        // That leaves the deployment in VALIDATED for a manual release from the portal UI.
+        publishingType = providers.gradleProperty('centralPublishingType').getOrElse('AUTOMATIC')
+    }
+}
+
+// 根工程叫 nullchecker-build 而不是 nullchecker：发布坐标的 artifactId 派生自模块名，
+// 而 checker 模块必须叫 nullchecker，于是根工程不能重名 —— NMCP 的聚合会直接拒绝
+// 重名工程（"some projects have the same name ... creates issues when resolving the
+// aggregation"），而它的例外开关 allowDuplicateProjectNames 治不了这个问题本身。
+// 根工程不产出任何构件，这个名字只是构建层面的标识，不出现在任何发布坐标里。
+rootProject.name = 'nullchecker-build'
+
+// 两个平级子模块：
 //
-// Why: the checker's own verification is what makes it trustworthy -- the corpus gate, the
-// Groovy 6 dual-run comparison, and the published example all depend on this build being
-// exactly what it is. Adding a subproject would mean restructuring this build (moving
-// sources, moving the corpus, re-pointing every tool) purely to host the plugin, which
-// risks the verified paths for no benefit. An included build leaves them untouched and
-// still lets the plugin be published on its own.
+//   :nullchecker                 checker 本体 —— src/、corpus/、tools/ 都在它下面
+//   :nullchecker-gradle-plugin   把 checker 接进构建的 Gradle 插件
 //
-// Consumers of the plugin do not need this file; they just apply the plugin id.
-includeBuild('nullchecker-gradle-plugin')
+// 此前插件是一个【独立构建】（includeBuild），理由是"保持 checker 的验证路径不被插件的事
+// 打扰"。改成子模块，是因为那个代价已经超过收益：
+//
+//   · 版本号此前写在两个文件里（gradle.properties 与插件的 build.gradle），必须手工同步。
+//     不同步就会发出一个指向不存在 checker 版本的插件。同一个构建里两个模块都读根
+//     gradle.properties，这条不一致就不可能发生。
+//   · 插件对 checker 的 compileOnly 依赖其实【从未被用到】——它只把 checker 的类名当字符串，
+//     运行期用坐标建 detached configuration 去解析，不链接任何类。而那一行正是插件构建需要
+//     mavenLocal 的唯一原因。删掉之后插件编译不再需要任何先发布动作。
+//   · 两者仍是各自独立的 publication，只是由 NMCP 一次聚合上传。
+//
+// 代价：checker 与插件现在共享同一个版本号，不能再各自独立发版。这是有意的 —— 插件的默认
+// toolVersion 必须指向它所配套的 checker 版本，允许两者分开只会多出第二种出错的方式。
+//
+// 消费者不受影响：他们只需要 apply 插件 id。
+include 'nullchecker'
+include 'nullchecker-gradle-plugin'

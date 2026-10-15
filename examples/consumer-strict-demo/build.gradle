@@ -9,7 +9,7 @@ dependencies {
 
     // The checker. compileOnly: it is needed while compiling, never at runtime,
     // so it does not leak into your runtime classpath or your published POM.
-    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.1.0'
     // Deliberately no groovy-typecheckers: this library replaces it on Groovy 4,
     // and both at once would put two org.apache.groovy.typecheckers.* on the classpath.
 }
@@ -52,7 +52,7 @@ configurations {
 }
 
 dependencies {
-    nullcheckTool 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    nullcheckTool 'io.github.heyuch:groovy-nullchecker:0.1.0'
     // The checker declares Groovy as compileOnly on purpose -- it must not drag a
     // Groovy version into your project. The tool that RUNS it does need one, so name
     // it explicitly here instead of letting the library pick for you.
@@ -68,7 +68,7 @@ tasks.register('nullcheck', JavaExec) {
     classpath = configurations.nullcheckTool
     // A real class, shipped inside the published jar: no need to check out the
     // checker's own repository to run it.
-    mainClass = 'io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli'
+    mainClass = 'io.github.heyuch.groovy.nullchecker.harness.NullCheckCli'
 
     // The deliberately broken sample needs the annotations on the classpath, and they
     // are compiled by this project. --support also shares stub classes with the

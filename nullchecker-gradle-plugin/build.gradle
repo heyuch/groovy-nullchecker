@@ -1,26 +1,25 @@
 // Gradle plugin: a one-line entry point for the Groovy 4 null checker.
 //
-// This is a separate build from the checker itself (see the root settings.gradle's
-// includeBuild). That keeps the checker's own verification -- corpus gate, dual-run
-// comparison, published example -- completely untouched by plugin concerns, and lets the
-// two artifacts be versioned and published independently.
+// A sibling subproject of :nullchecker (see the root settings.gradle). It deliberately does
+// NOT depend on that module: the plugin only ever passes the checker's class names as string
+// constants and lets a detached configuration resolve the artifact by coordinate at execution
+// time, so linking it here would be dead weight -- and it was the only reason this module
+// needed the checker published to mavenLocal before it could compile.
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
     id 'maven-publish'
+    id 'signing'
+    // Publishes the plugin marker plus the plugin artifact to plugins.gradle.org.
+    // Portal review is manual and takes days after the first upload.
+    id 'com.gradle.plugin-publish' version '2.2.1'
 }
 
 def spockVersion = '2.3-groovy-4.0'
 
-group = 'io.github.heyuch'
-version = '0.1.0'
-
-repositories {
-    // The checker itself, until it is on a public repository.
-    mavenLocal()
-    mavenCentral()
-    gradlePluginPortal()
-}
+// group 与 version 由根 build.gradle 的 allprojects 统一给出：两个模块共享同一个版本号，
+// 因为插件的默认 toolVersion 必须指向与它配套的那个 checker 版本，分开版本只会多出
+// 第二种出错的方式。repositories 同样来自根工程。
 
 // Gradle 8 bundles Groovy 3, but this plugin and its tests target Groovy 4 (Spock's
 // groovy-4.0 build refuses to run under Groovy 3), so the compiler is pinned explicitly.
@@ -41,9 +40,12 @@ sourceSets {
 dependencies {
     groovy4 'org.apache.groovy:groovy:4.0.30'
 
-    // compileOnly: the plugin shells out to the checker's CLI rather than linking it.
-    // Depending on it at runtime would drag the checker into every consumer's build.
-    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    // Deliberately no dependency on :nullchecker. The plugin reaches the checker by coordinate
+    // string at execution time (DEFAULT_EXTENSION / CLI_CLASS in NullCheckPlugin) and never
+    // compiles against its types, so an entry here would be dead weight -- and it was the only
+    // reason this module needed the checker in mavenLocal before it could compile.
+    // If a future change does reference the checker's types, add:
+    //   compileOnly project(':nullchecker')
 
     // All real verification happens in functionalTest (below), which drives actual Gradle
     // builds. There are deliberately no unit tests: a unit test of this plugin would only
@@ -58,12 +60,34 @@ dependencies {
 // Declare the plugin id -> implementation mapping. This also generates the plugin marker
 // artifact that `plugins { id '...' }` resolves.
 gradlePlugin {
+    // The Portal needs both of these on the submission.
+    website = 'https://github.com/heyuch/groovy-nullchecker'
+    vcsUrl = 'https://github.com/heyuch/groovy-nullchecker.git'
+
     plugins {
         nullChecker {
-            id = 'io.github.heyuch.groovy4-nullchecker'
-            implementationClass = 'io.github.heyuch.groovy4.nullchecker.gradle.NullCheckPlugin'
-            displayName = 'groovy4-nullchecker'
+            id = 'io.github.heyuch.groovy-nullchecker'
+            implementationClass = 'io.github.heyuch.groovy.nullchecker.gradle.NullCheckPlugin'
+            displayName = 'nullchecker'
             description = 'Compile-time null checking for Groovy 4, from your build, without touching sources'
+            tags.set(['groovy', 'null', 'nullability', 'static-analysis', 'type-checking'])
+
+            // The Portal requires this (omitting it is deprecated as of plugin-publish 2.1.0
+            // and will be rejected in a future version), and once a feature is declared for a
+            // plugin every later version has to keep declaring it.
+            //
+            // Both are declared false because that is the state of the code, not a guess:
+            // apply() schedules work in afterEvaluate and the task's doLast captures the task
+            // and its extension, which are configuration-cache violations. Declaring false
+            // costs nothing here -- Gradle documents no penalty for it -- whereas declaring
+            // true would hand consumers a badge for a guarantee the plugin cannot keep.
+            // Flipping either to true requires moving the state into task properties first.
+            compatibility(it) {
+                features {
+                    configurationCache = false
+                    isolatedProjects = false
+                }
+            }
         }
     }
 }
@@ -74,10 +98,15 @@ tasks.register('functionalTest', Test) {
     testClassesDirs = sourceSets.functionalTest.output.classesDirs
     classpath = sourceSets.functionalTest.runtimeClasspath
     useJUnitPlatform()
-    // The build under test pulls the plugin in with --include-build, so nothing needs to
-    // be published first. The checker itself is still resolved from mavenLocal, which is
-    // the same prerequisite a real consumer has.
-    systemProperty 'plugin.build.dir', projectDir.absolutePath
+    // The build under test pulls the plugin in with --include-build. The plugin is no longer a
+    // build of its own, so that argument now names the ROOT build.
+    systemProperty 'plugin.build.dir', rootProject.projectDir.absolutePath
+    // The inner builds resolve the checker from mavenLocal -- the same prerequisite a real
+    // consumer has while it is not on a public repository yet. (The plugin itself comes from
+    // source via --include-build, so only the checker needs installing.) Doing it here is what
+    // lets a clean checkout run `./gradlew check` in one go.
+    // See NullCheckPluginFunctionalSpec#writeSettings.
+    dependsOn ':nullchecker:publishToMavenLocal'
     outputs.upToDateWhen { false }
 }
 
@@ -99,7 +128,77 @@ tasks.named('check') {
 }
 
 java {
+    // 与 checker 保持一致的 17。插件要加载进宿主 Gradle 的 JVM，这个版本也就是它要求的
+    // 最低宿主 JDK（Gradle 8 本身能跑在更低版本上，但本构建选择 17）。
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
+    // Central requires a -sources.jar and a -javadoc.jar beside every published jar.
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// The checker version the plugin pulls by default is baked in here, from this module's own
+// version. Both modules share one version (see the root build.gradle), so the default can no
+// longer point at a checker version that was never released -- the failure mode PUBLISHING.md
+// used to have to warn about.
+tasks.named('processResources') {
+    filesMatching('io/github/heyuch/groovy/nullchecker/gradle/nullchecker.properties') {
+        expand(toolVersion: project.version)
+    }
+}
+
+// ── Publishing ──
+//
+// java-gradle-plugin creates the publications itself: pluginMaven for the plugin artifact,
+// and nullCheckerPluginMarkerMaven for the marker that `plugins { id '...' }` resolves.
+// Both are created during afterEvaluate, so neither can be named directly here -- POM
+// metadata has to go through configureEach to reach them.
+def signingKey = providers.environmentVariable('MAVEN_GPG_KEY')
+// getOrNull() rather than isPresent: environmentVariable() hands back Gradle's internal
+// ValueSourceProvider, which does not expose isPresent to the Groovy DSL.
+def canSign = signingKey.getOrNull() != null
+
+publishing {
+    publications.configureEach { pub ->
+        pub.pom {
+            name = 'nullchecker-gradle-plugin'
+            description = 'Runs the nullchecker over a project from the build, with no source changes'
+            url = 'https://github.com/heyuch/groovy-nullchecker'
+            // Central rejects a bundle whose POM is missing any of these sections.
+            licenses {
+                license {
+                    name = 'The Apache License, Version 2.0'
+                    url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    distribution = 'repo'
+                }
+            }
+            developers {
+                developer {
+                    id = 'heyuch'
+                    name = 'yuchuan.he'
+                    url = 'https://github.com/heyuch'
+                }
+            }
+            scm {
+                url = 'https://github.com/heyuch/groovy-nullchecker'
+                connection = 'scm:git:https://github.com/heyuch/groovy-nullchecker.git'
+                developerConnection = 'scm:git:ssh://git@github.com/heyuch/groovy-nullchecker.git'
+            }
+        }
+    }
+}
+
+// Signing the container covers the marker publication too, which the Portal needs signed
+// just as much as the plugin artifact itself.
+signing {
+    required = canSign
+    if (canSign) {
+        // getOrElse('') rather than orNull: useInMemoryPgpKeys treats a null password as
+        // "no key supplied" and silently configures nothing, after which this required sign
+        // task fails at execution with "no configured signatory". An empty string works.
+        useInMemoryPgpKeys(signingKey.get(),
+                providers.environmentVariable('MAVEN_GPG_PASSPHRASE').getOrElse(''))
+    }
+    sign publishing.publications
 }

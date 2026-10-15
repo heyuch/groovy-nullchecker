@@ -87,7 +87,26 @@ Neither name can be reused:
   `findTargetVariable` as `static`, Groovy 6 as an instance method. Shadowing it would break
   `RegexChecker`.
 
-Both classes therefore live in `io.github.heyuch.groovy4.nullchecker`.
+Both classes therefore live in `io.github.heyuch.groovy.nullchecker`.
+
+### 2.5 Java 9+ APIs avoided (2)
+
+The build targets Java 17, so upstream's `Set.of` calls would compile here without complaint.
+The port uses the Java 8 equivalents anyway, so that lowering the target JDK later — if that is
+ever wanted — stays a build-config change rather than a source change.
+
+| # | Upstream | Groovy 4 reality | What was done |
+| --- | --- | --- | --- |
+| 1 | `Set.of(...)` for the annotation-name constants | Java 9+ | `Collections.unmodifiableSet([...] as Set)`. Same immutability and iteration order; these are only ever queried with `contains` |
+| 2 | `Set.of(var)` in `narrowToNonNull` | Java 9+ | `Collections.singleton(var)`. The null case is already excluded by the enclosing guard |
+
+Both carry a `PORT:` marker at the point of change, so a reader diffing against GROOVY_6_0_0
+will see them. Nothing else in either file reaches past Java 8.
+
+Worth recording for the day the target does move: the toolchain, not
+`sourceCompatibility`/`targetCompatibility`, is what limits which JDK APIs the compiler can see.
+Java sources get an extra guarantee from `options.release`; Groovy sources get none, so a Groovy
+file can reach a newer API without a warning and fail only on the consumer's machine.
 
 ---
 

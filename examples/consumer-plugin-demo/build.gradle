@@ -5,10 +5,9 @@
 // number" -- which reads like the plugin is missing, when the real problem is the missing
 // version. Publish first with:
 //   ./gradlew publishToMavenLocal
-//   ./gradlew -p nullchecker-gradle-plugin publishToMavenLocal
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'
 }
 
 repositories {

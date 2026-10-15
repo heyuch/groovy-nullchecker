@@ -11,7 +11,7 @@ import groovy.transform.TypeChecked
  * the @CompileStatic annotation is what used to make it invisible.
  */
 @CompileStatic
-@TypeChecked(extensions = 'io.github.heyuch.groovy4.nullchecker.NullChecker')
+@TypeChecked(extensions = 'io.github.heyuch.groovy.nullchecker.NullChecker')
 class FailsStatic {
     private @Nullable String value
 
