@@ -36,7 +36,13 @@ class CorpusProbe {
 
     /** Compiles one fixture and returns the sorted "path:line: message" lines reported. */
     List<String> check(File fixture, boolean strict) {
-        System.setProperty('groovy.nullchecker.strict', strict.toString())
+        // Clear rather than set to false, so an ambient GROOVY_NULLCHECKER_STRICT cannot
+        // be silently overridden by this probe running in its non-strict pass.
+        if (strict) {
+            System.setProperty('groovy.nullchecker.strict', 'true')
+        } else {
+            System.clearProperty('groovy.nullchecker.strict')
+        }
         String name = strict && System.getProperty('gate.extensionParams') == 'true'
                 ? "${extension}(strict: true)"
                 : extension
@@ -49,7 +55,11 @@ class CorpusProbe {
         // Sources are added as text so the fixture's extension placeholder can be
         // substituted: one corpus must be runnable by both implementations, otherwise
         // the comparison would report "no findings" everywhere and look like agreement.
-        ([fixture] + support).each { File f ->
+        //
+        // package-info is included because it is where a fixture declares package-level
+        // defaults, and omitting it would make the package fixtures report nothing on
+        // both sides -- which would look like agreement rather than a missing input.
+        (packageInfoFor(fixture) + [fixture] + support).each { File f ->
             String source = f.getText('UTF-8')
             if (source.contains(PLACEHOLDER)) {
                 source = source.replace(PLACEHOLDER, name)
@@ -67,9 +77,32 @@ class CorpusProbe {
         }
         dump.readLines()
                 .collect { String line -> line.trim() }
-                .findAll { String line -> line ==~ /.*\.groovy:\s*\d+:.*/ }
+                // .groovy fixtures plus package-info.java, which can also carry an error
+                .findAll { String line -> line ==~ /.*(\.groovy|package-info\.java):\s*\d+:.*/ }
                 .collect { String line -> line.replace(corpusDir.absolutePath + File.separator, '') }
                 .sort()
+    }
+
+    /**
+     * package-info files governing a fixture's package: the fixture's own directory and
+     * its ancestors up to the corpus root, mirroring what the corpus gate does.
+     */
+    private List<File> packageInfoFor(File fixture) {
+        List<File> found = []
+        File dir = fixture.parentFile
+        while (dir != null && dir.canonicalPath.startsWith(corpusDir.canonicalPath)) {
+            ['package-info.java', 'package-info.groovy'].each { String n ->
+                File candidate = new File(dir, n)
+                if (candidate.isFile()) {
+                    found << candidate
+                }
+            }
+            if (dir.canonicalPath == corpusDir.canonicalPath) {
+                break
+            }
+            dir = dir.parentFile
+        }
+        found
     }
 
     String render() {

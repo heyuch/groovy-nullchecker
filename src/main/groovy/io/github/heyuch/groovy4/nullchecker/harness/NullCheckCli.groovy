@@ -99,11 +99,11 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
             File input = new File(path)
             if (input.directory) {
                 input.eachFileRecurse { File f ->
-                    if (f.isFile() && f.name.endsWith('.groovy')) {
+                    if (NullCheckHarness.isCheckable(f)) {
                         files << f
                     }
                 }
-            } else if (input.isFile() && input.name.endsWith('.groovy')) {
+            } else if (NullCheckHarness.isCheckable(input)) {
                 files << input
             } else {
                 err.println("nullcheck: no such file or directory: ${input}")
@@ -121,7 +121,7 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
             }
             List<File> supportFiles = []
             supportDir.eachFileRecurse { File f ->
-                if (f.isFile() && f.name.endsWith('.groovy')) {
+                if (NullCheckHarness.isCheckable(f)) {
                     supportFiles << f
                 }
             }

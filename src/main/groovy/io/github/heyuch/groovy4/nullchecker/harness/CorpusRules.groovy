@@ -28,6 +28,10 @@ class CorpusRules {
             R07: 'Cannot pass null to @NonNull parameter',
             R08: 'Cannot pass @Nullable value to @NonNull parameter',
             R09: '@NonNull field',
+            /** Package-level defaults: a @NullMarked package makes its classes non-null
+             *  by default, so a plain method returning null is reported even though the
+             *  class carries no annotation of its own. */
+            R10: 'Cannot return null from @NonNull method',
     ] as Map<String, String>
 
     /**
@@ -51,6 +55,8 @@ class CorpusRules {
             N07: 'assert statements',
             N08: 'throwing validators (requireNonNull / checkNotNull)',
             N09: 'test assertions (assertNotNull, assertThat().isNotNull())',
+            N10: '@NullUnmarked opts out of a package/class default',
+            N11: 'no marking in scope (subpackage or unmarked package)',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

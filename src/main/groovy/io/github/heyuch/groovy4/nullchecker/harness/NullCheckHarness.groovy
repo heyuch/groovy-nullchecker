@@ -46,6 +46,20 @@ class NullCheckHarness {
      */
     static final String EXTENSION_PLACEHOLDER = '@NULLCHECKER_EXTENSION@'
 
+    /**
+     * Files the checker can analyse: Groovy sources, plus {@code package-info.java},
+     * which is where an idiomatic Groovy project declares package-level annotations.
+     * A general {@code *.java} match is deliberately avoided -- a Groovy type checker
+     * cannot analyse arbitrary Java, and silently trying to would turn every Java
+     * source in the tree into a parse error.
+     *
+     * @param file candidate file
+     * @return true when the file should be compiled for checking
+     */
+    static boolean isCheckable(File file) {
+        file.isFile() && (file.name.endsWith('.groovy') || file.name == 'package-info.java')
+    }
+
     /** One reported problem, normalised to a stable single line. */
     static class Finding {
         String path

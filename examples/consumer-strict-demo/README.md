@@ -173,10 +173,10 @@ GROOVY_NULLCHECKER_STRICT=true ./gradlew compileGroovy
 ```bash
 cd examples/consumer-strict-demo
 
-# 注释模式：只报标注了注解的问题（示例里是 3 条）
+# 注释模式 + 包级默认（示例里是 4 条，其中 1 条来自包默认）
 ./gradlew nullcheck
 
-# strict 流敏感模式：额外报出未注解代码里的问题（示例里是 5 条）
+# strict 流敏感模式：额外报出未注解代码里的问题
 ./gradlew nullcheck -Pnullcheck.strict=true
 
 # 当作门禁：有发现就让构建失败
@@ -194,7 +194,10 @@ GROOVY_NULLCHECKER_STRICT=true ./gradlew clean compileGroovy
 | 路径 | 作用 |
 | --- | --- |
 | `src/main/groovy/demo/CleanExample.groovy` | **阴性对照**：注解与守卫都正确的代码，必须完全安静 |
+| `src/main/groovy/demo/marked/` | **包级默认**示例：类上没有注解，默认来自 `package-info.java` |
+| `src/main/java/demo/marked/package-info.java` | 一个文件声明整包的默认 |
 | `samples/broken/*.groovy` | **阳性对照**：故意写错的代码，`nullcheck` 任务的显式目标 |
+| `samples/broken/package-level/` | **包级默认的阳性对照**：违规来自包默认而非类注解 |
 | `src/main/java/demo/*.java` | 自带注解，证明不依赖任何注解库 |
 | `config/nullcheck.groovy` | 方式 B 的全局注入脚本 |
 

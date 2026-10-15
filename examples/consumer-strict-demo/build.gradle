@@ -74,7 +74,11 @@ tasks.register('nullcheck', JavaExec) {
     // are compiled by this project. --support also shares stub classes with the
     // analysed sources, which is how you keep helper types in one place.
     classpath += files(sourceSets.main.output)
-    def targets = (project.findProperty('nullcheck.targets') ?: 'src/main/groovy,samples/broken')
+    // src/main/java is walked too, so package-info.java files are picked up: they are the
+    // only .java files this tool takes, and a package-level default is invisible without
+    // them. Its .groovy files are matched as usual.
+    def targets = (project.findProperty('nullcheck.targets')
+            ?: 'src/main/groovy,src/main/java,samples/broken')
             .toString().split(',')*.trim()
     def options = ['--support', file('samples/broken').absolutePath]
     if (project.findProperty('nullcheck.strict') == 'true') {

@@ -112,10 +112,15 @@ class CorpusGate {
         Report report = new Report()
 
         // Every fixture on disk must be declared, and every declaration must exist.
+        //
+        // package-info files are exempt: they are the mechanism a fixture uses to declare
+        // package-level defaults, not fixtures themselves. They carry no extending
+        // annotation and no expectation, and the gate attaches each one automatically to
+        // the fixtures in its package (see packageInfoFor).
         Set<String> declared = fixtures.collect { Fixture f -> f.relativePath } as Set<String>
         Set<String> onDisk = []
         corpusDir.eachFileRecurse { File f ->
-            if (f.isFile() && f.name.endsWith('.groovy') && f.parentFile != supportDir) {
+            if (NullCheckHarness.isCheckable(f) && f.parentFile != supportDir && !isPackageInfo(f)) {
                 onDisk << corpusDir.toPath().relativize(f.toPath()).toString().replace(File.separator, '/')
             }
         }
@@ -127,7 +132,7 @@ class CorpusGate {
         }
 
         List<File> support = []
-        supportDir.eachFileRecurse { File f -> if (f.isFile() && f.name.endsWith('.groovy')) support << f }
+        supportDir.eachFileRecurse { File f -> if (NullCheckHarness.isCheckable(f)) support << f }
 
         fixtures.each { Fixture fixture ->
             File fixtureFile = new File(corpusDir, fixture.relativePath)
@@ -142,6 +147,13 @@ class CorpusGate {
             }
 
             FixtureResult result = new FixtureResult(fixture: fixture)
+            // A fixture's package-level defaults live in a package-info file that is a
+            // sibling of the fixture, so it is not itself a declared fixture. Include the
+            // one belonging to this fixture's own package (walking up to the corpus root,
+            // so nested packages see their ancestors too) and nothing else: including
+            // every package-info in the corpus would leak one fixture's defaults into
+            // another's package and make the negative fixtures meaningless.
+            List<File> packageInfo = packageInfoFor(corpusDir, fixtureFile)
             // Every declared fixture runs in BOTH modes. What differs per declaration is
             // the expectation, not the invocation:
             //   any   -> same expectation in both modes
@@ -151,7 +163,7 @@ class CorpusGate {
             modes.each { Boolean strictMode ->
                 ModeResult mode = new ModeResult(mode: strictMode ? 'strict' : 'annotations')
                 NullCheckHarness.Result harness =
-                        NullCheckHarness.check([fixtureFile] + support, extension, strictMode)
+                        NullCheckHarness.check(packageInfo + [fixtureFile] + support, extension, strictMode)
                 mode.findings = harness.findings.size()
                 mode.messages = harness.findings.collect { NullCheckHarness.Finding f -> f.message }
 
@@ -210,6 +222,40 @@ class CorpusGate {
         report.uncoveredRules = (CorpusRules.RULES.keySet() + CorpusRules.GUARD_RULES.keySet()) -
                 report.ruleCoverage.keySet()
         report
+    }
+
+    /** Whether a file is a package-level declaration rather than a fixture. */
+    static boolean isPackageInfo(File file) {
+        file.name == 'package-info.java' || file.name == 'package-info.groovy'
+    }
+
+    /**
+     * Finds the {@code package-info} files that govern a fixture's own package.
+     *
+     * <p>Both spellings are honoured, {@code package-info.java} and
+     * {@code package-info.groovy}, because both work and a corpus (or a user's project)
+     * may use either.
+     *
+     * @param corpusDir  corpus root; the upward search stops here
+     * @param fixture    the fixture being checked
+     * @return governing package-info files, empty when there are none
+     */
+    static List<File> packageInfoFor(File corpusDir, File fixture) {
+        List<File> found = []
+        File dir = fixture.parentFile
+        while (dir != null && dir.canonicalPath.startsWith(corpusDir.canonicalPath)) {
+            ['package-info.java', 'package-info.groovy'].each { String name ->
+                File candidate = new File(dir, name)
+                if (candidate.isFile()) {
+                    found << candidate
+                }
+            }
+            if (dir.canonicalPath == corpusDir.canonicalPath) {
+                break
+            }
+            dir = dir.parentFile
+        }
+        found
     }
 
     /** Human-readable one-line-per-fixture rendering. */

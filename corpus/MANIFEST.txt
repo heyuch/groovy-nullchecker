@@ -190,3 +190,36 @@ rule=N01
 strict=never
 expect=none
 note=the plain happy path; catches "the checker never ran"
+
+# ── Package-level defaults (§13 of the hand-over notes) ──────────────────────
+# This is where this port intentionally goes beyond the official Groovy 6
+# checker, which does not read package annotations at all.
+pkg/marked/MarkedByPackage.groovy
+rule=R10
+strict=any
+expect=some
+note=class has no annotation: the default comes from the package's package-info.java
+
+pkg/marked/FieldsFromPackage.groovy
+rule=R09
+strict=only
+expect=some
+note=the package default must gate field initialisation too, not just returns
+
+pkg/unmarked/UnmarkedClass.groovy
+rule=N10
+strict=never
+expect=none
+note=@NullUnmarked on the class wins over the package default
+
+pkg/sub/SubPackageClass.groovy
+rule=N11
+strict=never
+expect=none
+note=scope is the annotated element itself, so a marking does NOT cover subpackages
+
+pkg/dep/UnmarkedPackageClass.groovy
+rule=N11
+strict=never
+expect=none
+note=no marking anywhere in scope

@@ -102,6 +102,39 @@ tasks.withType(GroovyCompile).configureEach {
 | 传 `@Nullable` 值给 `@NonNull` 参数 | `take(maybe())` |
 | **`strict` 模式**：流敏感解引用 | `String s = null; s.length()` |
 | **`strict` 模式**：`@NonNull` 字段未初始化 | 声明了但没有任何构造器/初始化块赋值 |
+| **包级默认**：整个包非空 | 见下节 |
+
+### 包级默认：一个包一个文件，而不是一个类一个注解
+
+给包标 `@NullMarked`（或 `@NonNullByDefault`），该包内**所有类**都变成非空默认，
+不必逐类标注。`@NullUnmarked` 可以按类退出。
+
+```java
+// src/main/java/com/acme/order/package-info.java
+@org.jspecify.annotations.NullMarked
+package com.acme.order;
+```
+
+```groovy
+// 同一个包里，这个类没有任何注解 —— 但仍然被检查
+package com.acme.order
+
+class OrderService {
+    String findName() {
+        return null        // ← 报出：包默认它是非空的
+    }
+}
+```
+
+支持 `package-info.java` 和 `package-info.groovy` 两种写法；依赖 jar 里**预编译**的
+`package-info.class` 也认（要求注解是 RUNTIME 保留，常见的空值注解都是）。
+
+> **这是本库相对官方 Groovy 6 `NullChecker` 的增强。** 官方检查器**完全不读**包级注解：
+> 同一份代码在 Groovy 6 下**不报**，在本库下报出。`./gradlew dualRun` 会把这条差异
+> 稳定地列在 `only-in-port` 一侧 —— 那是**特性差异，不是回归**。
+>
+> **作用域**：按 JSpecify 语义，标记只作用于**被标注的那个包本身**，
+> **不覆盖子包**（子包各自声明）—— 语料里有一条守卫专门钉住这个语义。
 
 ### 认得的守卫（这些**不会**误报）
 
@@ -217,3 +250,64 @@ tools/dual-run.groovy           # 双跑对照（可分别跑在 Groovy 4 / 6 �
 
 （附带一条教训：那次错误结论正是"全绿其实没在查"的第 5 次出现，
 所以**常驻阳性对照**不是可选项 —— 见下一节。）
+
+---
+
+## 13. 一个可以超过官方实现的机会：包级注解
+
+Groovy **支持** `package-info.groovy`（与 Java 的 `package-info.java` 等价），实测（Groovy 4.0.30）：
+
+```
+groovyc io/github/heyuch/the formatter project/probe/package-info.groovy   # 内容：@NullMarked + package 声明
+→ 生成 io/github/heyuch/the formatter project/probe/package-info.class
+→ javap -v 显示该注解落在包上：RuntimeVisibleAnnotations: org.jspecify.annotations.NullMarked
+```
+
+**但 Groovy 6 的 `NullChecker` 不读包级注解**：给包标 `@NullMarked` 之后，
+该包里一个**类级没有标记**、且方法 `return null` 的类**没有被报出**（实测，同时子包也未覆盖）。
+
+⇒ **这就是 groovy4-nullchecker 做得比官方好的地方**：使用者可以用 **每个包一个文件** 声明默认
+（我们这个仓库是 **9 个包** 而不是 **41 个类**），而且仍然完全在源码里可见 ——
+这比逐类注解更符合"注解是签名的一部分"的诉求。
+
+**注意作用域**：按 JSpecify 的语义，`@NullMarked` 的作用域是**被标注的那个元素本身**，
+所以包级注解**不覆盖子包**（子包需各自声明）。
+
+### 13.1 已实现 ✓（本节其余部分是设计依据，实现见 README「包级默认」一节）
+
+包级默认**已经实现并通过语料门禁**，三种注解来源都实测可用：
+
+| 来源 | 实测结果 |
+| --- | --- |
+| 同一次编译里的 `package-info.java` | ✅ 生效 |
+| 同一次编译里的 `package-info.groovy` | ✅ 生效 |
+| 依赖 jar 里**预编译**的 `package-info.class` | ✅ 生效（经 JVM package 对象反射读取）|
+
+**实现要点（踩了三次才做对，别照直觉写）**：
+
+1. **不能读 `classNode.annotations`**。`package-info` 的注解在 Groovy 里落在
+   **`PackageNode`** 上（`@Foo package a.b;` 解析到包上），那个合成类节点是**空的**。
+2. **不能只读 `classNode.package.annotations`**。Groovy 4 给**每个源文件**都建了**独立的
+   `PackageNode` 实例**：`package-info` 那个实例带着注解，而同包其它类的 `PackageNode`
+   注解列表是**空的**。所以同一次编译里、包内普通类**看不到**包级注解。
+3. ⇒ 必须在 `setup()` 阶段**先扫描整个 `CompilationUnit`** 把所有 `package-info` 的
+   **`PackageNode` 注解**收集起来，再按包名查表。放在 `beforeVisitClass`/`afterVisitClass`
+   里都会因为**访问顺序**而不稳定（`package-info` 可能晚于同包类被访问）。
+
+另外两条**顺带修掉的一致性问题**：
+
+- 包级默认原本只作用于**返回值和参数**，**不作用于字段初始化检查** ——
+  同一个标记对"返回值"和"字段"含义不同。现已在 `isNonNullAnnotated()` 里统一。
+- CLI/门禁原来只认 `*.groovy`，会**跳过 `package-info.java`** ——
+  而后者正是 Groovy 项目声明包级注解最常见的形式。现在两者都认
+  （仍然**不**碰普通 `.java`：Groovy 类型检查器解析不了任意 Java）。
+
+**仍未解决的限制**（写进文档，不假装支持）：
+
+- 依赖 jar 里的 `package-info.class` 若是 **CLASS 保留**，反射读不到 ——
+  只能靠源码内可见或 RUNTIME 保留。常见空值注解（JSpecify / JSR-305 / JetBrains /
+  Checker Framework）都是 RUNTIME，所以实务上不受影响。
+- 子包**不**继承父包的标记（刻意的，见上「注意作用域」）。
+- 这一能力**无法与官方 Groovy 6 对齐**（官方根本不读），所以 `./gradlew dualRun`
+  里这几条语料会稳定地出现在 **only-in-port** 一侧 —— 那是**特性差异**，不是回归。
+

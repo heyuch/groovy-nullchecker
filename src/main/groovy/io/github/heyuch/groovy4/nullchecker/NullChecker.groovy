@@ -231,6 +231,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     @Override
     Object run() {
         boolean strict = isStrictEnabled()
+        PORT_PACKAGE_ANNOS = collectPackageAnnotations()
         afterVisitMethod { MethodNode method ->
             method.code?.visit(makeVisitor(strict, method))
         }
@@ -239,6 +240,59 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 checkNonNullFieldInitialization(cn)
             }
         }
+    }
+
+    /**
+     * Package-level annotations collected up front, keyed by package name.
+     *
+     * <p>Needed because Groovy 4 gives every <em>source</em> class its own
+     * {@code PackageNode}: the annotations from a source {@code package-info.java} or
+     * {@code package-info.groovy} land on the package node of the {@code package-info}
+     * class only, and the {@code PackageNode} of the classes in that package comes back
+     * with an empty annotation list. Reading {@code classNode.package.annotations} --
+     * which is correct for precompiled {@code package-info.class} on the classpath --
+     * therefore finds nothing for sources in the same compilation.
+     *
+     * <p>Populated before any class is visited, so the answer does not depend on whether
+     * {@code package-info} happens to be compiled before or after its package's classes.
+     */
+    private static Map<String, List<String>> PORT_PACKAGE_ANNOS = [:]
+
+    /**
+     * Scans the compilation unit for {@code package-info} classes and records the
+     * simple names of their annotations.
+     *
+     * <p>The annotations are read from the {@code package-info} class's
+     * <em>{@code PackageNode}</em>, not from the class node itself: for a
+     * {@code package-info}, Groovy parses {@code @Foo package a.b;} onto the package
+     * and leaves the synthetic class node unannotated. Verified on Groovy 4.0.30 --
+     * {@code cn.annotations} is empty while {@code cn.package.annotations} holds the
+     * annotation.
+     *
+     * <p>An instance method because it reads the DSL's {@code context}, which is exposed
+     * only on the instance.
+     *
+     * @return package name to annotation simple names
+     */
+    private Map<String, List<String>> collectPackageAnnotations() {
+        Map<String, List<String>> found = [:]
+        try {
+            def unit = context?.compilationUnit
+            unit?.AST?.classes?.each { ClassNode cn ->
+                if (cn.name.endsWith('.package-info')) {
+                    def pkg = cn.package
+                    String pkgName = normalisePackageName(pkg?.name) ?:
+                            cn.name.substring(0, cn.name.length() - '.package-info'.length())
+                    if (pkgName) {
+                        found[pkgName] = pkg?.annotations*.classNode*.nameWithoutPackage ?: []
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // Best effort: an unreachable AST must not break the check itself, it only
+            // means package defaults are unavailable and class-level marking applies.
+        }
+        found
     }
 
     private CheckingVisitor makeVisitor(boolean flowSensitive, MethodNode method) {
@@ -691,7 +745,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         if (cn.interface) return
         List<FieldNode> candidates = cn.fields.findAll { field ->
             !field.static && !isPrimitiveType(field.type) && field.initialValueExpression == null &&
-                hasAnno(field, NONNULL_ANNOS) && !hasNullableAnno(field) && !hasMonotonicAnno(field)
+                isNonNullAnnotated(field) && !hasNullableAnno(field) && !hasMonotonicAnno(field)
         }
         if (!candidates) return
         Set<String> initBlockAssigned = assignedFieldNames(cn.objectInitializerStatements)
@@ -766,6 +820,22 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         hasAnno(node, NONNULL_ANNOS)
     }
 
+    /**
+     * Whether a member counts as non-null: explicitly annotated, or inheriting a
+     * package/class-level {@code @NullMarked} default.
+     *
+     * <p>The definite-initialisation check needs this rather than
+     * {@link #hasNonNullAnno} alone, otherwise a package marked {@code @NullMarked}
+     * would demand non-null returns and parameters but silently not require its fields
+     * to be initialised -- the same marking meaning two different things depending on
+     * which check happened to look.
+     */
+    private boolean isNonNullAnnotated(AnnotatedNode node) {
+        if (hasNonNullAnno(node)) return true
+        ClassNode owner = node instanceof FieldNode ? ((FieldNode) node).declaringClass : null
+        owner != null && isNonNullByDefault(owner)
+    }
+
     private static boolean hasMonotonicAnno(AnnotatedNode node) {
         hasAnno(node, MONOTONIC_ANNOS)
     }
@@ -810,22 +880,116 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /**
      * Determines whether a class is non-null-by-default, honouring JSpecify-style
      * nearest-scope-wins semantics: the class and each enclosing (outer) class are consulted from
-     * innermost to outermost, then the package (whose annotations, for precompiled dependencies,
-     * come from {@code package-info.class} — see GROOVY-12207). At each scope an {@code @NullUnmarked}
+     * innermost to outermost, then the package. At each scope an {@code @NullUnmarked}
      * opt-out short-circuits to {@code false} and an {@code @NullMarked}/{@code @NonNullByDefault}
      * marking to {@code true}; scopes with neither are transparent so the search continues outward.
+     *
+     * <p>The package scope is resolved from three sources, because no single one covers
+     * every case:
+     * <ol>
+     *   <li>{@link #PORT_PACKAGE_ANNOS}, collected from a source {@code package-info}
+     *       in this compilation. Required because Groovy 4 hands each source class its
+     *       own {@code PackageNode}, so a source {@code package-info}'s annotations are
+     *       not visible on the package node of the classes it applies to.</li>
+     *   <li>{@code classNode.package.annotations}. Populated in some situations, but
+     *       verified <em>not</em> populated on Groovy 4.0.30 when the {@code
+     *       package-info.class} merely sits on the classpath next to a class compiled
+     *       in this run, so it cannot be relied on alone.</li>
+     *   <li>A reflective lookup of {@code <pkg>.package-info}, which recovers the
+     *       package annotations for a precompiled dependency. Limited to
+     *       runtime-retained annotations, since it goes through the JVM's package
+     *       object; the common nullness annotations (JSpecify, JSR-305, JetBrains,
+     *       Checker Framework) all are runtime-retained.</li>
+     * </ol>
+     *
+     * <p>Scope is deliberately the exact package: a package annotation does <em>not</em>
+     * apply to subpackages, matching JSpecify's rule that a marking applies to the
+     * annotated element itself.
      */
-    private static boolean isNonNullByDefault(ClassNode cn) {
+    private boolean isNonNullByDefault(ClassNode cn) {
         for (ClassNode c = cn; c != null; c = c.outerClass) {
             if (hasNullUnmarkedAnno(c)) return false
             if (declaresNonNullByDefault(c)) return true
+        }
+        String pkgName = normalisePackageName(cn?.package?.name)
+        List<String> fromSource = pkgName == null ? null : PORT_PACKAGE_ANNOS[pkgName]
+        if (fromSource != null) {
+            if (fromSource.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
+            if (fromSource.any { String n -> NONNULL_BY_DEFAULT_ANNOS.contains(n) }) return true
         }
         def pkg = cn?.package
         if (pkg != null) {
             if (hasNullUnmarkedAnno(pkg)) return false
             if (declaresNonNullByDefault(pkg)) return true
         }
+        // Last resort: a precompiled package-info.class from a dependency, whose
+        // annotations Groovy 4 does not surface on the source class's package node.
+        List<String> fromClasspath = pkgName == null ? null : lookupPackageAnnotations(pkgName)
+        if (fromClasspath != null) {
+            if (fromClasspath.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
+            if (fromClasspath.any { String n -> NONNULL_BY_DEFAULT_ANNOS.contains(n) }) return true
+        }
         false
+    }
+
+    /**
+     * Reads a precompiled package's annotations through the JVM package object.
+     *
+     * <p>Only runtime-retained annotations are visible this way, which covers the
+     * common nullness annotations. A {@code package-info.class} in a dependency that
+     * uses CLASS retention cannot be seen at all; that limitation is documented.
+     *
+     * <p>Every plausible classloader is tried before giving up; see
+     * {@link #candidateClassLoaders()} for why one is not enough.
+     *
+     * @param packageName fully qualified package name
+     * @return annotation simple names, or {@code null} when no package class is loadable
+     */
+    private List<String> lookupPackageAnnotations(String packageName) {
+        String resource = packageName + '.package-info'
+        for (ClassLoader loader : candidateClassLoaders()) {
+            try {
+                Class<?> pkgClass = Class.forName(resource, false, loader)
+                List<String> names = pkgClass.getPackage()?.annotations*.annotationType()*.simpleName
+                if (names) {
+                    return names
+                }
+            } catch (Throwable ignored) {
+                // this loader cannot see it; try the next one
+            }
+        }
+        null
+    }
+
+    /**
+     * Classloaders that might see the analysed project's classpath, most specific first.
+     *
+     * <p>Several are needed because no single one is right in every setup. Under Gradle
+     * the checker is loaded by the build's classloader, while the project's own classes
+     * (and its {@code package-info.class}) are visible only to the compiler worker's
+     * Groovy classloader -- so using the checker's own classloader alone finds nothing in
+     * exactly the configuration most users have.
+     */
+    private List<ClassLoader> candidateClassLoaders() {
+        List<ClassLoader> loaders = []
+        try {
+            loaders << context?.compilationUnit?.transformLoader
+        } catch (Throwable ignored) {
+            // not reachable in this setup
+        }
+        try {
+            loaders << context?.source?.classLoader
+        } catch (Throwable ignored) {
+            // not reachable in this setup
+        }
+        loaders << Thread.currentThread().contextClassLoader
+        loaders << NullChecker.classLoader
+        loaders.findAll { ClassLoader l -> l != null }.unique()
+    }
+
+    /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
+    private static String normalisePackageName(String name) {
+        name == null ? null : name.replaceAll(/\.$/, '')
     }
 
     private static boolean isNullExpr(Expression expr) {
