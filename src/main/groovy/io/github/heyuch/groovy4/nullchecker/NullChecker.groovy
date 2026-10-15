@@ -176,6 +176,16 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     static final String STRICT_PROPERTY = 'groovy.nullchecker.strict'
 
     /**
+     * Environment variable that enables {@code strict} mode process-wide.
+     *
+     * <p>Exists because a Gradle build cannot always pass a system property to the
+     * compiler JVM, while the environment reaches it either way. That makes this the
+     * practical channel for a CI job: turn strict on for the whole build without
+     * editing any build file.
+     */
+    static final String STRICT_ENV = 'GROOVY_NULLCHECKER_STRICT'
+
+    /**
      * Replaces the extension options, mirroring Groovy 6's options map.
      * Pass {@code [strict: true]} to enable flow-sensitive analysis.
      */
@@ -197,12 +207,21 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     /**
-     * Reads the {@code strict} flag the way Groovy 6's {@code options?.strict} would,
-     * falling back to the strict system property so a build can enable it globally
-     * without touching source.
+     * Reads the {@code strict} flag the way Groovy 6's {@code options?.strict} would.
+     *
+     * <p>Because Groovy 4 cannot pass {@code 'Ext(strict: true)'}, three out-of-band
+     * channels are accepted, in order of specificity: {@link #setOptions(Map)} for
+     * programmatic use, then the {@link #STRICT_PROPERTY} system property, then the
+     * {@link #STRICT_ENV} environment variable for build/CI-wide switches.
      */
     private static boolean isStrictEnabled() {
-        PORT_OPTIONS.strict == true || Boolean.getBoolean(STRICT_PROPERTY)
+        if (PORT_OPTIONS.strict == true) {
+            return true
+        }
+        if (Boolean.getBoolean(STRICT_PROPERTY)) {
+            return true
+        }
+        'true'.equalsIgnoreCase(java.lang.System.getenv(STRICT_ENV))
     }
 
     /**

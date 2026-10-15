@@ -24,6 +24,21 @@ dependencies {
 
 发布到本地仓库：`./gradlew publishToMavenLocal`
 
+> **还没发布到 Maven Central 时，怎么在别的本地项目里试？**
+> `publishToMavenLocal` 装进本地 Maven 仓库即可（等价于 `mvn install`）；
+> 其他项目只要在仓库列表里加一个 `mavenLocal()`，然后正常写依赖坐标。
+> 完整步骤、**可直接复制的示例工程**、以及几个必踩的坑（重发后要刷新依赖缓存、
+> `GroovyCompile` 没有 `systemProperty`、`extensions` 必须传 String、注解要 RUNTIME）
+> 见 **[examples/consumer-strict-demo](examples/consumer-strict-demo/README.md)**。
+>
+> 也可以在不改任何构建配置的前提下先用自带 CLI 摸底 —— CLI 就在发布产物里：
+>
+> ```bash
+> ./gradlew nullcheck                                  # 报告，不阻断
+> ./gradlew nullcheck -Pnullcheck.strict=true          # 加上流敏感
+> ./gradlew nullcheck -Pnullcheck.failOnError=true     # 当门禁
+> ```
+
 > 注解依赖（JSR-305 / JetBrains / Spring 等）**本项目不传递**。
 > 你的项目用哪套注解就引哪套；检查器按**简单名**识别，任何包的 `@Nullable` 都认。
 

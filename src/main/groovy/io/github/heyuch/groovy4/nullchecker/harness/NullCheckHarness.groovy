@@ -136,14 +136,24 @@ class NullCheckHarness {
      * <p>Groovy 6 reads {@code options.strict} from extension parameters that Groovy 4
      * cannot pass (see the port notes), so both channels are used: the checker's own
      * API when present, and the system property as the portable fallback.
+     *
+     * <p>Disabling <em>clears</em> the property rather than setting it to
+     * {@code false}. Setting {@code false} would out-rank the strict environment
+     * variable, so a developer who turned strict on for the whole shell would find
+     * this harness silently overriding it -- the same class of "the check did not run
+     * the way you think" bug the corpus exists to catch.
      */
     private static void applyStrict(String extension, boolean strict) {
-        System.setProperty('groovy.nullchecker.strict', Boolean.toString(strict))
+        if (strict) {
+            System.setProperty('groovy.nullchecker.strict', 'true')
+        } else {
+            System.clearProperty('groovy.nullchecker.strict')
+        }
         try {
             Class<?> checker = Class.forName(extension, false, NullCheckHarness.classLoader)
             checker.getMethod('setOptions', Map).invoke(null, [strict: strict])
         } catch (NoSuchMethodException | ClassNotFoundException ignored) {
-            // the Groovy 6 reference implementation: system property is all it can see
+            // the Groovy 6 reference implementation: the property is all it can see
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not configure ${extension}", e)
         }
