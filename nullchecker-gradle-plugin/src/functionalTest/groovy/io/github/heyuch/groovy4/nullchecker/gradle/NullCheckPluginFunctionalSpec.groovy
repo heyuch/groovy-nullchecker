@@ -226,11 +226,43 @@ class ByPackage {
         result.output.contains('Cannot return null')
     }
 
+    def 'a target root that does not exist is skipped with a warning, not a failure'() {
+        given: 'a configured root that does not exist, alongside one that does'
+        writeSettings()
+        writeBuild("nullcheck { targets = ['src/main/groovy', 'src/main/absent'] }")
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then: 'the default targets include src/main/java, but its absence must not be fatal'
+        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        result.output.contains('does not exist')
+        result.output.contains('null dereference')
+    }
+
+    def 'fails when every configured root is missing, so a typo cannot silently check nothing'() {
+        given: 'the default roots removed entirely'
+        writeSettings()
+        writeBuild()
+        new File(testProjectDir, 'src/main/groovy').deleteDir()
+        new File(testProjectDir, 'src/main/java').deleteDir()
+
+        when:
+        BuildResult result = runAndFail('nullcheck')
+
+        then:
+        result.output.contains('no .groovy inputs')
+    }
+
     def 'reports even when the project does not compile'() {
         given: 'a broken source: the state a project adopting this checker is likely to be in'
         writeSettings()
-        writeBuild()
+        // failOnError proves the analysis genuinely ran: a silent no-op would exit 0.
+        writeBuild('nullcheck { failOnError = true }')
         writeAnnotation()
+        writeViolation()
         File brokenDir = new File(testProjectDir, 'src/main/groovy/demo')
         brokenDir.mkdirs()
         new File(brokenDir, 'Broken.groovy').text = '''package demo
@@ -243,13 +275,16 @@ class Broken {
 '''
 
         when: 'the report task runs'
-        BuildResult result = run('nullcheck')
+        BuildResult result = runAndFail('nullcheck')
 
         then: 'it must not require compileGroovy, or a broken build could never be measured'
         result.task(':compileGroovy') == null
-        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
         result.output.contains('canary')
         result.output.contains('coverage')
+
+        and: 'the real violation was still found, proving the sources were analysed'
+        result.output.contains('null dereference')
+        result.output.contains('findings reported')
     }
 
     def 'fails loudly instead of reporting clean when the tool cannot be resolved'() {

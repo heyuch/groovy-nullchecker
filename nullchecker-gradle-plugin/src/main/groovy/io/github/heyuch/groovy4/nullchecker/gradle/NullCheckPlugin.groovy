@@ -68,7 +68,16 @@ class NullCheckPlugin implements Plugin<Project> {
             // compileGroovy. That would make `nullcheck` refuse to run whenever the project
             // does not compile -- exactly when a report is most useful, and exactly the
             // state a project adopting this checker is likely to be in.
-            javaExec.classpath = project.files(tool, compileClasspathOf(project), mainOutputOf(project))
+            // The run needs three things on its classpath: the tool, the project's compile
+            // classpath (so annotations and types resolve), and compileJava's output (so
+            // annotation classes and package-info.class are readable from this compilation).
+            //
+            // Deliberately NOT sourceSets.main.output: that belongs to compileGroovy too, so
+            // referencing it would both force a dependency on compiling the code under
+            // analysis and trip Gradle's implicit-dependency validation. compileJava's own
+            // output directory is the narrow thing that is actually needed, and compileJava
+            // is already declared as the dependency.
+            javaExec.classpath = project.files(tool, compileClasspathOf(project), compileJavaOutputOf(project))
 
             // compileJava only, never compileGroovy. Java sources are where @Nullable-style
             // annotations usually live and the checker needs them compiled; but making the
@@ -133,23 +142,27 @@ class NullCheckPlugin implements Plugin<Project> {
         args
     }
 
+    /**
+     * compileJava's output directory, or nothing when there is no such task.
+     *
+     * <p>Narrower than the source set's output on purpose: it holds the annotation classes
+     * and any {@code package-info.class}, which is what this run needs, without reaching
+     * into the Groovy output that belongs to the task we must not depend on.
+     */
+    private static FileCollection compileJavaOutputOf(Project project) {
+        def compileJava = project.tasks.findByName('compileJava')
+        if (compileJava == null) {
+            return project.files()
+        }
+        project.files(project.provider {
+            compileJava.destinationDirectory.asFile.get()
+        })
+    }
+
     /** The main source set's compile classpath, or nothing when no Java/Groovy plugin is applied. */
     private static FileCollection compileClasspathOf(Project project) {
         SourceSet main = mainSourceSet(project)
         main == null ? project.files() : main.compileClasspath
-    }
-
-    /**
-     * The main source set's compiled output, as plain directories with no task dependency.
-     *
-     * <p>Deliberately {@code output.classesDirs} rather than {@code output}: the latter
-     * carries a task dependency on {@code compileGroovy}, so a project that does not
-     * compile could never get a report -- which is exactly the state a project adopting
-     * this checker is likely to be in, and exactly when the report is most useful.
-     */
-    private static FileCollection mainOutputOf(Project project) {
-        SourceSet main = mainSourceSet(project)
-        main == null ? project.files() : project.files((Object[]) main.output.classesDirs.files.toArray())
     }
 
     private static SourceSet mainSourceSet(Project project) {

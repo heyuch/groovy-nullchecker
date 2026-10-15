@@ -105,6 +105,7 @@ exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misu
         }
 
         List<File> files = []
+        List<String> missing = []
         for (String path : paths) {
             File input = new File(path)
             if (input.directory) {
@@ -116,9 +117,16 @@ exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misu
             } else if (NullCheckHarness.isCheckable(input)) {
                 files << input
             } else {
-                err.println("nullcheck: no such file or directory: ${input}")
-                return 2
+                // A configured root that does not exist is normal -- a Groovy-only project
+                // has no src/main/java -- so it is a warning, not an error, or every such
+                // project would be unable to run the check at all. It is still reported,
+                // because a misspelled root would otherwise silently shrink the analysed set.
+                // If NOTHING usable remains, that is an error below.
+                missing << path
             }
+        }
+        missing.each { String path ->
+            err.println("nullcheck: warning: configured root does not exist, skipping: ${path}")
         }
 
         // Shared stubs are compiled in the same unit as the fixture, so a fixture can

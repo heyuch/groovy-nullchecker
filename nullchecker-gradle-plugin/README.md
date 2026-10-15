@@ -70,7 +70,7 @@ nullcheck {
 | --- | --- | --- |
 | `failOnError` | `false` | 有发现时是否让构建失败。**建议先保持 false 摸底** |
 | `strict` | `false` | 打开后报告量会明显上升 |
-| `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见 |
+| `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
 | `toolVersion` | `0.1.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
@@ -116,7 +116,12 @@ nullcheck: findings reported (exit 1)
 仍 `ClassNotFoundException`，把依赖从 `compileOnly` 换成 `implementation` 也不行）。
 独立任务则是你要接进 `check` 时一行的事，不想接就永远只是"看一眼"。
 
-**3. 检查器不进你的运行时 classpath。**
+**3. 不存在的根只警告，全都不存在才报错。**
+默认 `targets` 两个根都给了，但纯 Groovy 项目没有 `src/main/java`。若把"根不存在"当错误，
+这些项目根本跑不起来；若静默忽略，把根名写错就会悄悄缩小分析范围。所以：**部分缺失 → 警告并继续；
+全部缺失 → 明确失败**（退出码 2）。两种都在功能测试里钉住了。
+
+**4. 检查器不进你的运行时 classpath。**
 插件是 `compileOnly` 依赖它；任务把 `sourceSets.main.compileClasspath` 传给 CLI 用于解析注解，
 仅此而已。检查器不会出现在你的 `runtimeClasspath`，也不会进你发布的 POM。
 
