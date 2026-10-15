@@ -155,6 +155,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static final Set<String> NULLCHECK_ANNOS = Set.of('NullCheck', 'ParametersAreNonnullByDefault', 'ParametersAreNonNullByDefault')
     private static final Set<String> NONNULL_BY_DEFAULT_ANNOS = Set.of('NonNullByDefault', 'NonnullByDefault', 'NullMarked')
     private static final Set<String> NULL_UNMARKED_ANNOS = Set.of('NullUnmarked')
+
+    /** Static-compilation markers, counted for coverage only. */
+    private static final Set<String> COMPILE_STATIC_ANNOS = Set.of('CompileStatic', 'CompileDynamic')
     private static final Set<String> NONNULL_VALIDATOR_METHODS = Set.of('requireNonNull', 'checkNotNull')
     private static final Set<String> ASSERTION_MESSAGE_TYPES = Set.of('java.lang.String', 'java.util.function.Supplier')
 
@@ -232,6 +235,14 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     Object run() {
         boolean strict = isStrictEnabled()
         PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+        // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
+        // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
+        // run() would leave the counters describing only the last class seen (observed
+        // as "classes=1" for a 43-file project). The caller resets once per compilation
+        // via resetCoverage() instead.
+        afterVisitClass { ClassNode cn ->
+            countCovered(cn)
+        }
         afterVisitMethod { MethodNode method ->
             method.code?.visit(makeVisitor(strict, method))
         }
@@ -240,6 +251,42 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 checkNonNullFieldInitialization(cn)
             }
         }
+    }
+
+    /** Coverage observed by the most recent run, so {@code findings = 0} stays readable. */
+    private static NullCheckCoverage LAST_COVERAGE = new NullCheckCoverage()
+
+    /**
+     * Records what this run actually looked at.
+     *
+     * <p>The {@code @CompileStatic} count matters most: those are the classes that were
+     * silently skipped before {@code NullCheckCustomizer} declared a registration phase,
+     * so a non-zero count is the cheapest evidence that they are now reached.
+     */
+    private void countCovered(ClassNode cn) {
+        if (cn.name.endsWith('.package-info')) {
+            return // a package declaration, not a class anyone reads for nullness
+        }
+        LAST_COVERAGE.classes++
+        if (hasAnno(cn, COMPILE_STATIC_ANNOS)) {
+            LAST_COVERAGE.compileStaticClasses++
+        }
+        if (isNonNullByDefault(cn)) {
+            LAST_COVERAGE.nonNullByDefaultClasses++
+        }
+        LAST_COVERAGE.methodsWithReturnType += cn.methods.count { MethodNode m ->
+            m.returnType != VOID_TYPE
+        }
+    }
+
+    /** Coverage from the most recent run. */
+    static NullCheckCoverage getLastCoverage() {
+        LAST_COVERAGE
+    }
+
+    /** Clears coverage so a caller can tell "this run saw nothing" from "no run happened". */
+    static void resetCoverage() {
+        LAST_COVERAGE = new NullCheckCoverage()
     }
 
     /**

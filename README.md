@@ -1,5 +1,10 @@
 # groovy4-nullchecker
 
+> ★ **要动手改接入方式的话，先看 [the integration notes](the integration notes)** —— 那是来自
+> `a real-world project`（真实 Groovy 4 项目，43 个类**全是 `@CompileStatic`**）的接入反馈与任务单：
+> 含一个**必修缺陷**（`@CompileStatic` 类被静默跳过，附最小复现）、可直接搬的参考实现，
+> 以及"做完了"的可执行验收清单。
+
 **把 Groovy 6 的编译期空值检查器 `NullChecker` 回移到 Groovy 4.0.x。**
 
 Groovy 4 的 `groovy-typecheckers` 里**只有 `RegexChecker`**（实测 4.0.0 → 最新的 4.0.33 都没有
@@ -64,8 +69,14 @@ class Service {
 
 ### 3. 接进构建（不改源码）
 
-用 `ASTTransformationCustomizer` 全局注入。**注意 `extensions` 必须传 String** ——
-传 `Class` 或 `ClassExpression` 会被**静默忽略**，那是最典型的「假绿」：
+> ⚠️ **如果你的类用了 `@CompileStatic`，请直接跳到 §3.2。**
+> `@CompileStatic` 是 Groovy 里最常见的注解，而**裸的 `ASTTransformationCustomizer`
+> 到不了这类类** —— 它们被**静默跳过**，于是整个项目报 `0 findings`，
+> 而那个 0 的意思是「**什么都没查**」而不是「干净」。这是实测过的缺陷，见 §3.2 与 §9。
+
+#### 3.1 纯注解代码：一行注入
+
+**注意 `extensions` 必须传 String** —— 传 `Class` 或 `ClassExpression` 会被**静默忽略**：
 
 ```groovy
 // config/nullcheck.groovy
@@ -77,11 +88,144 @@ configuration.addCompilationCustomizers(new ASTTransformationCustomizer(
 ))
 ```
 
+#### 3.2 有 `@CompileStatic` 的代码：需要声明注册相
+
+必须用一个 `CompilationCustomizer` 包装器把注册**声明在 `CANONICALIZATION` 相**
+（`CONVERSION` / `SEMANTIC_ANALYSIS` 也可以；**`INSTRUCTION_SELECTION` 不行**，那时类型检查变换已经处理完了）。
+
+这个包装器**必须内联在你的 configuration script 里**，不能用 jar 里的 ——
+实测：Gradle 编译 configuration script 用的类加载器**不含项目 compile classpath**，
+连 `Class.forName('…NullCheckCustomizer')` 都会 `ClassNotFoundException`。
+好在包装器只用 Groovy 自带的类，不需要任何 import：
+
+```groovy
+// config/nullcheck.groovy —— 自包含，无外部 import
+import groovy.transform.CompilationUnitAware
+import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.classgen.GeneratorContext
+import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.control.CompilePhase
+import org.codehaus.groovy.control.SourceUnit
+import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
+import org.codehaus.groovy.control.customizers.CompilationCustomizer
+
+class NullCheckRegistration extends CompilationCustomizer implements CompilationUnitAware {
+
+    private final ASTTransformationCustomizer delegate
+
+    NullCheckRegistration(CompilePhase phase, ASTTransformationCustomizer delegate) {
+        super(phase)
+        this.delegate = delegate
+    }
+
+    @Override
+    void setCompilationUnit(CompilationUnit unit) {
+        // ASTTransformationCustomizer 是 CompilationUnitAware，必须转发：
+        // 漏掉这一句，就是一个「看起来对、其实什么都没查」的包装器
+        if (delegate instanceof CompilationUnitAware) {
+            ((CompilationUnitAware) delegate).setCompilationUnit(unit)
+        }
+    }
+
+    @Override
+    void call(SourceUnit source, GeneratorContext context, ClassNode classNode) {
+        delegate.call(source, context, classNode)
+    }
+}
+
+def inner = new ASTTransformationCustomizer(
+        [extensions: ['io.github.heyuch.groovy4.nullchecker.NullChecker']],
+        Class.forName('groovy.transform.TypeChecked'))
+
+configuration.addCompilationCustomizers(
+        new NullCheckRegistration(CompilePhase.CANONICALIZATION, inner))
+```
+
+挂上脚本：
+
 ```groovy
 tasks.withType(GroovyCompile).configureEach {
     groovyOptions.configurationScript = file('config/nullcheck.groovy')
 }
 ```
+
+> 为什么这里有 20 行样板而不是一行？因为 Gradle 的 configuration script
+> 跑在一个**隔离的类加载器**里（连反射都拿不到你的依赖），而检查器是
+> `compileOnly` 的。若把检查器改成 `implementation`（污染运行时依赖）也**解决不了**
+> —— 实测仍然 `ClassNotFoundException`。所以自包含是唯一稳妥的写法。
+>
+> **不想写样板？用 CLI 那条路**（§4），它对 `@CompileStatic` 是完全支持的，
+> 而且不需要改源码、也不需要 configuration script。
+
+**验证你的注入是否真的生效**（别只看构建是绿的）：
+
+在某个 `@CompileStatic` 类里故意写一处 `@Nullable` 解引用 —— **预期构建失败并报
+`Potential null dereference`**。如果构建仍然是绿的，说明注入没生效，那个「绿」没有意义。
+
+---
+
+### 4. 推荐入口：CLI
+
+CLI 是**所有构建系统的最小公倍数**，支持 `@CompileStatic`、包级注解、strict 模式，
+而且**不需要改源码、也不需要 configuration script**：
+
+```bash
+java -cp <你的jar>:groovy-4.0.30.jar:<注解jar> \
+     io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli src/main/groovy
+```
+
+Gradle 里包一层（报告模式，不阻断构建）：
+
+```groovy
+configurations { nullcheckTool }
+dependencies {
+    nullcheckTool 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    nullcheckTool 'org.apache.groovy:groovy:4.0.30'   // 检查器把 Groovy 声明为 compileOnly
+}
+
+tasks.register('nullcheck', JavaExec) {
+    classpath = configurations.nullcheckTool + files(sourceSets.main.output)
+    mainClass = 'io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli'
+    args = ['src/main/groovy']
+    def result = ignoreExitValue = true
+    doLast {
+        int code = executionResult.get().exitValue
+        if (code == 2) throw new GradleException('nullcheck: the checker is not working')
+        if (code == 1 && project.hasProperty('nullcheck.failOnError')) {
+            throw new GradleException('nullcheck: findings reported')
+        }
+    }
+}
+```
+
+完整可运行示例见 [`examples/consumer-strict-demo`](examples/consumer-strict-demo/README.md)。
+
+#### 退出码契约
+
+| 码 | 含义 |
+| --- | --- |
+| `0` | 无发现 |
+| `1` | 有发现 |
+| **`2`** | **检查器没在正常工作**（自检失败、扩展名写错、无输入）|
+
+> ⚠️ **`2` 与 `0` 必须区别对待。** 把 `2` 当成「通过」就等于把「没查」当成「干净」。
+
+#### 自证：为什么 `0` 可以信
+
+CLI 在报告任何结果**之前**，先编译一个**内置的、必然违规的样本**，其中**包含一个
+`@CompileStatic` 类**（就是失效的那一类）。它必须被报出，否则 CLI **拒绝报告结果并以 `2` 退出**：
+
+```
+canary     = ok (2 findings on the built-in sample, including its @CompileStatic class)
+findings   = 0
+coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWithReturnType=223
+```
+
+`coverage` 是让 `0` 可解释的东西 —— 它说明**实际看了多少**。
+真实项目上实测（43 个文件、全部 `@CompileStatic`）：`compileStatic=46`（含内部类）、
+`findings=0`，所以这个 0 是**有意义的 0**。
+
+跳过自检（**不推荐**）：`--no-canary`。
 
 ---
 
@@ -244,12 +388,33 @@ tools/dual-run.groovy           # 双跑对照（可分别跑在 Groovy 4 / 6 �
 | 把 `@TypeChecked` 写在源码里 | ✅ 报出 |
 
 **结论**：变的不是注解内容、也不是 phase 的取值，而是**自定义器以什么相注册**。
-用一个几行的子类覆盖 `getPhase()`，就能让扩展对所有 `@CompileStatic` 类生效，
-**不需要改动任何业务源码**。⇒ 请把这条当作 M0 必须复现的机制，
-"仅靠源码注解"不再是唯一出路。
+用一个几行的包装器（**组合，不是继承** —— 见下）把注册声明在 `CANONICALIZATION`，
+就能让扩展对所有 `@CompileStatic` 类生效，**不需要改动任何业务源码**。
 
-（附带一条教训：那次错误结论正是"全绿其实没在查"的第 5 次出现，
-所以**常驻阳性对照**不是可选项 —— 见下一节。）
+**本仓库已复现并已修复**（这一条不再是"待办"，而是已落地）：
+
+| 注入方式 | `@CompileStatic` 类上的实测结果 |
+| --- | --- |
+| 裸 `new ASTTransformationCustomizer(params, ann)` | ❌ 不报（**静默跳过**）|
+| 源码里写 `@TypeChecked(extensions='…')` | ❌ 不报（**`@CompileStatic` 在时注解也无效**）|
+| 加上 `--strict` | ❌ 不报 |
+| **`NullCheckCustomizer`（本仓库提供，声明 `CANONICALIZATION` 相）** | ✅ **报出** |
+| 包装器注册在 `CONVERSION` / `SEMANTIC_ANALYSIS` | ✅ 报出 |
+| 包装器注册在 `INSTRUCTION_SELECTION` | ❌ 不报（类型检查变换已处理完）|
+
+补充两条**实测纠正**，与早期记录不同：
+
+- **不能靠"覆盖 `getPhase()`"的子类**：Groovy 4 的 `ASTTransformationCustomizer`
+  构造函数用**动态属性赋值**写自己的 `annotationNode`，一旦被 Groovy 写的子类继承就炸
+  （`MissingPropertyException: No such property: annotationNode`）。**必须用组合包装**。
+- **`@TypeChecked` 写在源码里也救不了**：只要类上有 `@CompileStatic`，裸注入和源码注解
+  **两种写法都不报**。所以"文档可以保持简单"是不成立的 —— §3 已按此改写。
+
+包装器的 `setCompilationUnit` 必须**转发**给内层（`ASTTransformationCustomizer` 是
+`CompilationUnitAware`）；漏掉它能得到一个"看起来对、其实什么都没查"的包装器。
+
+（附带一条教训：这次错误正是"全绿其实没在查"的第 5 次出现。所以现在
+**CLI 内置常驻阳性对照（canary）+ 覆盖计数**，自检不过就 `exit 2` 而不是报 0 —— 见 README §4。）
 
 ---
 

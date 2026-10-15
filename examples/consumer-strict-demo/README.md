@@ -68,7 +68,7 @@ dependencies {
 
 ---
 
-## 2. 三种接入方式，按侵入程度递增
+## 2. 四种接入方式，按侵入程度递增
 
 ### 方式 A：只检查标了注解的类（最简单，**建议先用这个试水**）
 
@@ -95,18 +95,21 @@ tasks.withType(GroovyCompile).configureEach {
 }
 ```
 
-脚本内容：
-
-```groovy
-import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
-
-configuration.addCompilationCustomizers(new ASTTransformationCustomizer(
-        [extensions: ['io.github.heyuch.groovy4.nullchecker.NullChecker']],
-        Class.forName('groovy.transform.TypeChecked')))
-```
-
-> ⚠️ `extensions` 必须传 **String**。传 `Class` 或 `ClassExpression` 会被
-> **静默忽略** —— 构建照样绿，检查一条都不跑。这是本项目记录的第一个"假绿"。
+> ⚠️ **两个都会让人拿到「假绿」的坑，这里脚本已经处理好：**
+>
+> 1. `extensions` 必须传 **String**。传 `Class` / `ClassExpression` 会被**静默忽略**，
+>    构建照样绿、检查一条不跑。
+> 2. **裸的 `ASTTransformationCustomizer` 到不了 `@CompileStatic` 类** —— 它们被静默跳过。
+>    而真实项目几乎全是 `@CompileStatic`，于是整个项目报 `0 findings`，
+>    那个 0 的意思是「**什么都没查**」。所以脚本里内联了一个把注册声明在
+>    `CANONICALIZATION` 相的包装器。
+>
+> 包装器**为什么必须内联**（而不是 import 本库提供的 `NullCheckCustomizer`）：
+> 实测 Gradle 编译 configuration script 用的类加载器**不含项目 compile classpath**，
+> `import` 会 "unable to resolve class"，改成 `Class.forName` 仍 `ClassNotFoundException`，
+> 把依赖从 `compileOnly` 换成 `implementation` 也**解决不了**。自包含是唯一稳妥写法。
+>
+> **不想写这 20 行样板就用方式 D（CLI）** —— 它对 `@CompileStatic` 一样支持，且零侵入。
 
 ### 方式 C：全局 + strict 流敏感模式
 
@@ -130,6 +133,52 @@ tasks.withType(GroovyCompile).configureEach {
 // ③ 环境变量 —— 最适合 CI 或临时试跑，构建文件一个字都不用改
 GROOVY_NULLCHECKER_STRICT=true ./gradlew compileGroovy
 ```
+
+报告模式的那个任务也认 `-Pnullcheck.strict=true`（见 §5）。
+
+### 方式 D：CLI（**推荐当主力入口**）
+
+CLI 对所有构建系统都一样、零侵入（不改源码、不写 configuration script），
+**并且完整支持 `@CompileStatic` 与包级注解**，是目前功能最全的路径。
+
+```groovy
+configurations { nullcheckTool }
+
+dependencies {
+    nullcheckTool 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+    // 检查器把 Groovy 声明为 compileOnly（不污染你的运行时依赖），
+    // 所以"运行检查器"的那份 classpath 要自己给出 Groovy
+    nullcheckTool 'org.apache.groovy:groovy:4.0.30'
+}
+
+tasks.register('nullcheck', JavaExec) {
+    classpath = configurations.nullcheckTool + files(sourceSets.main.output)
+    mainClass = 'io.github.heyuch.groovy4.nullchecker.harness.NullCheckCli'
+    // src/main/java 也要走一遍，否则 package-info.java 里的包级默认看不见
+    args = ['src/main/groovy', 'src/main/java', 'samples/broken']
+    ignoreExitValue = true
+    doLast {
+        int code = executionResult.get().exitValue
+        // 2 = 检查器本身没跑起来（自检失败 / 扩展名错）。绝不能当成"通过"。
+        if (code == 2) throw new GradleException('nullcheck: the checker is not working')
+        if (code == 1 && project.hasProperty('nullcheck.failOnError')) {
+            throw new GradleException('nullcheck: findings reported')
+        }
+    }
+}
+```
+
+它在报告任何结果**之前**会先跑一个内置的、必然违规的样本（**内含一个 `@CompileStatic` 类**），
+并打印覆盖计数：
+
+```
+canary     = ok (2 findings on the built-in sample, including its @CompileStatic class)
+findings   = 0
+coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWithReturnType=223
+```
+
+> 这就是 `findings = 0` 为什么可信：canary 证明它在跑，coverage 证明它看了什么。
+> 没有这两样，`0` 无法与"什么都没查"区分 —— 这正是这次接入反馈的核心问题。
 
 ---
 
@@ -198,6 +247,8 @@ GROOVY_NULLCHECKER_STRICT=true ./gradlew clean compileGroovy
 | `src/main/java/demo/marked/package-info.java` | 一个文件声明整包的默认 |
 | `samples/broken/*.groovy` | **阳性对照**：故意写错的代码，`nullcheck` 任务的显式目标 |
 | `samples/broken/package-level/` | **包级默认的阳性对照**：违规来自包默认而非类注解 |
+| `src/main/groovy/demo/staticmethod/` | **`@CompileStatic`** 类：默认来自全局注入，类上无 `@TypeChecked` |
+| `samples/broken/compile-static/` | **`@CompileStatic` 的阳性对照**：这类类曾经被静默跳过 |
 | `src/main/java/demo/*.java` | 自带注解，证明不依赖任何注解库 |
 | `config/nullcheck.groovy` | 方式 B 的全局注入脚本 |
 

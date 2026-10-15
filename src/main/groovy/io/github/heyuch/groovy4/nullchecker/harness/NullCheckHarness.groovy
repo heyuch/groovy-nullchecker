@@ -1,6 +1,9 @@
 package io.github.heyuch.groovy4.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy4.nullchecker.NullCheckCoverage
+import io.github.heyuch.groovy4.nullchecker.NullCheckCustomizer
+import io.github.heyuch.groovy4.nullchecker.NullChecker
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
@@ -81,9 +84,76 @@ class NullCheckHarness {
         boolean threw = false
         /** True when the compiler returned normally but had collected errors. */
         boolean collectedOnly = false
+        /** What was actually looked at, so "no findings" can be told from "no work". */
+        NullCheckCoverage coverage = new NullCheckCoverage()
 
         boolean isClean() {
             findings.isEmpty()
+        }
+    }
+
+    /** Outcome of the pre-flight self-check. */
+    static class CanaryResult {
+        boolean healthy
+        List<Finding> findings = []
+        String detail = ''
+
+        @Override
+        String toString() {
+            healthy ? "canary ok (${findings.size()} findings)" : "canary FAILED: ${detail}"
+        }
+    }
+
+    /**
+     * Proves the checker can still see a violation before any real result is trusted.
+     *
+     * <p>Runs the deliberately broken {@link NullCheckCanary} samples through the ordinary
+     * checking path. If the statically compiled sample is not reported, every "no
+     * findings" the tool could produce is meaningless, so callers must fail rather than
+     * report success.
+     *
+     * @param extension type-checking extension to run
+     * @return whether the checker is demonstrably working
+     */
+    static CanaryResult runCanary(String extension) {
+        File dir = File.createTempFile('nullchecker-canary', '')
+        CanaryResult outcome = new CanaryResult()
+        try {
+            if (!dir.delete() || !dir.mkdirs()) {
+                outcome.detail = "could not create a working directory for the canary: ${dir}"
+                return outcome
+            }
+            List<File> samples = []
+            NullCheckCanary.SAMPLES.each { String name, String source ->
+                File f = new File(dir, name)
+                f.parentFile.mkdirs()
+                f.setText(source, 'UTF-8')
+                samples << f
+            }
+            File annotation = new File(dir, 'canary/Nullable.groovy')
+            annotation.setText(NullCheckCanary.NULLABLE_SOURCE, 'UTF-8')
+            samples << annotation
+
+            Result result = check(samples, extension, false)
+            outcome.findings = result.findings
+
+            def required = result.findings.findAll { Finding f ->
+                f.path.endsWith(NullCheckCanary.REQUIRED_SAMPLE)
+            }
+            if (!required) {
+                outcome.detail = "the canary's @CompileStatic sample (${NullCheckCanary.REQUIRED_SAMPLE}) " +
+                        'was NOT reported, so this checker cannot currently see violations in ' +
+                        'statically compiled classes and any "no findings" would be meaningless. ' +
+                        "Canary findings were: ${result.findings ?: 'none'}"
+                return outcome
+            }
+            outcome.healthy = true
+            outcome
+        } catch (Throwable t) {
+            outcome.detail = "the canary could not be run: ${t}"
+            outcome
+        } finally {
+            dir.deleteDir()
         }
     }
 
@@ -111,8 +181,10 @@ class NullCheckHarness {
         applyStrict(extension, strict)
 
         CompilerConfiguration configuration = new CompilerConfiguration()
-        configuration.addCompilationCustomizers(new ASTTransformationCustomizer(
-                [extensions: [extension]], Class.forName('groovy.transform.TypeChecked')))
+        // NullCheckCustomizer, not a bare ASTTransformationCustomizer: the bare one never
+        // reaches @CompileStatic classes, so a statically compiled project would report
+        // nothing at all. See NullCheckCustomizer for the measured difference.
+        configuration.addCompilationCustomizers(new NullCheckCustomizer(extension))
 
         CompilationUnit unit = new CompilationUnit(configuration)
         // Sources are added as text so the extension placeholder can be substituted.
@@ -126,6 +198,8 @@ class NullCheckHarness {
         }
 
         Result result = new Result()
+        // Reset so a zero count means "this run saw nothing", not "some earlier run did".
+        NullChecker.resetCoverage()
         try {
             unit.compile(Phases.INSTRUCTION_SELECTION)
             List errors = (List) (unit.errorCollector?.errors ?: [])
@@ -141,6 +215,8 @@ class NullCheckHarness {
             result.raw = e.message
             result.findings = parseFindings(e.message, files)
         }
+        result.coverage = NullChecker.lastCoverage
+        result.coverage.files = files.size()
         result
     }
 

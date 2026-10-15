@@ -28,9 +28,15 @@ class NullCheckCli {
   --extension <fqcn>    type-checking extension to run
   --report <file>       write the raw compiler output here
   --quiet               only print findings
+  --no-canary           skip the pre-flight self-check (NOT recommended)
   --help                show this message
 
-exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
+Before reporting anything, the tool checks a built-in, deliberately broken sample
+(including a @CompileStatic class) and fails with exit 2 if that sample is not
+reported. A silently broken checker would otherwise print "0 findings", which is
+indistinguishable from clean code.
+
+exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misuse'''
 
     /**
      * Runs the tool.
@@ -53,6 +59,7 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
     static int run(List<String> argv, PrintStream out, PrintStream err) {
         boolean strict = false
         boolean quiet = false
+        boolean canary = true
         String support = null
         String report = null
         String extension = System.getProperty('nullchecker.extension') ?: DEFAULT_EXTENSION
@@ -71,6 +78,9 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
                 case '--quiet':
                 case '-q':
                     quiet = true
+                    break
+                case '--no-canary':
+                    canary = false
                     break
                 case '--support':
                     support = value(argv, ++i, arg, err)
@@ -143,6 +153,25 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
             out.println "files      = ${files.size()}"
         }
 
+        // Self-check first. Reporting a result before this passes would mean printing a
+        // number nobody can interpret: "0 findings" from a checker that cannot see
+        // violations is not a clean bill of health.
+        if (canary) {
+            NullCheckHarness.CanaryResult probe = NullCheckHarness.runCanary(extension)
+            if (!probe.healthy) {
+                err.println("nullcheck: self-check FAILED -- ${probe.detail}")
+                err.println('nullcheck: refusing to report a result that cannot be trusted')
+                err.println('nullcheck: (use --no-canary to skip this, at your own risk)')
+                return 2
+            }
+            if (!quiet) {
+                out.println "canary     = ok (${probe.findings.size()} findings on the built-in sample, " +
+                        'including its @CompileStatic class)'
+            }
+        } else if (!quiet) {
+            out.println 'canary     = SKIPPED (--no-canary): results below are unverified'
+        }
+
         NullCheckHarness.Result result
         try {
             result = NullCheckHarness.check(files, extension, strict)
@@ -154,6 +183,8 @@ exit codes: 0 = no findings, 1 = findings, 2 = misuse'''
         result.findings.each { NullCheckHarness.Finding f -> out.println "FINDING ${f}" }
         if (!quiet) {
             out.println "findings   = ${result.findings.size()}"
+            // Coverage is what makes a zero meaningful: it shows how much was looked at.
+            out.println "coverage   = ${result.coverage}"
             if (result.collectedOnly) {
                 out.println 'note       = compiler returned normally but had collected errors'
             }
@@ -167,6 +198,7 @@ extension=${extension}
 strict=${strict}
 files=${files.size()}
 findings=${result.findings.size()}
+coverage=${result.coverage}
 
 ${result.raw}
 """, 'UTF-8')

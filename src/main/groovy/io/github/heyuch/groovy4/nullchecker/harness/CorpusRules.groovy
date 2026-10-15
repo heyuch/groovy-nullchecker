@@ -57,6 +57,7 @@ class CorpusRules {
             N09: 'test assertions (assertNotNull, assertThat().isNotNull())',
             N10: '@NullUnmarked opts out of a package/class default',
             N11: 'no marking in scope (subpackage or unmarked package)',
+            N12: '@CompileStatic class with correct guards stays silent',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

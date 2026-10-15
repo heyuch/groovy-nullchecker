@@ -161,9 +161,18 @@ io.github.heyuch.groovy4.nullchecker.CheckingVisitor  ← 内部基类，仅包�
 | 7 | **带参扩展名**（本次新增）| `'X(strict: true)'` 报「not found on the classpath」 | Groovy 4 用系统属性 / `setOptions()`，见 §2.2 |
 | 8 | **注解保留策略**（本次新增）| `@Nullable` 完全不识别，**静默漏报** | 语料/使用方的注解必须 `@Retention(RUNTIME)`；`CLASS` 保留实测漏报 |
 | 9 | **本地变量注解节点**（本次新增）| Groovy 4 上「本地变量声明」类规则**全部静默失效** | 注解可能挂在 `DeclarationExpression` 而非 `variableExpression` 上，见 §2.3 |
+| 10 | **`@CompileStatic` 被静默跳过**（接入反馈新增）| **整个静态编译的项目报 `0 findings`** —— 而那个 0 的意思是「什么都没查」 | 注册相必须用包装器声明（`CANONICALIZATION`）；**裸 `ASTTransformationCustomizer` 与源码里的 `@TypeChecked` 都到不了这类类**。见 README §3.2 / §12.1 |
+| 11 | **覆盖计数被每次 `run()` 重置**（接入反馈新增）| 43 个文件报 `classes=1`，看起来像覆盖率数据，其实是错的 | Groovy **每个类都会新建一个 DSL 实例并调用一次 `run()`**（实测 43 文件 = 50 次 `run()`）⇒ 计数**不能在 `run()` 里重置**，只能由调用方每次编译重置一次 |
+| 12 | **Gradle configuration script 的类加载器是隔离的**（接入反馈新增）| `import io.github…NullCheckCustomizer` 报 "unable to resolve class"；改成 `Class.forName` 仍 `ClassNotFoundException`；把依赖从 `compileOnly` 改成 `implementation` 也**不行** | 包装器必须**内联在 configuration script 里**，只用 Groovy 自带类。或改用 CLI 路线 |
+| 13 | **依赖只在本地 maven 仓库**（接入反馈新增）| 别人的 `check` 依赖你先跑 `publishToMavenLocal`；拿不到时可能**静默变绿** | 发布到可访问仓库；或在拿不到时**明确失败** |
 
-**第 1/2/3/7/8/9 条这一轮都真实发生过**，且**每一次都表现为「无发现」**。
-唯一把它们抓出来的办法只有一个：**阳性对照 + 双跑**。
+**第 1/2/3/7/8/9/10/11/12 条都真实发生过**，且**每一次都表现为「无发现」或误报「已覆盖」**。
+唯一把它们抓出来的办法只有两个：**阳性对照**（现在是 CLI 里的常驻 canary）+ **覆盖计数**。
+
+> 第 4 条（没有阳性对照）因此从「纪律」升级成了「机制」：CLI 在报告任何结果前先跑
+> 内置 canary，其中**包含一个 `@CompileStatic` 类**；canary 不报就 `exit 2`，绝不报 0。
+> 变异测试验证过：把注册相改回 `INSTRUCTION_SELECTION`，canary 立刻让 CLI 退出 2
+> 并指出「the canary's @CompileStatic sample was NOT reported」。
 
 ---
 

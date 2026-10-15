@@ -223,3 +223,22 @@ rule=N11
 strict=never
 expect=none
 note=no marking anywhere in scope
+
+# ── Regression guard: @CompileStatic classes must be checked ─────────────────
+compile-static/static_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=@CompileStatic + explicit @TypeChecked; a wrong registration phase makes this silent
+
+compile-static/static_param_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=@CompileStatic with only global injection, no source-level @TypeChecked
+
+compile-static/static_guarded_clean.groovy
+rule=N12
+strict=never
+expect=none
+note=@CompileStatic with correct guards must be silent; pairs with static_deref
