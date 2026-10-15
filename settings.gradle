@@ -1,1 +1,13 @@
 rootProject.name = 'groovy4-nullchecker'
+
+// The Gradle plugin lives in its own build rather than as a subproject.
+//
+// Why: the checker's own verification is what makes it trustworthy -- the corpus gate, the
+// Groovy 6 dual-run comparison, and the published example all depend on this build being
+// exactly what it is. Adding a subproject would mean restructuring this build (moving
+// sources, moving the corpus, re-pointing every tool) purely to host the plugin, which
+// risks the verified paths for no benefit. An included build leaves them untouched and
+// still lets the plugin be published on its own.
+//
+// Consumers of the plugin do not need this file; they just apply the plugin id.
+includeBuild('nullchecker-gradle-plugin')

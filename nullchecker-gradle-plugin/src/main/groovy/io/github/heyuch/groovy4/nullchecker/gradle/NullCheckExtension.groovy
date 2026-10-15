@@ -1,0 +1,73 @@
+package io.github.heyuch.groovy4.nullchecker.gradle
+
+import org.gradle.api.Project
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+
+/**
+ * Configuration for the {@code nullcheck} task.
+ *
+ * <p>Defaults are chosen so the common case needs no configuration at all:
+ * <pre>
+ * plugins { id 'io.github.heyuch.groovy4-nullchecker' }
+ * </pre>
+ * then {@code ./gradlew nullcheck}.
+ *
+ * <p>The run is report-only unless {@link #failOnError} is enabled. That is deliberate:
+ * the first thing you want on an existing codebase is the size of the problem, not a
+ * broken build. Findings still make the task exit non-zero, and {@code failOnError}
+ * decides whether that fails the build.
+ */
+class NullCheckExtension {
+
+    /** Type-checking extension to run. */
+    final Property<String> extension
+
+    /** Enable flow-sensitive analysis (also reports unannotated code). */
+    final Property<Boolean> strict
+
+    /** Roots to analyse, relative to the project directory. */
+    final ListProperty<String> targets
+
+    /** Where to write the raw report; unset means the default under build/reports. */
+    final Property<String> reportFile
+
+    /**
+     * Whether the pre-flight self-check runs.
+     *
+     * <p>Leave this on. The self-check compiles a deliberately broken sample and refuses
+     * to report a result if the checker cannot see it, which is what stops a silently
+     * broken invocation from being read as "no problems found".
+     */
+    final Property<Boolean> canary
+
+    /** Whether findings should fail the build. */
+    final Property<Boolean> failOnError
+
+    /**
+     * The checker version to use.
+     *
+     * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
+     * them until the artifact is on a public repository.
+     */
+    final Property<String> toolVersion
+
+    NullCheckExtension(Project project) {
+        this.extension = project.objects.property(String)
+        this.strict = project.objects.property(Boolean)
+        this.targets = project.objects.listProperty(String)
+        this.reportFile = project.objects.property(String)
+        this.canary = project.objects.property(Boolean)
+        this.failOnError = project.objects.property(Boolean)
+        this.toolVersion = project.objects.property(String)
+
+        extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
+        strict.convention(false)
+        // Both source roots by default: package-info.java lives in the Java one, and a
+        // package-level default is invisible without it.
+        targets.convention(['src/main/groovy', 'src/main/java'])
+        canary.convention(true)
+        failOnError.convention(false)
+        toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
+    }
+}

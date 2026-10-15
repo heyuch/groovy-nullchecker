@@ -1,0 +1,105 @@
+// Gradle plugin: a one-line entry point for the Groovy 4 null checker.
+//
+// This is a separate build from the checker itself (see the root settings.gradle's
+// includeBuild). That keeps the checker's own verification -- corpus gate, dual-run
+// comparison, published example -- completely untouched by plugin concerns, and lets the
+// two artifacts be versioned and published independently.
+plugins {
+    id 'groovy'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+}
+
+def spockVersion = '2.3-groovy-4.0'
+
+group = 'io.github.heyuch'
+version = '0.1.0'
+
+repositories {
+    // The checker itself, until it is on a public repository.
+    mavenLocal()
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+// Gradle 8 bundles Groovy 3, but this plugin and its tests target Groovy 4 (Spock's
+// groovy-4.0 build refuses to run under Groovy 3), so the compiler is pinned explicitly.
+configurations {
+    groovy4
+}
+
+// Functional tests drive real Gradle builds through TestKit; they are slower than unit
+// tests and need the checker published locally, so they are kept out of `test`.
+sourceSets {
+    functionalTest {
+        groovy.srcDir 'src/functionalTest/groovy'
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+dependencies {
+    groovy4 'org.apache.groovy:groovy:4.0.30'
+
+    // compileOnly: the plugin shells out to the checker's CLI rather than linking it.
+    // Depending on it at runtime would drag the checker into every consumer's build.
+    compileOnly 'io.github.heyuch:groovy4-nullchecker:0.1.0'
+
+    // All real verification happens in functionalTest (below), which drives actual Gradle
+    // builds. There are deliberately no unit tests: a unit test of this plugin would only
+    // assert that a task object has the fields it was given, which proves nothing about
+    // whether the checker ran.
+    functionalTestImplementation "org.spockframework:spock-core:${spockVersion}"
+    // TestKit is what actually runs the builds under test.
+    functionalTestImplementation gradleTestKit()
+    functionalTestRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Declare the plugin id -> implementation mapping. This also generates the plugin marker
+// artifact that `plugins { id '...' }` resolves.
+gradlePlugin {
+    plugins {
+        nullChecker {
+            id = 'io.github.heyuch.groovy4-nullchecker'
+            implementationClass = 'io.github.heyuch.groovy4.nullchecker.gradle.NullCheckPlugin'
+            displayName = 'groovy4-nullchecker'
+            description = 'Compile-time null checking for Groovy 4, from your build, without touching sources'
+        }
+    }
+}
+
+tasks.register('functionalTest', Test) {
+    group = 'verification'
+    description = 'Runs real Gradle builds against the plugin (Gradle TestKit)'
+    testClassesDirs = sourceSets.functionalTest.output.classesDirs
+    classpath = sourceSets.functionalTest.runtimeClasspath
+    useJUnitPlatform()
+    // The build under test pulls the plugin in with --include-build, so nothing needs to
+    // be published first. The checker itself is still resolved from mavenLocal, which is
+    // the same prerequisite a real consumer has.
+    systemProperty 'plugin.build.dir', projectDir.absolutePath
+    outputs.upToDateWhen { false }
+}
+
+tasks.withType(GroovyCompile).configureEach {
+    groovyClasspath = configurations.groovy4
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'functionalTest'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}

@@ -1,0 +1,12 @@
+// pluginManagement must come first in the file.
+pluginManagement {
+    repositories {
+        // Where the plugin marker lives until it is on the Gradle Plugin Portal.
+        mavenLocal()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositories { mavenLocal(); mavenCentral() }
+}
+rootProject.name = 'consumer-plugin-demo'

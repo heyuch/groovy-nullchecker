@@ -164,7 +164,27 @@ tasks.withType(GroovyCompile).configureEach {
 
 ---
 
-### 4. 推荐入口：CLI
+### 4. 最省事：Gradle 插件（一行接入）
+
+```groovy
+plugins {
+    id 'groovy'
+    id 'io.github.heyuch.groovy4-nullchecker' version '0.1.0'
+}
+```
+
+```bash
+./gradlew nullcheck
+```
+
+不改源码、不写 configuration script，完整支持 `@CompileStatic` 与包级注解。
+详见 **[nullchecker-gradle-plugin/README.md](nullchecker-gradle-plugin/README.md)** 与
+可运行示例 **[examples/consumer-plugin-demo](examples/consumer-plugin-demo/README.md)**。
+
+它**不在** `compileGroovy` 里跑（那需要 20 行内联包装器、每次编译都跑、错误还直接让编译失败），
+而是独立任务：**项目编译不过时也能出报告**，也不进你的运行时 classpath。
+
+### 5. 通用入口：CLI
 
 CLI 是**所有构建系统的最小公倍数**，支持 `@CompileStatic`、包级注解、strict 模式，
 而且**不需要改源码、也不需要 configuration script**：
