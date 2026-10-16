@@ -59,6 +59,23 @@ jobs:
       - name: Check
         run: ./gradlew check
 
+      # The jars go onto the Release page here, before the Central upload rather than after it.
+      # Maven Central reviews a first submission by hand, which can take days; a release whose
+      # assets only appear once that finishes is a release with nothing in it for the whole of
+      # that window. A GitHub Release asset is easier to withdraw than a Central coordinate, so
+      # this is the lower-risk half to publish first.
+      - name: Build the release artifacts
+        run: ./gradlew dist
+
+      - name: Attach the artifacts to the Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" build/dist/*.jar --clobber
+          gh release view "${GITHUB_REF_NAME}" --json assets \
+            --jq '.assets[].name' | sed 's/^/attached: /'
+
       # One upload covers the checker, the plugin and its marker: NMCP aggregates every
       # publication of the build into a single bundle.
       - name: Publish to Maven Central

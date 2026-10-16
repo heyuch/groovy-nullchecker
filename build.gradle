@@ -23,3 +23,51 @@ subprojects {
         mavenCentral()
     }
 }
+
+// ── 发布用的分发目录 ──────────────────────────────────────────────────────
+//
+// 把 release 要附带的文件集中到一个目录，文件名直接说清楚它是什么、怎么用。
+// 动机：GitHub Release 自动提供的只有源码 zip，而使用者想要的是能直接用的构件 ——
+// 一个含 class 的 jar。签名用的 .asc 与 .module 元数据不在这里：它们只对从 Maven
+// 仓库解析的消费者有意义，附在 Release 上只会让人以为可以手工丢进 classpath。
+//
+// 两个 jar 的用途不同，文件名据此命名：
+//   groovy-nullchecker-<v>.jar   放到【项目编译 classpath】上即可用（见 README 的 route B/C）
+//   nullchecker-gradle-plugin-*.jar 单独一个 jar 无法 import：Gradle 需要有仓库里的
+//                                    plugin marker。它列在这里是为了让"此版本发布了哪些构件"
+//                                    在 Release 页面上是完整的；要装它请用插件 id。
+tasks.register('dist') {
+    group = 'distribution'
+    description = 'Collects the artifacts to attach to a GitHub Release into build/dist'
+    dependsOn ':nullchecker:assemble', ':nullchecker-gradle-plugin:assemble'
+
+    def version = project.property('nullcheckerVersion').toString()
+    def outputDir = layout.buildDirectory.dir('dist')
+
+    doLast {
+        File dir = outputDir.get().asFile
+        delete(dir)
+        dir.mkdirs()
+        def libs = [
+                ':nullchecker'              : ["groovy-nullchecker-${version}"],
+                ':nullchecker-gradle-plugin': ["nullchecker-gradle-plugin-${version}"],
+        ]
+        libs.each { String path, List<String> baseNames ->
+            File libsDir = project.findProject(path).layout.buildDirectory.dir('libs').get().asFile
+            baseNames.each { String base ->
+                ['', '-sources', '-javadoc'].each { String suffix ->
+                    File src = new File(libsDir, "${base}${suffix}.jar")
+                    if (!src.isFile()) {
+                        throw new GradleException("dist: expected artifact is missing: ${src}")
+                    }
+                    // The bare jar keeps its published name so it is obvious which coordinate
+                    // it corresponds to; the classifiers say what they are.
+                    String name = suffix ? "${base}${suffix}.jar" : "${base}.jar"
+                    copy { from src; into dir; rename { name } }
+                }
+            }
+        }
+        logger.lifecycle("dist: ${dir.listFiles().sort { it.name }*.name.join(', ')}")
+        logger.lifecycle("dist: in ${dir}")
+    }
+}

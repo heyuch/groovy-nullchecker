@@ -135,6 +135,29 @@ old check — comparing that property against a `version` hardcoded in the plugi
 so they cannot disagree. The tag check stays, because the tag can still disagree with the
 property.
 
+## Release assets
+
+A GitHub Release automatically carries the two source archives and nothing else. The release
+workflow additionally builds and attaches the jars, because that is what a user can act on:
+`./gradlew dist` stages them in `build/dist/` and the workflow uploads them to the Release.
+
+| Asset | Usable how |
+| --- | --- |
+| `groovy-nullchecker-<v>.jar` | dropped straight onto a compile classpath — no repository, no coordinates |
+| `groovy-nullchecker-<v>-sources.jar` | for an IDE, or reading the port in context |
+| `groovy-nullchecker-<v>-javadoc.jar` | API reference |
+| `nullchecker-gradle-plugin-<v>.jar` | **not** used directly: Gradle needs a plugin marker in a repository, so the plugin is installed by id |
+| `nullchecker-gradle-plugin-<v>-{sources,javadoc}.jar` | same caveat |
+
+`.asc` signatures and `.module` metadata are deliberately not attached. They only mean
+something to a consumer resolving through a Maven repository; on a Release page they invite
+someone to drop a `.module` file into a `libs/` directory, where it does nothing.
+
+The plugin module's javadoc jar is empty: Gradle's `javadoc` task reads Java sources, and that
+module is written in Groovy. The jar still exists, which is what Central requires. The
+checker's javadoc jar has the same limitation but is non-empty because the module also
+contains one Java source.
+
 ## Consumers before a public release
 
 If the artifacts are not available from any reachable repository, the plugin fails the build

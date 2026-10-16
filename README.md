@@ -62,6 +62,20 @@ dependencies {
 You do **not** need `groovy-typecheckers`, and you do not need to add an annotation library —
 use whichever your project already has.
 
+If you would rather not depend on a repository at all, every release also attaches the jars
+directly. `groovy-nullchecker-<version>.jar` is self-contained — drop it on the compile
+classpath and route B or C works with no coordinates and no repository:
+
+```groovy
+dependencies {
+    compileOnly files('libs/groovy-nullchecker-0.1.0.jar')
+}
+```
+
+That jar has no dependencies of its own: you supply Groovy and your annotations, which a
+Groovy project has anyway. (The plugin is not usable this way — Gradle needs a plugin marker
+in a repository, so install it by id.)
+
 ### A. Gradle plugin (recommended — one line)
 
 Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
