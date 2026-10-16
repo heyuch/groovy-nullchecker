@@ -16,6 +16,12 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Attaching the jars to the Release needs to write repository contents. The repository's
+    # default for GITHUB_TOKEN is read-only, and the workflow-level block above sets read as
+    # well, so without this the upload step fails after the build has already succeeded.
+    # Scoped to this job rather than the workflow so the read default still applies elsewhere.
+    permissions:
+      contents: write
     # The signing key and the Central token live on this environment, which is restricted to
     # v* tags. A job that does not declare the environment receives empty strings for those
     # secrets rather than an error, so this line is what actually gates them.
