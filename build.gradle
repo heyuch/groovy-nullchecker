@@ -7,6 +7,17 @@
 //
 // 改用子模块而非 includeBuild 的理由，见 settings.gradle 里那段说明。
 
+// 根工程【自己】也需要一个仓库：NMCP 的聚合任务要解析 com.gradleup.nmcp:nmcp-tasks，
+// 而那个 configuration 挂在根工程上（聚合任务就在根工程）。
+// 之前只在 subprojects 里声明仓库，于是 check / publishToMavenLocal 全都正常，
+// 唯独真正发布的那一条 `publishAggregationToCentralPortal` 在最后一步失败：
+//   Cannot resolve external dependency com.gradleup.nmcp:nmcp-tasks:1.6.2
+//     because no repositories are defined
+// 第一次 release 就撞在这里。加 this 而不是并进 subprojects，是因为需要的正是根工程。
+repositories {
+    mavenCentral()
+}
+
 // 注意是 subprojects 而不是 allprojects：根工程不产出任何构件，也【不能】带上 group。
 // 根工程与 checker 模块现在同名（模块目录名 nullchecker），一旦连 group 也一致，
 // 被包含构建的自动依赖替换就会匹配到根工程而不是 :nullchecker，解析时以
