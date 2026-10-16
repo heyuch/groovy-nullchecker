@@ -178,7 +178,7 @@ Both `package-info.java` and `package-info.groovy` work, and a precompiled
 subpackages are **not** covered and must declare their own.
 
 > This goes beyond upstream — Groovy 6's `NullChecker` does not read package annotations at
-> all. See [PORT.md §4.3](PORT.md).
+> all. See [PORT.md §4.2](PORT.md).
 
 ---
 

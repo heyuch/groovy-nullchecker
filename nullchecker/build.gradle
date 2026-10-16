@@ -184,8 +184,16 @@ tasks.register('dualRun') {
         File portReport = dualRunReportDir.get().file('groovy4.txt').asFile
         File referenceReport = dualRunReportDir.get().file('groovy6.txt').asFile
         File diffFile = dualRunReportDir.get().file('diff.txt').asFile
+        // Line and column numbers are dropped before comparing. A finding that moves by a
+        // line -- because the port's javadoc happens to be a line longer, say -- is not a
+        // behavioural difference, and counting it as one buries the differences that are.
+        // The comparison is by file and message, which is what a deviation actually is.
         Closure<List<String>> normalize = { File f ->
-            f.readLines().findAll { String line -> line.startsWith('--- ') || line.startsWith('    ') }
+            f.readLines()
+                    .findAll { String line -> line.startsWith('--- ') || line.startsWith('    ') }
+                    .collect { String line ->
+                        line.replaceAll(/(\.groovy|package-info\.java):\d+:\d+/, '$1:L:C')
+                    }
         }
         List<String> port = normalize(portReport)
         List<String> reference = normalize(referenceReport)

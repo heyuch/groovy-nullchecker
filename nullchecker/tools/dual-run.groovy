@@ -19,11 +19,49 @@
  * (the only channel Groovy 6 offers).
  */
 
+import groovy.transform.CompilationUnitAware
+import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.classgen.GeneratorContext
 import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
 import org.codehaus.groovy.control.Phases
+import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
+import org.codehaus.groovy.control.customizers.CompilationCustomizer
+
+/**
+ * Registers the extension with an explicit phase, exactly as the real harness does.
+ *
+ * <p>A bare {@link ASTTransformationCustomizer} never reaches {@code @CompileStatic}
+ * classes, and the failure is silent: those fixtures report nothing under <em>both</em>
+ * implementations, which looks like agreement while actually measuring nothing. Wrapping is
+ * required for the same reason it is required in the product (see PORT.md §5.1): the
+ * registration phase has to be declared, and {@code ASTTransformationCustomizer} cannot be
+ * subclassed from Groovy, so this uses composition.
+ */
+class PhaseCustomizer extends CompilationCustomizer implements CompilationUnitAware {
+
+    private final ASTTransformationCustomizer delegate
+
+    PhaseCustomizer(ASTTransformationCustomizer delegate) {
+        super(CompilePhase.CANONICALIZATION)
+        this.delegate = delegate
+    }
+
+    @Override
+    void setCompilationUnit(CompilationUnit unit) {
+        if (delegate instanceof CompilationUnitAware) {
+            ((CompilationUnitAware) delegate).setCompilationUnit(unit)
+        }
+    }
+
+    @Override
+    void call(SourceUnit source, GeneratorContext context, ClassNode classNode) {
+        delegate.call(source, context, classNode)
+    }
+}
 
 class CorpusProbe {
 
@@ -48,8 +86,8 @@ class CorpusProbe {
                 : extension
 
         CompilerConfiguration configuration = new CompilerConfiguration()
-        configuration.addCompilationCustomizers(new ASTTransformationCustomizer(
-                [extensions: [name]], Class.forName('groovy.transform.TypeChecked')))
+        configuration.addCompilationCustomizers(new PhaseCustomizer(new ASTTransformationCustomizer(
+                [extensions: [name]], Class.forName('groovy.transform.TypeChecked'))))
 
         CompilationUnit unit = new CompilationUnit(configuration)
         // Sources are added as text so the fixture's extension placeholder can be

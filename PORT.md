@@ -145,9 +145,12 @@ if you rely on this rule.
 ## 4. Behavioural comparison with upstream
 
 The corpus is run under both implementations and the results are diffed
-(`./gradlew dualRun`). Everything matches except one case.
+(`./gradlew dualRun`). Line numbers are normalised away first, so a finding that merely moves
+is not reported as a difference.
 
-### 4.1 The one divergence
+Two divergences remain, and both are intended.
+
+### 4.1 Locally declared `@NonNull`
 
 | Fixture | This port | Groovy 6 |
 | --- | --- | --- |
@@ -158,7 +161,17 @@ would cost Groovy 4 users a whole rule family, and the difference is an overlay 
 implementation, AST and Groovy-version behaviour that cannot be isolated without changing
 verified behaviour.
 
-### 4.2 Everything that does match
+### 4.2 Package-level defaults
+
+| Fixtures | This port | Groovy 6 |
+| --- | --- | --- |
+| `pkg/marked/MarkedByPackage.groovy`, `pkg/marked/FieldsFromPackage.groovy` | **report** | do not report |
+
+Upstream does not read package annotations at all, so a `@NullMarked` package has no effect
+there. That difference appears on the `only-in-port` side of the diff, and it is the feature
+described in the README rather than a regression.
+
+### 4.3 Everything that does match
 
 Annotated returns, parameters and fields; `@MonotonicNonNull` reassignment; dereferences of
 `@Nullable` values, `@Nullable`-returning calls, safe-navigation results and `@Nullable`
@@ -169,13 +182,6 @@ All guard forms are silent in both implementations: `if (x != null)`, `else` bra
 `return`/`throw`, `?.`, Groovy truth, `&&`/`||`, `instanceof`, `Objects.nonNull`/`isNull`,
 `assert`, elvis, ternary, `while`, `requireNonNull`/`checkNotNull`, `assertNotNull` and
 fluent `assertThat(x).isNotNull()` chains.
-
-### 4.3 One intentional difference in scope
-
-**Package-level defaults are not supported by upstream at all** — Groovy 6's `NullChecker`
-does not read package annotations, so a `@NullMarked` package has no effect there. This port
-does read them. That difference appears on the `only-in-port` side of the `dualRun` diff, and
-it is a feature rather than a regression.
 
 ---
 
@@ -200,14 +206,32 @@ Measured against a `@CompileStatic` class: `CONVERSION`, `SEMANTIC_ANALYSIS` and
 `CANONICALIZATION` all report; `INSTRUCTION_SELECTION` does not, because the type-checking
 transformation has already been processed by then.
 
-### 5.2 Groovy instantiates the type-checking DSL once per class
+### 5.2 A comparison tool needs the same fix as the thing it compares
+
+The corpus is also compiled by a separate probe (`nullchecker/tools/dual-run.groovy`) so the
+same fixtures can run under both implementations. That probe originally registered the
+extension the obvious way, with a bare `ASTTransformationCustomizer` — the same mistake
+described in §5.1, in the tool rather than the product.
+
+The effect was worse than a wrong number. `@CompileStatic` fixtures reported nothing under
+**both** implementations, so the diff showed them as agreeing while measuring neither. The
+comparison silently stopped covering exactly the class shape it exists to guard, and the
+fixtures' own gate could not notice, because that gate checks findings rather than the
+absence of a comparison.
+
+The probe now declares the registration phase the same way the product does. Worth
+remembering when adding any second way to invoke the checker: it needs the same
+configuration, and the way to tell is to check that the comparison still moves when the
+product changes.
+
+### 5.3 Groovy instantiates the type-checking DSL once per class
 
 Coverage counters must not be reset inside `run()`: Groovy creates a new DSL instance and
 calls `run()` once per checked class (measured: 50 calls for 43 sources), so a reset there
 leaves the counters describing only the last class seen. The reset belongs to the caller,
 once per compilation.
 
-### 5.3 Gradle compiles configuration scripts with an isolated classloader
+### 5.4 Gradle compiles configuration scripts with an isolated classloader
 
 A Gradle `configurationScript` cannot import classes from the project's compile classpath,
 and `Class.forName` does not help — it throws `ClassNotFoundException` even with the checker
@@ -216,18 +240,18 @@ declared as a dependency, including when the dependency is changed from `compile
 `NullCheckCustomizer` is intended for programmatic use; the `nullcheck` task avoids the
 problem entirely by running the CLI in its own process.
 
-### 5.4 `extensions` must be a String
+### 5.5 `extensions` must be a String
 
 The annotation member is declared `Class[]`, but at runtime only a `String` is honoured.
 Passing a `Class` or `ClassExpression` is silently ignored, producing a green build that
 checked nothing.
 
-### 5.5 Annotations must be `RUNTIME`-retained
+### 5.6 Annotations must be `RUNTIME`-retained
 
 With `CLASS` retention the checker does not see the annotation and every rule based on it
 goes silent. This one is easy to hit with a hand-written annotation.
 
-### 5.6 `x in y` is not an obstacle
+### 5.7 `x in y` is not an obstacle
 
 `ScriptBytecodeAdapter.isIn` does not exist in Groovy 4.0.30, but because the source is
 recompiled against Groovy 4 rather than the jar being moved, the compiler emits Groovy 4's own
