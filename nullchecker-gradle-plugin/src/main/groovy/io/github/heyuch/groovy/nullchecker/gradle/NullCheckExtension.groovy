@@ -56,6 +56,22 @@ class NullCheckExtension {
     final ListProperty<String> failOn
 
     /**
+     * Guard methods that assert their first argument is non-null when they return true,
+     * as {@code com.acme.Utils#isNotEmpty}.
+     *
+     * <p>Only the first argument is considered, and the class must match exactly. The
+     * polarity is part of the declaration because it cannot be read off the name; getting
+     * it wrong would hide a real finding instead of adding noise.
+     */
+    final ListProperty<String> guardNotNullWhenTrue
+
+    /**
+     * Guard methods that assert their first argument is non-null when they return false,
+     * as {@code com.acme.MyCollectionUtils#isNullOrEmpty}.
+     */
+    final ListProperty<String> guardNotNullWhenFalse
+
+    /**
      * The checker version to use.
      *
      * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
@@ -71,6 +87,8 @@ class NullCheckExtension {
         this.canary = project.objects.property(Boolean)
         this.failOnError = project.objects.property(Boolean)
         this.failOn = project.objects.listProperty(String)
+        this.guardNotNullWhenTrue = project.objects.listProperty(String)
+        this.guardNotNullWhenFalse = project.objects.listProperty(String)
         this.toolVersion = project.objects.property(String)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
@@ -81,6 +99,8 @@ class NullCheckExtension {
         canary.convention(true)
         failOnError.convention(false)
         failOn.convention(['null', 'initialization'])
+        guardNotNullWhenTrue.convention([])
+        guardNotNullWhenFalse.convention([])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
     }
 }

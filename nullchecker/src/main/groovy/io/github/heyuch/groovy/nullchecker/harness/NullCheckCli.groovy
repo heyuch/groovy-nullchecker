@@ -29,6 +29,8 @@ class NullCheckCli {
   --report <file>       write the raw compiler output here
   --fail-on <list>      categories that fail the run (default: null,initialization;
                         use "all" for every category, including resolution errors)
+  --guard-when-true <c#m>   method asserts its first argument non-null when it returns true
+  --guard-when-false <c#m>  ... when it returns false (e.g. isNullOrEmpty); repeatable
   --quiet               only print findings
   --no-canary           skip the pre-flight self-check (NOT recommended)
   --help                show this message
@@ -71,6 +73,8 @@ but does not fail the run by default, because it is not a nullness claim.'''
         String report = null
         String extension = System.getProperty('nullchecker.extension') ?: DEFAULT_EXTENSION
         List<String> failOn = new ArrayList<String>(NullCheckHarness.DEFAULT_FAIL_ON)
+        List<String> guardsTrue = new ArrayList<String>()
+        List<String> guardsFalse = new ArrayList<String>()
         List<String> paths = []
 
         for (int i = 0; i < argv.size(); i++) {
@@ -102,6 +106,16 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     report = value(argv, ++i, arg, err)
                     if (report == null) return 2
                     break
+                case '--guard-when-true':
+                    String guardTrue = value(argv, ++i, arg, err)
+                    if (guardTrue == null) return 2
+                    guardsTrue << guardTrue
+                    break
+                case '--guard-when-false':
+                    String guardFalse = value(argv, ++i, arg, err)
+                    if (guardFalse == null) return 2
+                    guardsFalse << guardFalse
+                    break
                 case '--fail-on':
                     String spec = value(argv, ++i, arg, err)
                     if (spec == null) return 2
@@ -122,6 +136,8 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     paths << arg
             }
         }
+
+        applyGuards(guardsTrue, guardsFalse)
 
         List<File> files = []
         List<String> missing = []
@@ -177,6 +193,9 @@ but does not fail the run by default, because it is not a nullness claim.'''
             out.println "groovy     = ${GroovySystem.version}"
             out.println "extension  = ${extension}"
             out.println "strict     = ${strict}"
+            if (guardsTrue || guardsFalse) {
+                out.println "guards     = true:[${guardsTrue.join(',')}] false:[${guardsFalse.join(',')}]"
+            }
             out.println "files      = ${files.size()}"
         }
 
@@ -272,6 +291,17 @@ ${result.raw}
             selected.add(item)
         }
         selected
+    }
+
+    /**
+     * Publishes the guard lists where the checker reads them.
+     *
+     * <p>Separated from parsing so the same transport works for a caller that drives the
+     * checker directly: setting the two system properties is the whole contract.
+     */
+    private static void applyGuards(List<String> guardsTrue, List<String> guardsFalse) {
+        System.setProperty('groovy.nullchecker.guards.true', guardsTrue.join(','))
+        System.setProperty('groovy.nullchecker.guards.false', guardsFalse.join(','))
     }
 
     private static String value(List<String> argv, int index, String option, PrintStream err) {

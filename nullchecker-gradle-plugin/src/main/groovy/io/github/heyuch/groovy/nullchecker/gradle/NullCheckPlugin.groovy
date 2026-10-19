@@ -176,6 +176,12 @@ class NullCheckPlugin implements Plugin<Project> {
         if (!extension.failOn.get().isEmpty()) {
             args << '--fail-on' << extension.failOn.get().join(',')
         }
+        for (String guard : extension.guardNotNullWhenTrue.get()) {
+            args << '--guard-when-true' << guard
+        }
+        for (String guard : extension.guardNotNullWhenFalse.get()) {
+            args << '--guard-when-false' << guard
+        }
         File defaultReport = new File(project.layout.buildDirectory.get().asFile,
                 'reports/nullcheck/nullcheck.txt')
         args << '--report' << extension.reportFile.getOrElse(defaultReport.absolutePath)

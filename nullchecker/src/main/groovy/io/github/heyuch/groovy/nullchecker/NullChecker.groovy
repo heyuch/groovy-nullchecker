@@ -166,6 +166,31 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
     private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(['requireNonNull', 'checkNotNull'] as Set)
+    /** Guard methods declared by the caller, as {@code declaringClass#method}. */
+    private static final String GUARD_TRUE_PROPERTY = 'groovy.nullchecker.guards.true'
+
+    private static final String GUARD_FALSE_PROPERTY = 'groovy.nullchecker.guards.false'
+
+    private static Set<String> PORT_GUARDS_TRUE = Collections.emptySet()
+
+    private static Set<String> PORT_GUARDS_FALSE = Collections.emptySet()
+
+    /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
+    private static Set<String> readGuardEntries(String property) {
+        String raw = System.getProperty(property)
+        if (raw == null || raw.trim().isEmpty()) {
+            return Collections.emptySet()
+        }
+        Set<String> entries = new HashSet<String>()
+        for (String part : raw.split(',')) {
+            String entry = part.trim()
+            if (!entry.isEmpty()) {
+                entries.add(entry)
+            }
+        }
+        Collections.unmodifiableSet(entries)
+    }
+
     /** Packages whose constraints imply non-null but not "assigned in source". */
     private static final Set<String> VALIDATION_ANNO_PACKAGES = Collections.unmodifiableSet([
             'jakarta.validation.constraints', 'javax.validation.constraints'] as Set)
@@ -246,6 +271,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     Object run() {
         boolean strict = isStrictEnabled()
         PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+        PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
+        PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
         // run() would leave the counters describing only the last class seen (observed
@@ -653,16 +680,50 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     if (var != null) facts.whenTrue.add(var)
                 } else if (condition instanceof MethodCallExpression || condition instanceof StaticMethodCallExpression) {
                     def target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-                    if (target instanceof MethodNode && target.declaringClass?.name == 'java.util.Objects'
-                            && target.name in ['nonNull', 'isNull']) {
-                        def args = condition.arguments
-                        if (args instanceof TupleExpression && args.expressions.size() == 1) {
-                            def var = guardableVariable(args.getExpression(0))
-                            if (var != null) (target.name == 'nonNull' ? facts.whenTrue : facts.whenFalse).add(var)
-                        }
+                    if (target instanceof MethodNode) {
+                        applyObjectGuard(target, condition, facts)
+                        applyConfiguredGuard(target, condition, facts)
                     }
                 }
                 facts
+            }
+
+            /**
+             * Recognises {@code Objects.nonNull} / {@code Objects.isNull} by their fully
+             * qualified owner, so a same-named method elsewhere is not mistaken for them.
+             */
+            private void applyObjectGuard(MethodNode target, Expression condition, GuardFacts facts) {
+                if (target.declaringClass?.name != 'java.util.Objects') return
+                if (!(target.name in ['nonNull', 'isNull'])) return
+                def args = condition.arguments
+                if (!(args instanceof TupleExpression) || args.expressions.size() != 1) return
+                def var = guardableVariable(args.getExpression(0))
+                if (var == null) return
+                (target.name == 'nonNull' ? facts.whenTrue : facts.whenFalse).add(var)
+            }
+
+            /**
+             * Applies a guard the caller declared, matched by {@code declaringClass#method}.
+             *
+             * <p>The polarity cannot be inferred from the name, so it is declared: a method
+             * in the "when true" list asserts its first argument is non-null when it returns
+             * true ({@code isNotEmpty}), one in the "when false" list when it returns false
+             * ({@code isNullOrEmpty}). Getting the polarity wrong would silence a real
+             * finding rather than add noise, which is why the lists are separate instead of
+             * a suffix on one list.
+             */
+            private void applyConfiguredGuard(MethodNode target, Expression condition, GuardFacts facts) {
+                if (PORT_GUARDS_TRUE.isEmpty() && PORT_GUARDS_FALSE.isEmpty()) return
+                String key = target.declaringClass?.name + '#' + target.name
+                boolean whenTrue = PORT_GUARDS_TRUE.contains(key)
+                boolean whenFalse = PORT_GUARDS_FALSE.contains(key)
+                if (!whenTrue && !whenFalse) return
+                def args = condition.arguments
+                if (!(args instanceof TupleExpression) || !args.expressions) return
+                def var = guardableVariable(args.getExpression(0))
+                if (var == null) return
+                if (whenTrue) facts.whenTrue.add(var)
+                if (whenFalse) facts.whenFalse.add(var)
             }
 
             private Variable guardableVariable(Expression expr) {
