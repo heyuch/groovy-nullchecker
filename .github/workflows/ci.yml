@@ -42,10 +42,10 @@ jobs:
       - name: Check
         run: ./gradlew check
 
-      # Not part of `check`, and deliberately not gated: PORT.md §4.1 records one divergence
-      # against Groovy 6's own checker as expected, so a diff is a thing to look at rather than a
-      # failure. It runs here because it is the project's strongest evidence and costs seconds --
-      # and because drift against upstream is only visible if something runs the comparison.
+      # Not part of `check` because it needs the Groovy 6 reference implementation. It is a
+      # gate, not a report: the port is a fork, so divergences are expected, but each one has
+      # to be listed in nullchecker/tools/upstream-divergences.txt with a reason. An
+      # unlisted difference fails here, and so does a listed one that stopped happening.
       - name: Dual run against Groovy 6's checker
         run: ./gradlew dualRun
 

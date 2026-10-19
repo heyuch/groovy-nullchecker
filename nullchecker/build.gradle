@@ -201,6 +201,42 @@ tasks.register('dualRun') {
                 : "only-in-port:\n${(port - reference).join('\n')}\n\n" +
                   "only-in-reference:\n${(reference - port).join('\n')}\n"
 
+        // The port is a fork: it fixes defects and adds behaviour upstream does not have, so
+        // a non-empty diff is expected. What must not happen is a NEW divergence appearing
+        // unnoticed, or an old one quietly disappearing. Both fail; the accepted list lives
+        // in tools/upstream-divergences.txt with a reason each.
+        Map<String, List<String>> portByFixture = groupFindings(port)
+        Map<String, List<String>> referenceByFixture = groupFindings(reference)
+        Set<String> fixtureKeys = new LinkedHashSet<String>(portByFixture.keySet())
+        fixtureKeys.addAll(referenceByFixture.keySet())
+        List<String> observed = []
+        for (String key : fixtureKeys) {
+            if (portByFixture.get(key) != referenceByFixture.get(key)) {
+                observed.add(key)
+            }
+        }
+        observed.sort()
+        File acceptedFile = layout.projectDirectory.file('tools/upstream-divergences.txt').asFile
+        Set<String> accepted = readAcceptedDivergences(acceptedFile)
+
+        List<String> unexpected = observed.findAll { String key -> !accepted.contains(key) }
+        List<String> stale = new ArrayList<String>(accepted.findAll { String key ->
+            !observed.contains(key)
+        })
+        stale.sort()
+        List<String> problems = []
+        if (unexpected) {
+            problems << ("unexpected divergence -- decide whether it is intended, then list it in " +
+                    "${acceptedFile.name} with a reason, or fix it:\n  " + unexpected.join('\n  '))
+        }
+        if (stale) {
+            problems << ("listed divergence no longer occurs -- remove it from ${acceptedFile.name}, " +
+                    "or the list stops describing reality:\n  " + stale.join('\n  '))
+        }
+        if (problems) {
+            throw new GradleException("dualRun: " + problems.join('\n\n'))
+        }
+
         logger.lifecycle("dualRun: port=${port.size()} lines, reference=${reference.size()} lines, " +
                 "diff=${port == reference ? 'identical' : 'see ' + diffFile}")
         logger.lifecycle("dualRun reports: ${dualRunReportDir.get().asFile}")
@@ -274,4 +310,45 @@ signing {
                 providers.environmentVariable('MAVEN_GPG_PASSPHRASE').getOrElse(''))
     }
     sign publishing.publications
+}
+
+/**
+ * Groups one side's report lines by fixture and mode.
+ *
+ * <p>The header itself is kept in the group, so a difference in the number of findings
+ * counts as a difference even when every message happens to be identical.
+ */
+static Map<String, List<String>> groupFindings(List<String> lines) {
+    Map<String, List<String>> grouped = new LinkedHashMap<String, List<String>>()
+    String current = null
+    for (String line : lines) {
+        if (line.startsWith('--- ')) {
+            String header = line.substring(4)
+            int findingsAt = header.indexOf(' findings=')
+            current = findingsAt >= 0 ? header.substring(0, findingsAt) : header
+            List<String> group = new ArrayList<String>()
+            group.add(header.substring(findingsAt + ' findings='.length()))
+            grouped.put(current, group)
+        } else if (current != null) {
+            grouped.get(current).add(line.trim())
+        }
+    }
+    grouped
+}
+
+/** Reads the accepted divergences; blank lines and {@code #} comments are ignored. */
+static Set<String> readAcceptedDivergences(File file) {
+    Set<String> accepted = new LinkedHashSet<String>()
+    if (!file.isFile()) {
+        return accepted
+    }
+    for (String raw : file.readLines('UTF-8')) {
+        String line = raw.trim()
+        if (line.isEmpty() || line.startsWith('#')) {
+            continue
+        }
+        int reasonAt = line.indexOf('|')
+        accepted.add(reasonAt >= 0 ? line.substring(0, reasonAt) : line)
+    }
+    accepted
 }
