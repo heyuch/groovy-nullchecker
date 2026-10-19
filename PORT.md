@@ -110,6 +110,18 @@ file can reach a newer API without a warning and fail only on the consumer's mac
 
 ---
 
+### 2.6 Behavioural fixes adopted deliberately (3)
+
+The port is a fork: three upstream defects are fixed here rather than reproduced. Each is
+listed in `nullchecker/tools/upstream-divergences.txt`, and each has a corpus fixture that
+pairs the tolerated shape with one that must still be reported.
+
+| # | Upstream behaviour | What this port does | Why |
+| --- | --- | --- | --- |
+| 1 | `xs*.prop` is flagged safe, so its result is treated as nullable and the following call is reported | the spread property result is a `List` and never null | Groovy marks it safe because it tolerates a null receiver, not because it can be null. The defect fires in default mode as well, on the most ordinary collection code |
+| 2 | `continue` and `break` do not terminate a path, so `if (x == null) continue` narrows nothing | both count as path exits, like `return` and `throw` | The statements after the `if` run only when the branch was not taken. This is the narrowest loop guard in real code |
+| 3 | `jakarta`/`javax` validation `@NotNull` is honoured as a nullness contract *and* as a demand for definite initialisation | the contract is kept; only the initialisation requirement is suspended, and not inside a `@NullMarked` class | A runtime validation constraint promises non-null at validation time, not that the constructor assigned the field. Beans populated by an ORM or a deserializer start empty by design |
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker
@@ -148,7 +160,7 @@ The corpus is run under both implementations and the results are diffed
 (`./gradlew dualRun`). Line numbers are normalised away first, so a finding that merely moves
 is not reported as a difference.
 
-Two divergences remain, and both are intended.
+Five divergences remain, all intended: two additions (4.1, 4.2) and three fixes (4.3).
 
 ### 4.1 Locally declared `@NonNull`
 
@@ -171,7 +183,19 @@ Upstream does not read package annotations at all, so a `@NullMarked` package ha
 there. That difference appears on the `only-in-port` side of the diff, and it is the feature
 described in the README rather than a regression.
 
-### 4.3 Everything that does match
+### 4.3 The three fixes
+
+| Fixture | This port | Groovy 6 |
+| --- | --- | --- |
+| `negative/spread_property_result.groovy` | silent | reports the dereference (and, in strict mode, the local it is assigned to) |
+| `negative/guards_loop_exit.groovy` | silent | reports the guarded variable after `continue` / `break` |
+| `negative/validation_notnull_field.groovy` | silent in strict mode | reports both fields as uninitialised |
+
+These are the FP-1, FP-2 and FP-4 cases from §2.6. They appear on the `only-in-reference` side
+of the `dualRun` diff, and `dualRun` fails when one of them stops occurring, so the list
+cannot drift into a description of a comparison that no longer happens.
+
+### 4.4 Everything that does match
 
 Annotated returns, parameters and fields; `@MonotonicNonNull` reassignment; dereferences of
 `@Nullable` values, `@Nullable`-returning calls, safe-navigation results and `@Nullable`

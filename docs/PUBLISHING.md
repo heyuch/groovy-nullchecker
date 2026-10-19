@@ -60,7 +60,7 @@ repositories { mavenLocal(); mavenCentral() }
 ```
 
 The plugin marker requires an explicit version in the `plugins` block:
-`id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'`. Without a version Gradle reports
+`id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'`. Without a version Gradle reports
 "plugin dependency must include a version number", which reads like the plugin is missing.
 
 Publishing the same version again does not invalidate Gradle's dependency cache. Consumers

@@ -55,7 +55,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.1.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.2.0'
 }
 ```
 
@@ -68,7 +68,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.1.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.2.0.jar')
 }
 ```
 
@@ -82,7 +82,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'
 }
 ```
 
@@ -151,6 +151,13 @@ Matched by **simple name**, so the package does not matter:
 > Annotations must be `RUNTIME`-retained. With `CLASS` retention the checker cannot see them
 > and the rules go quiet. All common nullness libraries use `RUNTIME`.
 
+**Bean Validation's `@NotNull`** (`jakarta.validation.constraints` / `javax.validation...`) is
+a non-null contract and is honoured as one: assigning null, passing null and returning null
+are reported. It is **not** treated as a requirement to initialise the field in source,
+because a bean populated by an ORM or a deserializer is valid as long as it is non-null when
+validation runs — so strict mode does not report every mapped field. Inside a `@NullMarked`
+class the initialisation requirement stands: the marking is the stronger contract.
+
 ### Guard patterns it accepts
 
 These are recognised and do **not** produce findings:
@@ -163,6 +170,22 @@ These are recognised and do **not** produce findings:
 
 Validator and assertion methods are matched by simple name too, so JUnit, TestNG, AssertJ,
 Truth and Guava work without configuration.
+
+Your own helpers are not guessed — declare them, and say which result means "non-null":
+
+```groovy
+nullcheck {
+    // returns true  → the first argument is non-null (isNotEmpty, hasValue)
+    guardNotNullWhenTrue  = ['com.acme.Utils#isNotEmpty']
+    // returns false → the first argument is non-null (isNullOrEmpty, isBlank)
+    guardNotNullWhenFalse = ['com.acme.MyCollectionUtils#isNullOrEmpty']
+}
+```
+
+CLI: `--guard-when-true` / `--guard-when-false`, one entry per flag. Bare checker:
+`-Dgroovy.nullchecker.guards.true=...` / `.false`. Entries are matched as
+`declaringClass#method`, exactly, and only the first argument is considered. The polarity is
+declared rather than inferred: reading it backwards would hide a real finding.
 
 ---
 
@@ -223,6 +246,30 @@ With the Gradle plugin it is just `nullcheck { strict = true }`.
 
 ---
 
+## What fails a run
+
+Findings are categorised, because the checker shares one error collector with Groovy's static
+type checker:
+
+| Category | Meaning | Fails by default |
+| --- | --- | --- |
+| `null` | every nullness rule above | yes |
+| `initialization` | an explicitly non-null field no constructor assigns (strict) | yes |
+| `resolution` | the static checker could not resolve something in code that is dispatched dynamically at runtime | **no** |
+
+A resolution finding is not a nullness claim — such code compiles and runs — but it does mean
+the analysis was incomplete, so it is still printed and still counted. Configure with
+`failOn` (plugin) / `--fail-on` (CLI): default `null,initialization`; `all` makes everything
+fail, as earlier versions did.
+
+```
+findings   = 3 (null=2, initialization=0, resolution=1)
+fail-on    = null,initialization
+note       = 1 finding(s) outside the failing categories (reported, not failing)
+```
+
+---
+
 ## Why `0` is trustworthy
 
 A null checker's dangerous failure is silence: a check that never ran reports `0 findings`,
@@ -263,12 +310,13 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'
 }
 
 nullcheck {
     failOnError = true                        // default false: report only
     strict      = true                        // optional
+    failOn      = ['null', 'initialization']   // default; 'all' to fail on resolution too
     targets     = ['src/main/groovy', 'src/main/java']
 }
 ```
@@ -285,6 +333,9 @@ Full DSL and behaviour: [nullchecker-gradle-plugin/README.md](nullchecker-gradle
 | `strict` | Configured out of band, not as an extension parameter |
 | Annotations | Must be `RUNTIME`-retained |
 | Local declarations | This port reports a locally declared `@NonNull` initialised with null; Groovy 6 does not |
+| Spread results | `xs*.prop` is never null here; Groovy 6 reports the following call |
+| Loop exits | `continue` and `break` narrow like `return` here; Groovy 6 only recognises `return`/`throw` |
+| Validation constraints | Bean Validation `@NotNull` keeps its contract but does not require initialisation; Groovy 6 requires it |
 | Type inference | Checks relying on inferred nullness may report less than Groovy 6 |
 | Package annotations | Supported here, not upstream |
 

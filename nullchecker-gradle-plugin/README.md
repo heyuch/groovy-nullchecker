@@ -37,7 +37,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.1.0'   // 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'   // 版本号必填
 }
 
 repositories {
@@ -56,23 +56,31 @@ repositories {
 
 ```groovy
 nullcheck {
-    failOnError = true            // 有发现就让构建失败（默认 false，只报告）
+    failOnError = true            // 有"失败类"发现就让构建失败（默认 false，只报告）
+    failOn      = ['null', 'initialization']   // 哪些分类算失败；'all' 连解析错误一起失败
     strict      = true            // 流敏感：也分析未注解代码
     targets     = ['src/main/groovy', 'src/main/java']
     reportFile  = 'build/reports/nullcheck/nullcheck.txt'
     canary      = true            // 关掉自检（不建议）
-    toolVersion = '0.1.0'
+    toolVersion = '0.2.0'
+
+    // 项目自己的守卫方法：声明极性，而不是猜名字
+    guardNotNullWhenTrue  = ['com.acme.Utils#isNotEmpty']        // 返回 true  ⇒ 参数 0 非空
+    guardNotNullWhenFalse = ['com.acme.MyCollectionUtils#isNullOrEmpty']  // 返回 false ⇒ 参数 0 非空
 }
 ```
 
 | 属性 | 默认 | 说明 |
 | --- | --- | --- |
-| `failOnError` | `false` | 有发现时是否让构建失败。**建议先保持 false 摸底** |
+| `failOnError` | `false` | 有"失败类"发现时是否让构建失败。**建议先保持 false 摸底** |
+| `failOn` | `['null', 'initialization']` | 哪些分类算失败。`resolution`（静态检查解析不了的动态代码）默认只报告不失败；`['all']` 恢复"任何发现都失败" |
+| `guardNotNullWhenTrue` | `[]` | 返回 true 即保证参数 0 非空的方法，`类全名#方法名` |
+| `guardNotNullWhenFalse` | `[]` | 返回 false 即保证参数 0 非空的方法（如 `isNullOrEmpty`） |
 | `strict` | `false` | 打开后报告量会明显上升 |
 | `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
-| `toolVersion` | `0.1.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
+| `toolVersion` | `0.2.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
 
