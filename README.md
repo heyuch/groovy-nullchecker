@@ -190,6 +190,25 @@ CLI: `--guard-when-true` / `--guard-when-false`, one entry per flag. Bare checke
 `declaringClass#method`, exactly, and only the first argument is considered. The polarity is
 declared rather than inferred: reading it backwards would hide a real finding.
 
+Common library helpers need declaring too — they are not guessed, because a `isBlank` in one
+codebase does not always mean what it does in another:
+
+```groovy
+guardNotNullWhenFalse = [
+    'com.acme.MyCollectionUtils#isNullOrEmpty',
+    'org.apache.commons.lang3.StringUtils#isBlank',
+]
+guardNotNullWhenTrue = [
+    'com.acme.MyCollectionUtils#isNotNullOrEmpty',
+    'org.apache.commons.lang3.StringUtils#isNotBlank',
+    'org.springframework.util.StringUtils#hasText',
+]
+```
+
+Collecting this list once per project is the whole tuning cost: on a real 251-file module the
+only findings left after declaring its own helpers were strict-mode ones — a safe-navigation
+result dereferenced without a check.
+
 ---
 
 ## Package-level defaults
