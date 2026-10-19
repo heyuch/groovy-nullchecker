@@ -191,7 +191,7 @@ class Clean {
 
         then: 'a clean run must not fail, and must still show it checked something'
         result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
-        result.output.contains('no findings')
+        result.output.contains('no failing findings')
 
         and: 'coverage proves the statically compiled class was visited rather than skipped'
         result.output.contains('compileStatic=1')

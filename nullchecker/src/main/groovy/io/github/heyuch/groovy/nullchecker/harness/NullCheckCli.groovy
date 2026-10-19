@@ -27,6 +27,8 @@ class NullCheckCli {
   --support <dir>       directory of shared stub sources
   --extension <fqcn>    type-checking extension to run
   --report <file>       write the raw compiler output here
+  --fail-on <list>      categories that fail the run (default: null,initialization;
+                        use "all" for every category, including resolution errors)
   --quiet               only print findings
   --no-canary           skip the pre-flight self-check (NOT recommended)
   --help                show this message
@@ -36,7 +38,12 @@ Before reporting anything, the tool checks a built-in, deliberately broken sampl
 reported. A silently broken checker would otherwise print "0 findings", which is
 indistinguishable from clean code.
 
-exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misuse'''
+exit codes: 0 = nothing to fail on, 1 = a finding in a --fail-on category,
+            2 = the checker is not working / misuse
+
+Findings are categorised. A resolution error means the static checker could not
+resolve something in code that is dynamically dispatched at runtime; it is reported
+but does not fail the run by default, because it is not a nullness claim.'''
 
     /**
      * Runs the tool.
@@ -63,6 +70,7 @@ exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misu
         String support = null
         String report = null
         String extension = System.getProperty('nullchecker.extension') ?: DEFAULT_EXTENSION
+        List<String> failOn = new ArrayList<String>(NullCheckHarness.DEFAULT_FAIL_ON)
         List<String> paths = []
 
         for (int i = 0; i < argv.size(); i++) {
@@ -93,6 +101,17 @@ exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misu
                 case '--report':
                     report = value(argv, ++i, arg, err)
                     if (report == null) return 2
+                    break
+                case '--fail-on':
+                    String spec = value(argv, ++i, arg, err)
+                    if (spec == null) return 2
+                    List<String> parsed = parseFailOn(spec)
+                    if (parsed == null) {
+                        err.println("nullcheck: unknown category in --fail-on: ${spec}")
+                        err.println('nullcheck: valid categories are null, initialization, resolution, all')
+                        return 2
+                    }
+                    failOn = parsed
                     break
                 default:
                     if (arg.startsWith('-')) {
@@ -189,10 +208,19 @@ exit codes: 0 = no findings, 1 = findings, 2 = the checker is not working / misu
         }
 
         result.findings.each { NullCheckHarness.Finding f -> out.println "FINDING ${f}" }
+        List<NullCheckHarness.Finding> failing = NullCheckHarness.findingsIn(result.findings, failOn)
         if (!quiet) {
-            out.println "findings   = ${result.findings.size()}"
+            Map<String, Integer> counts = NullCheckHarness.categoryCounts(result.findings)
+            out.println "findings   = ${result.findings.size()} (" +
+                    "null=${counts['null']}, initialization=${counts['initialization']}, " +
+                    "resolution=${counts['resolution']})"
             // Coverage is what makes a zero meaningful: it shows how much was looked at.
             out.println "coverage   = ${result.coverage}"
+            out.println "fail-on    = ${failOn.join(',')}"
+            if (result.findings.size() > failing.size()) {
+                out.println "note       = ${result.findings.size() - failing.size()} finding(s) outside " +
+                        'the failing categories (reported, not failing)'
+            }
             if (result.collectedOnly) {
                 out.println 'note       = compiler returned normally but had collected errors'
             }
@@ -215,7 +243,35 @@ ${result.raw}
             }
         }
 
-        result.findings ? 1 : 0
+        failing ? 1 : 0
+    }
+
+    /**
+     * Parses a {@code --fail-on} value into category labels.
+     *
+     * @param spec comma-separated labels, or {@code all}
+     * @return labels, or {@code null} when the spec names an unknown category
+     */
+    private static List<String> parseFailOn(String spec) {
+        List<String> labels = []
+        for (NullCheckHarness.Category category : NullCheckHarness.Category.values()) {
+            labels.add(category.label)
+        }
+        List<String> selected = []
+        for (String raw : spec.split(',')) {
+            String item = raw.trim().toLowerCase()
+            if (item.isEmpty()) {
+                continue
+            }
+            if (item == 'all') {
+                return labels
+            }
+            if (!labels.contains(item)) {
+                return null
+            }
+            selected.add(item)
+        }
+        selected
     }
 
     private static String value(List<String> argv, int index, String option, PrintStream err) {

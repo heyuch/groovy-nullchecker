@@ -63,16 +63,100 @@ class NullCheckHarness {
         file.isFile() && (file.name.endsWith('.groovy') || file.name == 'package-info.java')
     }
 
+    /**
+     * What kind of problem a finding is.
+     *
+     * <p>The checker shares one error collector with Groovy's own static type checker, so a
+     * run also reports things that are not nullness problems at all -- most often a method
+     * the static checker could not resolve in code that is dynamically dispatched at
+     * runtime. Both are worth seeing; only the first kind should fail a build.
+     */
+    static enum Category {
+        /** A nullness rule: dereference, return, assignment, argument. */
+        NULL,
+        /** An explicitly annotated field that no constructor assigns. */
+        INITIALIZATION,
+        /** A compiler or type-checker error that is not a nullness finding. */
+        RESOLUTION
+
+        String getLabel() {
+            name().toLowerCase()
+        }
+    }
+
+    /** Message fragments that identify a nullness finding. */
+    private static final List<String> NULL_FRAGMENTS = [
+            'Potential null dereference:',
+            'Cannot dereference null',
+            'Cannot return null from @NonNull method',
+            'Cannot return @Nullable value from @NonNull method',
+            'Cannot assign null to @NonNull',
+            'Cannot assign null to @MonotonicNonNull',
+            'Cannot pass null to @NonNull parameter',
+            'Cannot pass @Nullable value to @NonNull parameter',
+    ] as List<String>
+
+    /** Categories that fail a run by default: the nullness rules the tool exists for. */
+    static final List<String> DEFAULT_FAIL_ON = [Category.NULL.label, Category.INITIALIZATION.label] as List<String>
+
     /** One reported problem, normalised to a stable single line. */
     static class Finding {
         String path
         int line
         String message
+        Category category = Category.RESOLUTION
 
         @Override
         String toString() {
             "${path}:${line}: ${message}"
         }
+    }
+
+    /**
+     * Classifies one compiler message.
+     *
+     * <p>Anything that is not one of the checker's own messages is classed as RESOLUTION:
+     * it came from the compiler, so it is a statement about the analysis rather than a
+     * nullness claim.
+     */
+    static Category categoryOf(String message) {
+        if (message == null) {
+            return Category.RESOLUTION
+        }
+        for (String fragment : NULL_FRAGMENTS) {
+            if (message.contains(fragment)) {
+                return Category.NULL
+            }
+        }
+        if (message.contains('@NonNull field')) {
+            return Category.INITIALIZATION
+        }
+        Category.RESOLUTION
+    }
+
+    /** Counts findings per category label, in a stable order. */
+    static Map<String, Integer> categoryCounts(List<Finding> findings) {
+        Map<String, Integer> counts = [:]
+        for (Category category : Category.values()) {
+            counts[category.label] = 0
+        }
+        for (Finding finding : findings) {
+            String label = (finding.category ?: Category.RESOLUTION).label
+            counts[label] = counts[label] + 1
+        }
+        counts
+    }
+
+    /** Findings whose category is one of {@code categories}. */
+    static List<Finding> findingsIn(List<Finding> findings, Collection<String> categories) {
+        List<Finding> selected = []
+        for (Finding finding : findings) {
+            String label = (finding.category ?: Category.RESOLUTION).label
+            if (categories.contains(label)) {
+                selected.add(finding)
+            }
+        }
+        selected
     }
 
     /** Result of one compilation. */
@@ -278,9 +362,11 @@ class NullCheckHarness {
             if (matcher.matches()) {
                 String path = (String) matcher.group(1)
                 String resolved = known.find { String k -> k == path || k.endsWith(File.separator + path) }
+                String text = ((String) matcher.group(3)).trim()
                 out << new Finding(path: resolved ?: path,
                         line: Integer.parseInt((String) matcher.group(2)),
-                        message: ((String) matcher.group(3)).trim())
+                        message: text,
+                        category: categoryOf(text))
             }
         }
         out
@@ -289,6 +375,7 @@ class NullCheckHarness {
     private static Finding errorToFinding(Object error, List<File> files) {
         String text = error.toString()
         List<Finding> parsed = parseFindings(text, files)
-        parsed ? parsed.first() : new Finding(path: '', line: 0, message: text.trim())
+        parsed ? parsed.first() : new Finding(path: '', line: 0, message: text.trim(),
+                category: categoryOf(text))
     }
 }

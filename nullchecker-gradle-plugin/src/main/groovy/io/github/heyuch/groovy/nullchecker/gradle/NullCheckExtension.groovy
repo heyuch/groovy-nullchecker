@@ -45,6 +45,17 @@ class NullCheckExtension {
     final Property<Boolean> failOnError
 
     /**
+     * Finding categories that make {@code nullcheck} fail, as a non-zero exit.
+     *
+     * <p>Defaults to {@code ['null', 'initialization']}. A {@code resolution} finding means
+     * Groovy's static checker could not resolve something in code that is dispatched
+     * dynamically at runtime; it is reported in the output but does not fail the run,
+     * because it says nothing about nullness. Use {@code ['all']} for the strictest
+     * behaviour, or {@code ['null']} to ignore uninitialised-field reports too.
+     */
+    final ListProperty<String> failOn
+
+    /**
      * The checker version to use.
      *
      * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
@@ -59,6 +70,7 @@ class NullCheckExtension {
         this.reportFile = project.objects.property(String)
         this.canary = project.objects.property(Boolean)
         this.failOnError = project.objects.property(Boolean)
+        this.failOn = project.objects.listProperty(String)
         this.toolVersion = project.objects.property(String)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
@@ -68,6 +80,7 @@ class NullCheckExtension {
         targets.convention(['src/main/groovy', 'src/main/java'])
         canary.convention(true)
         failOnError.convention(false)
+        failOn.convention(['null', 'initialization'])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
     }
 }

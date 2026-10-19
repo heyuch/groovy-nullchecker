@@ -105,7 +105,8 @@ class NullCheckPlugin implements Plugin<Project> {
             javaExec.doLast {
                 int code = javaExec.executionResult.get().exitValue
                 if (code == 0) {
-                    javaExec.logger.lifecycle('nullcheck: no findings')
+                    javaExec.logger.lifecycle('nullcheck: no failing findings ' +
+                            "(failOn=${extension.failOn.get().join(',')})")
                 } else if (code == 1) {
                     javaExec.logger.lifecycle('nullcheck: findings reported (exit 1)')
                     if (extension.failOnError.get()) {
@@ -171,6 +172,9 @@ class NullCheckPlugin implements Plugin<Project> {
         }
         if (!extension.canary.get()) {
             args << '--no-canary'
+        }
+        if (!extension.failOn.get().isEmpty()) {
+            args << '--fail-on' << extension.failOn.get().join(',')
         }
         File defaultReport = new File(project.layout.buildDirectory.get().asFile,
                 'reports/nullcheck/nullcheck.txt')
