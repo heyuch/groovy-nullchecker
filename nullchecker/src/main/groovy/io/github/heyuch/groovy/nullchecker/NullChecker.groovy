@@ -30,6 +30,7 @@ package io.github.heyuch.groovy.nullchecker
 
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.AnnotatedNode
+import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.CodeVisitorSupport
 import org.codehaus.groovy.ast.ConstructorNode
@@ -60,6 +61,8 @@ import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
+import org.codehaus.groovy.ast.expr.ClosureExpression
+import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.Statement
 import org.codehaus.groovy.ast.stmt.ThrowStatement
@@ -592,12 +595,94 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
             @Override
             void visitMethodCallExpression(MethodCallExpression call) {
-                super.visitMethodCallExpression(call)
+                // A closure passed to an iteration method receives the collection's element,
+                // so when that element is nullable the closure's parameter is too. The hint is
+                // pushed before visiting the arguments, because that is when the closure body
+                // is walked.
+                boolean elementClosure = closureReceivesNullableElement(call)
+                closureElementHint.push(elementClosure)
+                try {
+                    super.visitMethodCallExpression(call)
+                } finally {
+                    closureElementHint.pop()
+                }
                 if (!call.safe && !call.implicitThis) {
                     checkDereference(call.objectExpression, call)
                 }
                 checkMethodArguments(call)
                 applyCallNarrowing(call)
+            }
+
+            /**
+             * Tracks the variables introduced by an element iteration: a {@code for} loop
+             * variable, or a closure parameter of an iteration method.
+             *
+             * <p>The annotation lives on the collection's type argument, which Groovy does not
+             * copy onto the variable it hands out. Recording the variable is therefore the only
+             * way to make the existing dereference rules see it, and it keeps the rules in one
+             * place instead of adding a parallel check.
+             */
+            private final Set<Variable> nullableElements = new HashSet<>()
+
+            private final Deque<Boolean> closureElementHint = new ArrayDeque<>()
+
+            private final Deque<Boolean> closureElementContext = new ArrayDeque<>()
+
+            /** Iteration methods whose first closure parameter is the element. */
+            private static final Set<String> ELEMENT_ITERATION_METHODS = [
+                    'each', 'collect', 'collectMany', 'collectEntries', 'find', 'findAll', 'findResult',
+                    'any', 'every', 'eachWithIndex', 'count', 'sum', 'groupBy', 'unique',
+                    'takeWhile', 'dropWhile', 'sort'] as Set<String>
+
+            @Override
+            void visitForLoop(ForStatement statement) {
+                Parameter loopVar = statement.variable
+                boolean elementNullable = hasNullableElementType(typeOfExpression(statement.collectionExpression))
+                if (loopVar != null && elementNullable) {
+                    nullableElements.add(loopVar)
+                }
+                try {
+                    super.visitForLoop(statement)
+                } finally {
+                    if (loopVar != null && elementNullable) {
+                        nullableElements.remove(loopVar)
+                    }
+                }
+            }
+
+            @Override
+            void visitClosureExpression(ClosureExpression expression) {
+                boolean hinted = !closureElementHint.isEmpty() && closureElementHint.peek()
+                Set<Variable> saved = new HashSet<>(nullableElements)
+                if (hinted) {
+                    Parameter[] parameters = expression.parameters
+                    if (parameters != null && parameters.length > 0) {
+                        nullableElements.add(parameters[0])
+                        // sort's comparator receives two elements, both of them elements
+                        if (parameters.length > 1) {
+                            nullableElements.add(parameters[1])
+                        }
+                    }
+                }
+                closureElementContext.push(hinted)
+                try {
+                    super.visitClosureExpression(expression)
+                } finally {
+                    closureElementContext.pop()
+                    nullableElements.clear()
+                    nullableElements.addAll(saved)
+                }
+            }
+
+            private boolean closureReceivesNullableElement(MethodCallExpression call) {
+                if (!(call.methodAsString in ELEMENT_ITERATION_METHODS)) return false
+                hasNullableElementType(typeOfExpression(call.objectExpression))
+            }
+
+            /** Whether a variable is an element of a collection whose element type is nullable. */
+            private boolean isNullableElement(VariableExpression receiver, Variable target) {
+                if (nullableElements.contains(target)) return true
+                receiver.name == 'it' && !closureElementContext.isEmpty() && closureElementContext.peek()
             }
 
             @Override
@@ -937,6 +1022,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     boolean isMonotonicAndInitialized = target instanceof AnnotatedNode && hasMonotonicAnno(target) && monotonicInitialized.contains(target)
                     if (target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
                         addStaticTypeError("Potential null dereference: '${receiver.name}' is @Nullable", context)
+                    } else if (isNullableElement(receiver, target) && !guardedVars.contains(target)) {
+                        addStaticTypeError("Potential null dereference: '${receiver.name}' may be null", context)
                     } else if (flowSensitive && nullableVars.contains(target) && !guardedVars.contains(target)) {
                         addStaticTypeError("Potential null dereference: '${receiver.name}' may be null", context)
                     }
@@ -994,6 +1081,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 if (expr instanceof VariableExpression) {
                     def target = findTargetVariable(expr)
                     if (guardedVars.contains(target)) return false
+                    if (isNullableElement(expr, target)) return true
                     if (target instanceof AnnotatedNode && hasNullableAnno(target)) return true
                     return nullableVars.contains(target)
                 }
@@ -1354,6 +1442,38 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
     private static String normalisePackageName(String name) {
         name == null ? null : name.replaceAll(/\.$/, '')
+    }
+
+    /** The resolved type of an expression, falling back to its declared type. */
+    private static ClassNode typeOfExpression(Expression expression) {
+        if (expression == null) return null
+        def inferred = expression.getNodeMetaData(StaticTypesMarker.INFERRED_TYPE)
+        inferred instanceof ClassNode ? (ClassNode) inferred : expression.type
+    }
+
+    /**
+     * Whether a collection type's elements are nullable.
+     *
+     * <p>For {@code List<@Nullable String>} the annotation sits on the type argument, which is
+     * where JSpecify puts it and where Groovy keeps it; arrays carry it on the component type.
+     */
+    private static boolean hasNullableElementType(ClassNode type) {
+        if (type == null) return false
+        if (type.array) return hasNullableTypeUse(type.componentType)
+        // Iterating a Map yields Map.Entry, which is not the key: the annotation on the first
+        // type argument says nothing about the entry. Treating it as the element would report
+        // every entry dereference in a map typed with nullable keys.
+        if (isMapLike(type)) return false
+        def generics = type.genericsTypes
+        generics != null && generics.length > 0 && hasNullableTypeUse(generics[0].type)
+    }
+
+    private static boolean isMapLike(ClassNode type) {
+        type.name == 'java.util.Map' || type.isDerivedFrom(ClassHelper.MAP_TYPE)
+    }
+
+    private static boolean hasNullableTypeUse(ClassNode type) {
+        type?.typeAnnotations?.any { it.classNode?.nameWithoutPackage in NULLABLE_ANNOS } ?: false
     }
 
     /** The annotation with the given simple name on a node, or {@code null}. */

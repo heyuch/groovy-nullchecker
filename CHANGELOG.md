@@ -12,6 +12,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   guard contract (the `isNullOrEmpty` case) instead of every caller configuring it. `#N`
   references are supported; anything else is ignored rather than guessed at. A reversed
   `result` still reports the guarded code, so a mislabelled contract cannot hide a finding.
+- **Container element checking** covers iteration as well as access: a `for`-each variable and
+  a closure parameter of `List<@Nullable E>` are nullable values, so `for (String s : xs)
+  s.length()` and `xs.each { it.length() }` are reported. Subscript, `get()` and `first()`
+  already were; a null check or safe navigation still silences them.
 - **`@NotEmpty` and `@NotBlank` are non-null contracts**, alongside `@NotNull`, because both
   reject null before checking content. They keep the validation constraint's exemption from
   the initialisation rule. `org.hibernate.validator.constraints` joins the family.

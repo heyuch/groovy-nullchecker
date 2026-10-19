@@ -157,6 +157,18 @@ A reversed `result` on `@EnsuresNonNullIf` narrows the wrong branch, so the guar
 still reported. That is the intended failure direction: a mislabelled contract must not be
 able to hide a finding.
 
+### 2.9 Container elements handed out by iteration (2)
+
+Upstream recognises the element of `List<@Nullable E>` only where the value comes from a
+subscript, `get(...)` or a DGM accessor such as `first()`. A `for`-each variable and a closure
+parameter receive the same element, but Groovy does not copy the type-use annotation onto the
+variable it introduces, so both used to look non-null.
+
+This port records those variables as they enter scope and treats them as nullable for the
+existing dereference rules. A check narrows them, safe navigation avoids the dereference, and
+`List<String>` without the annotation reports nothing — pinned by
+`negative/element_iteration_guarded.groovy` and its positive counterpart.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker
@@ -188,6 +200,15 @@ is not reported. Keep the initialisation and the invalidating assignment in the 
 if you rely on this rule.
 
 ---
+
+### 3.5 Map iteration is deliberately not tracked
+
+Iterating a `Map<@Nullable K, V>` yields `Map.Entry`, not the key; `Map.each` on the other hand
+passes the key and the value as two closure parameters. Distinguishing the two requires knowing
+each method's closure arity and semantics, and getting it wrong would make every entry
+dereference in a map with nullable keys a finding. Maps are therefore excluded from element
+tracking entirely: a nullable key or value is not followed into iteration. Accessing an element
+directly (`map[key]`, `map.get(key)`) still yields the value type and is checked as before.
 
 ## 4. Behavioural comparison with upstream
 

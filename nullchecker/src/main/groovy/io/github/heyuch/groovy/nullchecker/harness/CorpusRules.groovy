@@ -63,6 +63,7 @@ class CorpusRules {
             N15: 'a validation constraint does not require initialisation in source',
             N17: '@EnsuresNonNullIf narrows the named argument in the declared branch',
             N18: '@EnsuresNonNull narrows the named argument after a normal return',
+            N19: 'nullable collection elements narrow on a check and stay silent otherwise',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

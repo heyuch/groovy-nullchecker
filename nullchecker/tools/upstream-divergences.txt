@@ -29,6 +29,10 @@ negative/guards_ensures_nonnull_if.groovy [strict]|@EnsuresNonNullIf narrows the
 negative/guards_ensures_nonnull.groovy [annotations]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 negative/guards_ensures_nonnull.groovy [strict]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 
+# ── Container elements handed out by iteration ───────────────────────────────
+positive/element_iteration_deref.groovy [annotations]|a for-each variable or closure parameter receives List<@Nullable E>'s element; upstream only handles subscript, get() and first()
+positive/element_iteration_deref.groovy [strict]|a for-each variable or closure parameter receives List<@Nullable E>'s element; upstream only handles subscript, get() and first()
+
 # ── Bean Validation's stronger constraints ───────────────────────────────────
 positive/validation_notblank_argument.groovy [annotations]|@NotBlank rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
 positive/validation_notblank_argument.groovy [strict]|@NotBlank rejects null before checking content, so it is a non-null contract; upstream only knows NotNull

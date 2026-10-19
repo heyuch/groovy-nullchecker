@@ -186,6 +186,30 @@ strict=any
 expect=none
 note=unconditional postcondition, the annotation form of requireNonNull
 
+positive/element_subscript_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=subscript, get() and first() on List<@Nullable String>
+
+positive/element_iteration_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=for-each variable, closure parameter and implicit it
+
+negative/element_map_iteration.groovy
+rule=N19
+strict=any
+expect=none
+note=a nullable map key does not make the entry nullable
+
+negative/element_iteration_guarded.groovy
+rule=N19
+strict=any
+expect=none
+note=checked elements, safe navigation and non-null element types stay silent
+
 positive/guards_ensures_nonnull_if_reversed.groovy
 rule=R05
 strict=any

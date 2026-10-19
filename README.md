@@ -132,6 +132,8 @@ Runnable consumer projects for both paths are in [examples/](examples/).
 | Dereferencing a `@Nullable` value | `@Nullable String s; s.length()` |
 | Dereferencing a `@Nullable`-returning call | `maybe().length()` |
 | Dereferencing a safe-navigation result | `a?.b.c` — write `a?.b?.c` |
+| Dereferencing a nullable **element** | `List<@Nullable String> xs; xs[0].length()`, `xs.get(0)`, `xs.first()` |
+| Dereferencing a nullable element from iteration | `for (String s : xs) s.length()`, `xs.each { it.length() }` |
 | Passing null to a `@NonNull` parameter | `take(null)` |
 | Passing a `@Nullable` value to a `@NonNull` parameter | `take(maybe())` |
 | **strict mode:** flow-sensitive dereference | `String s = null; s.length()` |
@@ -163,6 +165,36 @@ treated as a requirement to initialise the field in source,
 because a bean populated by an ORM or a deserializer is valid as long as it is non-null when
 validation runs — so strict mode does not report every mapped field. Inside a `@NullMarked`
 class the initialisation requirement stands: the marking is the stronger contract.
+
+### Container elements
+
+The annotation can sit on a type argument, and then it describes the elements rather than the
+collection:
+
+```groovy
+List<@Nullable String> names
+```
+
+Every way of taking an element out of it yields a nullable value, so all of these are
+reported unless the value is checked:
+
+```groovy
+names[0].length()              // subscript
+names.get(0).length()          // get()
+names.first().length()         // DGM accessor
+for (String name : names) {    // for-each variable
+    name.length()
+}
+names.each { it.length() }     // closure parameter and implicit it
+```
+
+A null check narrows the element like any other nullable value (`if (name != null) …`), safe
+navigation avoids the dereference, and `List<String>` — without the annotation — reports
+nothing.
+
+Maps are the exception: iteration yields `Map.Entry`, and `Map.each` passes key and value as
+two parameters, so the checker does not follow a nullable key or value into iteration. Reading
+through the map (`map[key]`, `map.get(key)`) is checked as usual.
 
 ### Guard patterns it accepts
 
