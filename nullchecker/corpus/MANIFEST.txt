@@ -186,6 +186,18 @@ strict=any
 expect=none
 note=unconditional postcondition, the annotation form of requireNonNull
 
+negative/guards_contract.groovy
+rule=N20
+strict=any
+expect=none
+note=null -> fail, null -> true and null -> false clauses all narrow
+
+positive/guards_contract_wrong_argument.groovy
+rule=R05
+strict=any
+expect=some
+note=_, null -> fail must not narrow the first argument
+
 positive/element_subscript_deref.groovy
 rule=R05
 strict=any
@@ -197,6 +209,18 @@ rule=R05
 strict=any
 expect=some
 note=for-each variable, closure parameter and implicit it
+
+positive/element_map_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=nullable map key and value through entry, get, subscript, values, keySet and each
+
+negative/element_map_guarded.groovy
+rule=N19
+strict=any
+expect=none
+note=checked map halves and a map with nothing nullable stay silent
 
 negative/element_map_iteration.groovy
 rule=N19

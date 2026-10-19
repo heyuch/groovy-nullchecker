@@ -169,6 +169,12 @@ existing dereference rules. A check narrows them, safe navigation avoids the der
 `List<String>` without the annotation reports nothing — pinned by
 `negative/element_iteration_guarded.groovy` and its positive counterpart.
 
+Maps are tracked per half: the entry is never null, but `entry.key` and `entry.value` carry
+the key and value types of the map being iterated, and `each`/`eachWithIndex` receive
+`(key, value)` rather than the entry. Reading through the map, `values()`, `keySet()` and
+`collect { it.value }` are covered too. An untyped `Map.Entry` variable and `entrySet()`
+iteration lose those types before the checker sees them, and are left alone.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

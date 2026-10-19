@@ -192,9 +192,26 @@ A null check narrows the element like any other nullable value (`if (name != nul
 navigation avoids the dereference, and `List<String>` — without the annotation — reports
 nothing.
 
-Maps are the exception: iteration yields `Map.Entry`, and `Map.each` passes key and value as
-two parameters, so the checker does not follow a nullable key or value into iteration. Reading
-through the map (`map[key]`, `map.get(key)`) is checked as usual.
+Maps work the same way, with the key and the value tracked separately:
+
+```groovy
+Map<String, @Nullable String> byCode      // the value may be null, the key may not
+Map<@Nullable String, String> byName      // and here it is the other way round
+```
+
+```groovy
+byCode.get(code).length()                 // value
+byCode[code].length()                     // value
+for (String v : byCode.values()) v.length()          // value
+for (String k : byName.keySet()) k.length()          // key
+for (Map.Entry<String, String> e : byCode) e.value.length()   // entry half
+byCode.each { k, v -> v.length() }        // pairwise closure
+byCode.collect { it.value.length() }      // entry inside a closure
+```
+
+Two shapes are not tracked: an untyped `Map.Entry` variable, and `entrySet()` iteration — both
+lose the key and value types before the checker sees them. Reading through the map still works
+in those cases, and there are no false positives from them.
 
 ### Guard patterns it accepts
 
@@ -219,6 +236,25 @@ nullcheck {
     guardNotNullWhenFalse = ['com.acme.MyCollectionUtils#isNullOrEmpty']
 }
 ```
+
+If the project already annotates helpers for IntelliJ, the JetBrains `@Contract` annotation
+carries the same information and is understood too:
+
+```groovy
+@Contract('null -> fail')      // throws on null, so after the call the argument is non-null
+static <T> T require(T value) { ... }
+
+@Contract('null -> false')     // a null argument returns false, so true proves non-null
+static boolean isNotEmpty(Collection<?> values) { ... }
+
+@Contract('null -> true')      // and false proves non-null for the isEmpty form
+static boolean isNullOrEmpty(Collection<?> values) { ... }
+```
+
+Only those two shapes are interpreted. `!null`, `_`, `param1`, `new` and the rest of the
+grammar are left alone rather than guessed at. The real annotation has `CLASS` retention, so a
+contract inside a compiled dependency is not visible; one written in source, or copied with
+`RUNTIME` retention, is.
 
 A helper can also declare its own contract, which is better than a central list when the
 method belongs to the project or to a library you control:

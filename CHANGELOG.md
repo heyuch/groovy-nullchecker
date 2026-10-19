@@ -12,6 +12,12 @@ versions follow [Semantic Versioning](https://semver.org/).
   guard contract (the `isNullOrEmpty` case) instead of every caller configuring it. `#N`
   references are supported; anything else is ignored rather than guessed at. A reversed
   `result` still reports the guarded code, so a mislabelled contract cannot hide a finding.
+- **Map keys and values** are tracked separately: `Map<String, @Nullable String>` and
+  `Map<@Nullable String, String>` are followed through `get`, subscript, `values()`,
+  `keySet()`, `Map.Entry` iteration and the pairwise closure of `each`.
+- **JetBrains `@Contract`** is understood for the shapes that constrain an argument:
+  `null -> fail`, `null -> false` and `null -> true`. The rest of its grammar is ignored rather
+  than guessed at, so one annotation serves IntelliJ and this checker.
 - **Container element checking** covers iteration as well as access: a `for`-each variable and
   a closure parameter of `List<@Nullable E>` are nullable values, so `for (String s : xs)
   s.length()` and `xs.each { it.length() }` are reported. Subscript, `get()` and `first()`

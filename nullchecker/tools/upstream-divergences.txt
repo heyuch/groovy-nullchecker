@@ -29,6 +29,14 @@ negative/guards_ensures_nonnull_if.groovy [strict]|@EnsuresNonNullIf narrows the
 negative/guards_ensures_nonnull.groovy [annotations]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 negative/guards_ensures_nonnull.groovy [strict]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 
+# ── JetBrains @Contract ──────────────────────────────────────────────────────
+negative/guards_contract.groovy [annotations]|@Contract null -> fail / true / false narrows the argument; upstream does not know the annotation
+negative/guards_contract.groovy [strict]|@Contract null -> fail / true / false narrows the argument; upstream does not know the annotation
+
+# ── Map keys and values ──────────────────────────────────────────────────────
+positive/element_map_deref.groovy [annotations]|a nullable map key or value is followed through entry, get, subscript, values, keySet and each; upstream tracks neither half
+positive/element_map_deref.groovy [strict]|a nullable map key or value is followed through entry, get, subscript, values, keySet and each; upstream tracks neither half
+
 # ── Container elements handed out by iteration ───────────────────────────────
 positive/element_iteration_deref.groovy [annotations]|a for-each variable or closure parameter receives List<@Nullable E>'s element; upstream only handles subscript, get() and first()
 positive/element_iteration_deref.groovy [strict]|a for-each variable or closure parameter receives List<@Nullable E>'s element; upstream only handles subscript, get() and first()

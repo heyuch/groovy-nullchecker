@@ -599,12 +599,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 // so when that element is nullable the closure's parameter is too. The hint is
                 // pushed before visiting the arguments, because that is when the closure body
                 // is walked.
-                boolean elementClosure = closureReceivesNullableElement(call)
-                closureElementHint.push(elementClosure)
+                closureHints.add(closureHint(call))
                 try {
                     super.visitMethodCallExpression(call)
                 } finally {
-                    closureElementHint.pop()
+                    closureHints.remove(closureHints.size() - 1)
                 }
                 if (!call.safe && !call.implicitThis) {
                     checkDereference(call.objectExpression, call)
@@ -614,19 +613,26 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             }
 
             /**
-             * Tracks the variables introduced by an element iteration: a {@code for} loop
-             * variable, or a closure parameter of an iteration method.
+             * Tracks the values an iteration hands out: a {@code for} loop variable, or a
+             * closure parameter of an iteration method.
              *
              * <p>The annotation lives on the collection's type argument, which Groovy does not
              * copy onto the variable it hands out. Recording the variable is therefore the only
              * way to make the existing dereference rules see it, and it keeps the rules in one
              * place instead of adding a parallel check.
+             *
+             * <p>Iterating a map yields {@code Map.Entry}, so the key and the value are tracked
+             * separately: the entry itself is never null, but either half may be.
              */
             private final Set<Variable> nullableElements = new HashSet<>()
 
-            private final Deque<Boolean> closureElementHint = new ArrayDeque<>()
+            private final Map<Variable, MapEntryTypes> entryVariables = new LinkedHashMap<>()
 
-            private final Deque<Boolean> closureElementContext = new ArrayDeque<>()
+            /** What the call being visited passes to its closure; innermost last. */
+            private final List<ClosureHint> closureHints = new ArrayList<>()
+
+            /** What the closure body currently being visited receives; innermost last. */
+            private final List<ClosureHint> closureContexts = new ArrayList<>()
 
             /** Iteration methods whose first closure parameter is the element. */
             private static final Set<String> ELEMENT_ITERATION_METHODS = [
@@ -637,14 +643,20 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             @Override
             void visitForLoop(ForStatement statement) {
                 Parameter loopVar = statement.variable
-                boolean elementNullable = hasNullableElementType(typeOfExpression(statement.collectionExpression))
+                ClassNode collectionType = typeOfExpression(statement.collectionExpression)
+                MapEntryTypes entry = mapEntryTypes(collectionType)
+                boolean elementNullable = entry == null && hasNullableElementType(collectionType)
+                if (loopVar != null && entry != null) {
+                    entryVariables.put(loopVar, entry)
+                }
                 if (loopVar != null && elementNullable) {
                     nullableElements.add(loopVar)
                 }
                 try {
                     super.visitForLoop(statement)
                 } finally {
-                    if (loopVar != null && elementNullable) {
+                    if (loopVar != null) {
+                        entryVariables.remove(loopVar)
                         nullableElements.remove(loopVar)
                     }
                 }
@@ -652,37 +664,110 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
             @Override
             void visitClosureExpression(ClosureExpression expression) {
-                boolean hinted = !closureElementHint.isEmpty() && closureElementHint.peek()
-                Set<Variable> saved = new HashSet<>(nullableElements)
-                if (hinted) {
-                    Parameter[] parameters = expression.parameters
-                    if (parameters != null && parameters.length > 0) {
-                        nullableElements.add(parameters[0])
-                        // sort's comparator receives two elements, both of them elements
-                        if (parameters.length > 1) {
+                ClosureHint hint = currentHint(closureHints)
+                Set<Variable> savedElements = new HashSet<>(nullableElements)
+                Map<Variable, MapEntryTypes> savedEntries = new LinkedHashMap<>(entryVariables)
+                Parameter[] parameters = expression.parameters
+                int count = parameters == null ? 0 : parameters.length
+                if (hint != null && hint.entryTypes != null) {
+                    if (hint.pairwise) {
+                        // each / eachWithIndex hand out (key, value[, index])
+                        if (count > 0 && hasNullableTypeUse(hint.entryTypes.keyType)) {
+                            nullableElements.add(parameters[0])
+                        }
+                        if (count > 1 && hasNullableTypeUse(hint.entryTypes.valueType)) {
                             nullableElements.add(parameters[1])
                         }
+                    } else if (count > 0) {
+                        // collect / find / findAll hand out the entry itself
+                        entryVariables.put(parameters[0], hint.entryTypes)
+                    }
+                } else if (hint != null && hint.elementNullable && count > 0) {
+                    nullableElements.add(parameters[0])
+                    // sort's comparator receives two elements, both of them elements
+                    if (count > 1) {
+                        nullableElements.add(parameters[1])
                     }
                 }
-                closureElementContext.push(hinted)
+                closureContexts.add(hint)
                 try {
                     super.visitClosureExpression(expression)
                 } finally {
-                    closureElementContext.pop()
+                    closureContexts.remove(closureContexts.size() - 1)
                     nullableElements.clear()
-                    nullableElements.addAll(saved)
+                    nullableElements.addAll(savedElements)
+                    entryVariables.clear()
+                    entryVariables.putAll(savedEntries)
                 }
             }
 
-            private boolean closureReceivesNullableElement(MethodCallExpression call) {
-                if (!(call.methodAsString in ELEMENT_ITERATION_METHODS)) return false
-                hasNullableElementType(typeOfExpression(call.objectExpression))
+            /** What the call hands to its closure, if anything. */
+            private ClosureHint closureHint(MethodCallExpression call) {
+                ClosureHint hint = new ClosureHint()
+                ClassNode receiver = typeOfExpression(call.objectExpression)
+                MapEntryTypes entry = mapEntryTypes(receiver)
+                if (entry != null) {
+                    String name = call.methodAsString
+                    if (name in ['each', 'eachWithIndex']) {
+                        hint.entryTypes = entry
+                        hint.pairwise = true
+                    } else if (name in ELEMENT_ITERATION_METHODS) {
+                        hint.entryTypes = entry
+                    }
+                    return hint
+                }
+                if (call.methodAsString in ELEMENT_ITERATION_METHODS && hasNullableElementType(receiver)) {
+                    hint.elementNullable = true
+                }
+                hint
+            }
+
+            private static ClosureHint currentHint(List<ClosureHint> stack) {
+                stack.isEmpty() ? null : stack.get(stack.size() - 1)
             }
 
             /** Whether a variable is an element of a collection whose element type is nullable. */
             private boolean isNullableElement(VariableExpression receiver, Variable target) {
                 if (nullableElements.contains(target)) return true
-                receiver.name == 'it' && !closureElementContext.isEmpty() && closureElementContext.peek()
+                ClosureHint hint = currentHint(closureContexts)
+                receiver.name == 'it' && hint != null && hint.elementNullable
+            }
+
+            /** The declared type of {@code entry.key} / {@code entry.value}, when known. */
+            private ClassNode entryMemberType(Expression receiver, String member) {
+                MapEntryTypes types = null
+                if (receiver instanceof VariableExpression) {
+                    VariableExpression variable = (VariableExpression) receiver
+                    if (variable.name == 'it') {
+                        ClosureHint hint = currentHint(closureContexts)
+                        if (hint != null && hint.entryTypes != null && !hint.pairwise) {
+                            types = hint.entryTypes
+                        }
+                    } else {
+                        types = entryVariables.get(findTargetVariable(variable))
+                    }
+                }
+                if (types == null) return null
+                if (member == 'key') return types.keyType
+                if (member == 'value') return types.valueType
+                null
+            }
+
+            private boolean isNullableEntryProperty(PropertyExpression expression) {
+                hasNullableTypeUse(entryMemberType(expression.objectExpression, expression.propertyAsString))
+            }
+
+            /** Whether a call is {@code entry.getKey()} / {@code entry.getValue()} on a nullable half. */
+            private boolean isNullableEntryCall(Expression call) {
+                if (!(call instanceof MethodCallExpression)) return false
+                MethodCallExpression entryCall = (MethodCallExpression) call
+                if (entryCall.methodAsString == 'getKey') {
+                    return hasNullableTypeUse(entryMemberType(entryCall.objectExpression, 'key'))
+                }
+                if (entryCall.methodAsString == 'getValue') {
+                    return hasNullableTypeUse(entryMemberType(entryCall.objectExpression, 'value'))
+                }
+                false
             }
 
             @Override
@@ -869,22 +954,43 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
              * can still be null.
              */
             private void applyContractGuard(MethodNode target, Expression condition, GuardFacts facts) {
-                AnnotationNode contract = findAnnotation(target, 'EnsuresNonNullIf')
-                if (contract == null) return
-                Boolean expected = booleanMember(contract, 'result')
-                if (expected == null) return
                 def callArgs = condition.arguments
                 if (!(callArgs instanceof TupleExpression) || !callArgs.expressions) return
-                for (String reference : stringMembers(contract, 'expression')) {
-                    int index = argumentIndex(reference)
-                    if (index < 0 || index >= callArgs.expressions.size()) continue
-                    Variable var = guardableVariable(callArgs.getExpression(index))
-                    if (var == null) continue
-                    if (expected) {
-                        facts.whenTrue.add(var)
-                    } else {
-                        facts.whenFalse.add(var)
+                AnnotationNode contract = findAnnotation(target, 'EnsuresNonNullIf')
+                if (contract != null) {
+                    Boolean expected = booleanMember(contract, 'result')
+                    if (expected != null) {
+                        for (String reference : stringMembers(contract, 'expression')) {
+                            int index = argumentIndex(reference)
+                            if (index < 0 || index >= callArgs.expressions.size()) continue
+                            addArgumentFact(callArgs.getExpression(index), expected, facts)
+                        }
                     }
+                }
+                // JetBrains' @Contract spells the same idea as text: "null -> false" means a
+                // null argument returns false, so a true result proves it was not null.
+                AnnotationNode jetbrains = findAnnotation(target, 'Contract')
+                if (jetbrains != null) {
+                    String spec = stringMember(jetbrains, 'value')
+                    for (ContractClause clause : parseContract(spec)) {
+                        if (clause.result != 'true' && clause.result != 'false') continue
+                        boolean whenTrue = clause.result == 'false'
+                        for (int i = 0; i < clause.arguments.size(); i++) {
+                            if (clause.arguments[i] != 'null') continue
+                            if (i >= callArgs.expressions.size()) continue
+                            addArgumentFact(callArgs.getExpression(i), whenTrue, facts)
+                        }
+                    }
+                }
+            }
+
+            private void addArgumentFact(Expression argument, boolean whenTrue, GuardFacts facts) {
+                Variable var = guardableVariable(argument)
+                if (var == null) return
+                if (whenTrue) {
+                    facts.whenTrue.add(var)
+                } else {
+                    facts.whenFalse.add(var)
                 }
             }
 
@@ -980,6 +1086,20 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                         narrowToNonNull(args.getExpression(index))
                     }
                 }
+                // JetBrains' @Contract("null -> fail"): the call throws for a null argument, so
+                // reaching the next statement proves every argument in that position is not null.
+                AnnotationNode contract = findAnnotation(target, 'Contract')
+                if (contract != null) {
+                    String spec = stringMember(contract, 'value')
+                    for (ContractClause clause : parseContract(spec)) {
+                        if (clause.result != 'fail') continue
+                        for (int i = 0; i < clause.arguments.size() && i < args.expressions.size(); i++) {
+                            if (clause.arguments[i] == 'null') {
+                                narrowToNonNull(args.getExpression(i))
+                            }
+                        }
+                    }
+                }
             }
 
             /**
@@ -1029,6 +1149,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     }
                 } else if (isSafeNavResult(receiver)) {
                     addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
+                } else if (isNullableEntryCall(receiver)) {
+                    addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
                 } else if (receiver instanceof MethodCallExpression || receiver instanceof StaticMethodCallExpression) {
                     def targetMethod = receiver.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (targetMethod instanceof MethodNode && (hasNullableAnno(targetMethod) || inferredNullableTypeUse(receiver))) {
@@ -1037,7 +1159,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 } else if (isSubscript(receiver) && inferredNullableTypeUse(receiver)) {
                     addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
                 } else if (receiver instanceof PropertyExpression) {
-                    if (nullableProperty(receiver)) {
+                    if (nullableProperty(receiver) || isNullableEntryProperty(receiver)) {
                         addStaticTypeError("Potential null dereference: '${receiver.propertyAsString}' may be null", context)
                     }
                 } else if (receiver instanceof CastExpression) {
@@ -1090,6 +1212,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 }
                 if (isSafeNavResult(expr)) return true
                 if (expr instanceof MethodCallExpression || expr instanceof StaticMethodCallExpression) {
+                    if (isNullableEntryCall(expr)) return true
                     def target = expr.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (!(target instanceof MethodNode)) return false
                     return hasNullableAnno(target) || inferredNullableTypeUse(expr)
@@ -1098,7 +1221,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     return inferredNullableTypeUse(expr)
                 }
                 if (expr instanceof PropertyExpression) {
-                    return nullableProperty(expr)
+                    return nullableProperty(expr) || isNullableEntryProperty(expr)
                 }
                 if (expr instanceof TernaryExpression) {
                     // judge each branch under the condition's guard facts, so that
@@ -1488,6 +1611,46 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         member instanceof ConstantExpression && member.value instanceof Boolean ? (Boolean) member.value : null
     }
 
+    /** A single string annotation member, or {@code null}. */
+    private static String stringMember(AnnotationNode annotation, String name) {
+        def member = annotation.getMember(name)
+        member instanceof ConstantExpression && member.value instanceof String ? (String) member.value : null
+    }
+
+    /**
+     * Parses a JetBrains {@code @Contract} specification.
+     *
+     * <p>The grammar is {@code arg, arg -> result} clauses separated by {@code ;}. Only two
+     * shapes matter here: {@code null -> fail} (the call throws for a null argument) and
+     * {@code null -> true|false} (the result reveals whether the argument was null). Anything
+     * else -- {@code !null}, {@code _}, {@code param1}, {@code new} -- is left alone rather than
+     * interpreted, because a wrong reading would narrow a value that can still be null.
+     */
+    private static List<ContractClause> parseContract(String specification) {
+        List<ContractClause> clauses = new ArrayList<ContractClause>()
+        if (specification == null) return clauses
+        for (String rawClause : specification.split(';')) {
+            String clause = rawClause.trim()
+            if (clause.isEmpty()) continue
+            int arrow = clause.indexOf('->')
+            if (arrow < 0) continue
+            String result = clause.substring(arrow + 2).trim()
+            if (result.isEmpty()) continue
+            List<String> arguments = new ArrayList<String>()
+            for (String rawArgument : clause.substring(0, arrow).split(',')) {
+                arguments.add(rawArgument.trim())
+            }
+            clauses.add(new ContractClause(arguments: arguments, result: result))
+        }
+        clauses
+    }
+
+    /** One {@code args -> result} clause of a {@code @Contract}. */
+    private static class ContractClause {
+        List<String> arguments = new ArrayList<String>()
+        String result
+    }
+
     /** A string-array annotation member, accepting a single value written without braces. */
     private static List<String> stringMembers(AnnotationNode annotation, String name) {
         List<String> values = new ArrayList<String>()
@@ -1610,6 +1773,28 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             return stmts && isEarlyExit(stmts.last())
         }
         false
+    }
+
+    /** Key and value types of a map being iterated. */
+    private static class MapEntryTypes {
+        ClassNode keyType
+        ClassNode valueType
+    }
+
+    /** What a call hands to its closure: an element, a map entry, or a pair of key and value. */
+    private static class ClosureHint {
+        boolean elementNullable
+        /** True for each/eachWithIndex, which pass (key, value) rather than the entry. */
+        boolean pairwise
+        MapEntryTypes entryTypes
+    }
+
+    /** Key and value types of a map type, or {@code null} when the type is not a map. */
+    private static MapEntryTypes mapEntryTypes(ClassNode type) {
+        if (type == null || !isMapLike(type)) return null
+        def generics = type.genericsTypes
+        if (generics == null || generics.length < 2) return null
+        new MapEntryTypes(keyType: generics[0].type, valueType: generics[1].type)
     }
 
     /**
