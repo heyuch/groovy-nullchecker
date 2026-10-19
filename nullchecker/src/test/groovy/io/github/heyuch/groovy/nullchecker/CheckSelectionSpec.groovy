@@ -80,6 +80,17 @@ class Both {
         count(result, NullCheckHarness.Category.INITIALIZATION) == 1
     }
 
+    def 'the self-check runs every family regardless of the selection'() {
+        given: 'nullness disabled, which the canary itself relies on'
+        System.setProperty('groovy.nullchecker.checks', 'initialization')
+
+        when:
+        NullCheckHarness.CanaryResult canary = NullCheckHarness.runCanary(EXTENSION)
+
+        then: 'the canary still proves the machinery works rather than reporting a broken tool'
+        canary.healthy
+    }
+
     def 'a typo in --checks is rejected rather than silently disabling everything'() {
         given:
         def out = new ByteArrayOutputStream()

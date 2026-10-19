@@ -218,7 +218,21 @@ class NullCheckHarness {
             annotation.setText(NullCheckCanary.NULLABLE_SOURCE, 'UTF-8')
             samples << annotation
 
-            Result result = check(samples, extension, false)
+            // The self-check proves the machinery works, so it must not inherit the caller's
+            // choice of rule families: with nullness disabled the canary would report nothing
+            // and the tool would refuse to run at all.
+            String savedChecks = System.getProperty(NullChecker.CHECKS_PROPERTY)
+            System.setProperty(NullChecker.CHECKS_PROPERTY, NullChecker.CHECKS_ALL)
+            Result result
+            try {
+                result = check(samples, extension, false)
+            } finally {
+                if (savedChecks == null) {
+                    System.clearProperty(NullChecker.CHECKS_PROPERTY)
+                } else {
+                    System.setProperty(NullChecker.CHECKS_PROPERTY, savedChecks)
+                }
+            }
             outcome.findings = result.findings
 
             def required = result.findings.findAll { Finding f ->
