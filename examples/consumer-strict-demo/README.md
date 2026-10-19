@@ -19,14 +19,14 @@ Gradle 侧只需要把仓库加一个 `mavenLocal()`，`build.gradle` 里不需�
 产物落在：
 
 ```
-~/.m2/repository/io/github/heyuch/groovy/nullchecker/0.2.0/
-├── nullchecker-0.2.0.jar      # 检查器 + CLI 本体
-├── nullchecker-0.2.0.pom      # 无任何依赖声明
-└── nullchecker-0.2.0.module   # Gradle metadata
+~/.m2/repository/io/github/heyuch/groovy/nullchecker/0.3.0/
+├── nullchecker-0.3.0.jar      # 检查器 + CLI 本体
+├── nullchecker-0.3.0.pom      # 无任何依赖声明
+└── nullchecker-0.3.0.module   # Gradle metadata
 ```
 
 > ⚠️ **同版本号重发后必须刷新依赖缓存。**
-> 目前版本固定为 `0.2.0`；Gradle 会缓存 `mavenLocal()` 解析到的模块元数据，
+> 目前版本固定为 `0.3.0`；Gradle 会缓存 `mavenLocal()` 解析到的模块元数据，
 > 重新 `publishToMavenLocal` 之后消费者工程可能仍用旧 jar：
 >
 > ```bash
@@ -40,7 +40,7 @@ Gradle 侧只需要把仓库加一个 `mavenLocal()`，`build.gradle` 里不需�
 ### `settings.gradle`：加 `mavenLocal()`
 
 Gradle **不会**默认把 `mavenLocal()` 放进仓库列表。不加的话会直接报
-`Could not find io.github.heyuch:groovy-nullchecker:0.2.0`：
+`Could not find io.github.heyuch:groovy-nullchecker:0.3.0`：
 
 ```groovy
 dependencyResolutionManagement {
@@ -59,7 +59,7 @@ dependencyResolutionManagement {
 dependencies {
     implementation 'org.apache.groovy:groovy:4.0.30'   // 你的 Groovy 版本
 
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.2.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.0'
 }
 ```
 
@@ -145,7 +145,7 @@ CLI 对所有构建系统都一样、零侵入（不改源码、不写 configura
 configurations { nullcheckTool }
 
 dependencies {
-    nullcheckTool 'io.github.heyuch:groovy-nullchecker:0.2.0'
+    nullcheckTool 'io.github.heyuch:groovy-nullchecker:0.3.0'
     // 检查器把 Groovy 声明为 compileOnly（不污染你的运行时依赖），
     // 所以"运行检查器"的那份 classpath 要自己给出 Groovy
     nullcheckTool 'org.apache.groovy:groovy:4.0.30'

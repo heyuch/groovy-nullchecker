@@ -37,7 +37,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'   // 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'   // 版本号必填
 }
 
 repositories {
@@ -64,7 +64,7 @@ nullcheck {
     targets     = ['src/main/groovy', 'src/main/java']
     reportFile  = 'build/reports/nullcheck/nullcheck.txt'
     canary      = true            // 关掉自检（不建议）
-    toolVersion = '0.2.0'
+    toolVersion = '0.3.0'
 
     // 项目自己的守卫方法：声明极性，而不是猜名字
     guardNotNullWhenTrue  = ['com.acme.Utils#isNotEmpty']        // 返回 true  ⇒ 参数 0 非空
@@ -84,7 +84,7 @@ nullcheck {
 | `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
-| `toolVersion` | `0.2.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
+| `toolVersion` | `0.3.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
 

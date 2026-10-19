@@ -29,7 +29,7 @@ class NullCheckPluginFunctionalSpec extends Specification {
     private static final String PLUGIN_BUILD_PATH =
             System.getProperty('plugin.build.dir') ?: '../'
 
-    private static final String PLUGIN_VERSION = '0.2.0'
+    private static final String PLUGIN_VERSION = '0.3.0'
 
     /** A @Nullable annotation, so a fixture needs no external dependency. */
     private void writeAnnotation() {

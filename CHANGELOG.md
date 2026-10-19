@@ -3,6 +3,19 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0]
+
+### Added
+
+- **Contract annotations**: `@EnsuresNonNullIf(expression = '#1', result = false)` and
+  `@EnsuresNonNull(expression = '#1')`, matched by simple name, so a helper carries its own
+  guard contract (the `isNullOrEmpty` case) instead of every caller configuring it. `#N`
+  references are supported; anything else is ignored rather than guessed at. A reversed
+  `result` still reports the guarded code, so a mislabelled contract cannot hide a finding.
+- **`@NotEmpty` and `@NotBlank` are non-null contracts**, alongside `@NotNull`, because both
+  reject null before checking content. They keep the validation constraint's exemption from
+  the initialisation rule. `org.hibernate.validator.constraints` joins the family.
+
 ## [0.2.0]
 
 This release diverges from Groovy 6's `NullChecker` on purpose. The project is maintained as

@@ -23,6 +23,18 @@ pkg/returns/ReturnsDefault.groovy [strict]|@ReturnValuesAreNonnullByDefault on t
 pkg/spring/SpringDefault.groovy [annotations]|Spring's @NonNullApi covers parameters and returns; upstream does not know the annotation
 pkg/spring/SpringDefault.groovy [strict]|Spring's @NonNullApi covers parameters and returns; upstream does not know the annotation
 
+# ── Contract annotations (Checkers-style postconditions) ─────────────────────
+negative/guards_ensures_nonnull_if.groovy [annotations]|@EnsuresNonNullIf narrows the named argument; upstream does not know the annotation
+negative/guards_ensures_nonnull_if.groovy [strict]|@EnsuresNonNullIf narrows the named argument; upstream does not know the annotation
+negative/guards_ensures_nonnull.groovy [annotations]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
+negative/guards_ensures_nonnull.groovy [strict]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
+
+# ── Bean Validation's stronger constraints ───────────────────────────────────
+positive/validation_notblank_argument.groovy [annotations]|@NotBlank rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
+positive/validation_notblank_argument.groovy [strict]|@NotBlank rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
+positive/validation_notempty_return.groovy [annotations]|@NotEmpty rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
+positive/validation_notempty_return.groovy [strict]|@NotEmpty rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
+
 # ── Fixes: upstream reports, this port does not ──────────────────────────────
 negative/spread_property_result.groovy [annotations]|xs*.prop always yields a List, so its result is never null; upstream reports the following call
 negative/spread_property_result.groovy [strict]|same spread defect, plus the local variable it is assigned to; upstream reports both

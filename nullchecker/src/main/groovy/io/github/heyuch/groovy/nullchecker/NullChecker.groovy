@@ -28,6 +28,7 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
+import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.CodeVisitorSupport
@@ -45,6 +46,7 @@ import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.ElvisOperatorExpression
 import org.codehaus.groovy.ast.expr.EmptyExpression
 import org.codehaus.groovy.ast.expr.Expression
+import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.NotExpression
 import org.codehaus.groovy.ast.expr.PropertyExpression
@@ -157,7 +159,16 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     // Collections.unmodifiableSet over a Groovy set literal keeps the immutability these
     // constants are meant to have; they are only ever queried with contains().
     private static final Set<String> NULLABLE_ANNOS = Collections.unmodifiableSet(['Nullable', 'CheckForNull', 'MonotonicNonNull'] as Set)
-    private static final Set<String> NONNULL_ANNOS = Collections.unmodifiableSet(['NonNull', 'NotNull', 'Nonnull'] as Set)
+    /**
+     * Annotations that assert a value is not null.
+     *
+     * <p>{@code NotEmpty} and {@code NotBlank} are Bean Validation constraints, and both reject
+     * null before checking content, so each is a non-null contract as well. The other
+     * constraints are not: {@code @Size}, {@code @Pattern}, {@code @Email} and friends all
+     * accept null.
+     */
+    private static final Set<String> NONNULL_ANNOS = Collections.unmodifiableSet([
+            'NonNull', 'NotNull', 'Nonnull', 'NotEmpty', 'NotBlank'] as Set)
     private static final Set<String> MONOTONIC_ANNOS = Collections.unmodifiableSet(['MonotonicNonNull', 'Lazy'] as Set)
     private static final Set<String> NULLCHECK_ANNOS = Collections.unmodifiableSet(['NullCheck', 'ParametersAreNonnullByDefault', 'ParametersAreNonNullByDefault'] as Set)
     private static final Set<String> NONNULL_BY_DEFAULT_ANNOS = Collections.unmodifiableSet(['NonNullByDefault', 'NonnullByDefault', 'NullMarked'] as Set)
@@ -219,7 +230,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Packages whose constraints imply non-null but not "assigned in source". */
     private static final Set<String> VALIDATION_ANNO_PACKAGES = Collections.unmodifiableSet([
-            'jakarta.validation.constraints', 'javax.validation.constraints'] as Set)
+            'jakarta.validation.constraints',
+            'javax.validation.constraints',
+            'org.hibernate.validator.constraints'] as Set)
 
     private static final Set<String> ASSERTION_MESSAGE_TYPES = Collections.unmodifiableSet(['java.lang.String', 'java.util.function.Supplier'] as Set)
 
@@ -737,6 +750,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     def target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (target instanceof MethodNode) {
                         applyObjectGuard(target, condition, facts)
+                        applyContractGuard(target, condition, facts)
                         applyConfiguredGuard(target, condition, facts)
                     }
                 }
@@ -755,6 +769,38 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 def var = guardableVariable(args.getExpression(0))
                 if (var == null) return
                 (target.name == 'nonNull' ? facts.whenTrue : facts.whenFalse).add(var)
+            }
+
+            /**
+             * Applies a contract declared on the method itself: {@code @EnsuresNonNullIf}.
+             *
+             * <p>{@code expression} names the arguments the contract covers, as {@code #1},
+             * {@code #2}; {@code result} says which outcome guarantees them. The annotation is
+             * the natural home for a project's own {@code isNullOrEmpty}, because the contract
+             * travels with the method instead of being re-declared by every caller.
+             *
+             * <p>References this version cannot interpret (a field path, an out-of-range
+             * argument) are ignored rather than guessed at: guessing would narrow a value that
+             * can still be null.
+             */
+            private void applyContractGuard(MethodNode target, Expression condition, GuardFacts facts) {
+                AnnotationNode contract = findAnnotation(target, 'EnsuresNonNullIf')
+                if (contract == null) return
+                Boolean expected = booleanMember(contract, 'result')
+                if (expected == null) return
+                def callArgs = condition.arguments
+                if (!(callArgs instanceof TupleExpression) || !callArgs.expressions) return
+                for (String reference : stringMembers(contract, 'expression')) {
+                    int index = argumentIndex(reference)
+                    if (index < 0 || index >= callArgs.expressions.size()) continue
+                    Variable var = guardableVariable(callArgs.getExpression(index))
+                    if (var == null) continue
+                    if (expected) {
+                        facts.whenTrue.add(var)
+                    } else {
+                        facts.whenFalse.add(var)
+                    }
+                }
             }
 
             /**
@@ -836,6 +882,17 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                         if (!(params[i].type.name in ASSERTION_MESSAGE_TYPES)) {
                             narrowToNonNull(args.getExpression(i))
                         }
+                    }
+                }
+                // A declared postcondition: after the call returns normally the named
+                // arguments are non-null. Same effect as requireNonNull, stated on the method
+                // instead of hard-coded here.
+                AnnotationNode postcondition = findAnnotation(target, 'EnsuresNonNull')
+                if (postcondition != null) {
+                    for (String reference : stringMembers(postcondition, 'expression')) {
+                        int index = argumentIndex(reference)
+                        if (index < 0 || index >= args.expressions.size()) continue
+                        narrowToNonNull(args.getExpression(index))
                     }
                 }
             }
@@ -1297,6 +1354,47 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
     private static String normalisePackageName(String name) {
         name == null ? null : name.replaceAll(/\.$/, '')
+    }
+
+    /** The annotation with the given simple name on a node, or {@code null}. */
+    private static AnnotationNode findAnnotation(AnnotatedNode node, String simpleName) {
+        if (node == null) return null
+        node.annotations?.find { it.classNode?.nameWithoutPackage == simpleName }
+    }
+
+    /** A boolean annotation member, or {@code null} when absent or not a constant. */
+    private static Boolean booleanMember(AnnotationNode annotation, String name) {
+        def member = annotation.getMember(name)
+        member instanceof ConstantExpression && member.value instanceof Boolean ? (Boolean) member.value : null
+    }
+
+    /** A string-array annotation member, accepting a single value written without braces. */
+    private static List<String> stringMembers(AnnotationNode annotation, String name) {
+        List<String> values = new ArrayList<String>()
+        def member = annotation.getMember(name)
+        if (member instanceof ConstantExpression) {
+            def value = ((ConstantExpression) member).value
+            if (value instanceof String) {
+                values.add((String) value)
+            } else if (value instanceof String[]) {
+                values.addAll(Arrays.asList((String[]) value))
+            }
+        } else if (member instanceof ListExpression) {
+            for (Expression element : ((ListExpression) member).expressions) {
+                if (element instanceof ConstantExpression && element.value instanceof String) {
+                    values.add((String) element.value)
+                }
+            }
+        }
+        values
+    }
+
+    /** Zero-based argument index for a {@code #1}-style reference, or -1 when unsupported. */
+    private static int argumentIndex(String reference) {
+        if (reference == null) return -1
+        def matcher = reference =~ /^#(\d+)$/
+        if (!matcher.matches()) return -1
+        Integer.parseInt((String) matcher.group(1)) - 1
     }
 
     /**

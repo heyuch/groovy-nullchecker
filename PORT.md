@@ -141,6 +141,22 @@ scope: parameters (`@ParametersAreNonnullByDefault`), return values
 reference jar, so a project that uses it supplies the annotation itself; matching is by simple
 name, as everywhere else. `@NullUnmarked` still opts out of every scope.
 
+### 2.8 Contract annotations and stronger validation constraints (2)
+
+Two additions upstream does not have, both about *where* a non-null guarantee is written:
+
+| # | Addition | Effect |
+| --- | --- | --- |
+| 1 | `@EnsuresNonNullIf(expression='#N', result=?)` and `@EnsuresNonNull(expression='#N')`, matched by simple name | A helper carries its own guard contract, so callers need no configuration and the contract is visible where the method is defined. Argument references other than `#N`, and out-of-range indexes, are ignored rather than guessed at |
+| 2 | `@NotEmpty` and `@NotBlank` are non-null annotations, alongside `@NotNull` | Both constraints reject null before examining content. The other Bean Validation constraints accept null and are deliberately not included |
+
+`org.hibernate.validator.constraints` is treated as part of the Bean Validation family for the
+initialisation rule, so its constraints do not demand initialisation either.
+
+A reversed `result` on `@EnsuresNonNullIf` narrows the wrong branch, so the guarded code is
+still reported. That is the intended failure direction: a mislabelled contract must not be
+able to hide a finding.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

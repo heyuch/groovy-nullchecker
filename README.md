@@ -55,7 +55,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.2.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.0'
 }
 ```
 
@@ -68,7 +68,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.2.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.3.0.jar')
 }
 ```
 
@@ -82,7 +82,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
 }
 ```
 
@@ -144,7 +144,7 @@ Matched by **simple name**, so the package does not matter:
 | Meaning | Names |
 | --- | --- |
 | Nullable | `Nullable`, `CheckForNull`, `MonotonicNonNull` |
-| Non-null | `NonNull`, `NotNull`, `Nonnull` |
+| Non-null | `NonNull`, `NotNull`, `Nonnull`, `NotEmpty`, `NotBlank` |
 | Non-null by default (everything) | `NullMarked`, `NonNullByDefault`, `NonnullByDefault` |
 | Non-null **parameters** by default | `ParametersAreNonnullByDefault`, `ParametersAreNonNullByDefault`, `NonNullApi` |
 | Non-null **return values** by default | `ReturnValuesAreNonnullByDefault`, `NonNullApi` |
@@ -154,9 +154,12 @@ Matched by **simple name**, so the package does not matter:
 > Annotations must be `RUNTIME`-retained. With `CLASS` retention the checker cannot see them
 > and the rules go quiet. All common nullness libraries use `RUNTIME`.
 
-**Bean Validation's `@NotNull`** (`jakarta.validation.constraints` / `javax.validation...`) is
-a non-null contract and is honoured as one: assigning null, passing null and returning null
-are reported. It is **not** treated as a requirement to initialise the field in source,
+**Bean Validation's `@NotNull`, `@NotEmpty` and `@NotBlank`** (`jakarta.validation.constraints`,
+`javax.validation...`, `org.hibernate.validator.constraints`) are non-null contracts and are
+honoured as such: assigning null, passing null and returning null are reported. `@NotEmpty`
+and `@NotBlank` reject null before checking content, so they imply non-null; the other
+constraints (`@Size`, `@Pattern`, `@Email`, …) accept null and are ignored. None of them is
+treated as a requirement to initialise the field in source,
 because a bean populated by an ORM or a deserializer is valid as long as it is non-null when
 validation runs — so strict mode does not report every mapped field. Inside a `@NullMarked`
 class the initialisation requirement stands: the marking is the stronger contract.
@@ -184,6 +187,28 @@ nullcheck {
     guardNotNullWhenFalse = ['com.acme.MyCollectionUtils#isNullOrEmpty']
 }
 ```
+
+A helper can also declare its own contract, which is better than a central list when the
+method belongs to the project or to a library you control:
+
+```groovy
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull
+
+// non-null when the result is false; result = true for the isNotEmpty form
+@EnsuresNonNullIf(expression = '#1', result = false)
+static boolean isNullOrEmpty(Collection<?> values) { ... }
+
+// non-null after a normal return, the annotation form of requireNonNull
+@EnsuresNonNull(expression = '#1')
+static <T> T require(T value) { ... }
+```
+
+Matched by simple name, so the annotation may come from Checker Framework, from another
+library, or be declared by the project. `#1`, `#2` … name the arguments; a reference the
+checker cannot interpret (a field path, an out-of-range index) is ignored rather than guessed
+at. A reversed `result` narrows the wrong branch and therefore does **not** silence the code it
+was meant to cover — that is a deliberate safety property, not an accident.
 
 CLI: `--guard-when-true` / `--guard-when-false`, one entry per flag. Bare checker:
 `-Dgroovy.nullchecker.guards.true=...` / `.false`. Entries are matched as
@@ -376,7 +401,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.2.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
 }
 
 nullcheck {

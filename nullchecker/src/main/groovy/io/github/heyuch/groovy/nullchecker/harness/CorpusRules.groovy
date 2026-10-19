@@ -61,6 +61,8 @@ class CorpusRules {
             N13: 'a spread property result is a List and never null',
             N14: 'continue / break ends the current path, so later statements are narrowed',
             N15: 'a validation constraint does not require initialisation in source',
+            N17: '@EnsuresNonNullIf narrows the named argument in the declared branch',
+            N18: '@EnsuresNonNull narrows the named argument after a normal return',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {
