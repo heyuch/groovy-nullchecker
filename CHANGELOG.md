@@ -35,8 +35,10 @@ checked by `./gradlew dualRun`.
   `@ReturnValuesAreNonnullByDefault`, Spring's `@NonNullApi` and `@NonNullFields` are now read
   from `package-info`, each covering only its own scope. Previously only `@NullMarked`-style
   markings worked at package level, and the JSR-305 ones worked only on a class.
-- **Selectable rule families.** `checks` (plugin) / `--checks` (CLI) turns the
-  `initialization` family off entirely, distinct from `failOn`, which only decides what fails.
+- **Selectable rule families.** `initializationCheck` / `nullnessCheck` (plugin) and
+  `--checks` (CLI) turn a family off entirely, distinct from `failOn`, which only decides what
+  fails. One named boolean per family rather than a list of strings, so the values are
+  discoverable where the DSL is written instead of only in the documentation.
   This is what makes package-level `@NullMarked` usable where fields are assigned by a
   container: on a service package it removes 124 of 195 findings, all of them injected fields.
 - **Declarable guard methods.** `guardNotNullWhenTrue` / `guardNotNullWhenFalse` (plugin),

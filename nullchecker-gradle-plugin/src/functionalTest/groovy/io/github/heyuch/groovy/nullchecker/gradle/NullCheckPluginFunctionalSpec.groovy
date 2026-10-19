@@ -50,6 +50,41 @@ public @interface Nullable {
 '''
     }
 
+    /** A @NonNull annotation, so the initialisation rule has something to check. */
+    private void writeNonNull() {
+        File dir = new File(testProjectDir, 'src/main/java/demo')
+        dir.mkdirs()
+        new File(dir, 'NonNull.java').text = '''package demo;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER,
+        ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE, ElementType.TYPE})
+public @interface NonNull {
+}
+'''
+    }
+
+    /** An explicitly non-null field that no constructor assigns. */
+    private void writeUninitialisedField() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'Uninitialised.groovy').text = '''package demo
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class Uninitialised {
+    @NonNull
+    String status
+}
+'''
+    }
+
     private void writeSettings() {
         // The plugin is supplied from source by --include-build (Gradle's plugin substitution).
         // The checker is NOT: the plugin asks for io.github.heyuch:groovy-nullchecker, while
@@ -195,6 +230,49 @@ class Clean {
 
         and: 'coverage proves the statically compiled class was visited rather than skipped'
         result.output.contains('compileStatic=1')
+    }
+
+    def 'reports an uninitialised non-null field in strict mode'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { strict = true }')
+        writeNonNull()
+        writeUninitialisedField()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then:
+        result.output.contains('is not initialized')
+    }
+
+    def 'stops reporting it when initializationCheck is off'() {
+        given: 'a field the container assigns, which no constructor sets'
+        writeSettings()
+        writeBuild('nullcheck { strict = true; initializationCheck = false }')
+        writeNonNull()
+        writeUninitialisedField()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then: 'the finding is not produced at all, rather than merely not failing'
+        !result.output.contains('is not initialized')
+        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+    }
+
+    def 'refuses to run when every check is disabled'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { nullnessCheck = false; initializationCheck = false }')
+        writeAnnotation()
+        writeClean()
+
+        when:
+        BuildResult result = runAndFail('nullcheck')
+
+        then: 'checking nothing must not look like a clean result'
+        result.output.contains('would check nothing')
     }
 
     def 'honours a package-level default, so package-info is read'() {

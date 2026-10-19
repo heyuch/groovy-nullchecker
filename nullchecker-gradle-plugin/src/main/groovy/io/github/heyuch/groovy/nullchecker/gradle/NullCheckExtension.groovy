@@ -64,13 +64,24 @@ class NullCheckExtension {
      * it wrong would hide a real finding instead of adding noise.
      */
     /**
-     * Rule families to run, as {@code ['null', 'initialization']}.
+     * Whether the nullness rules run: dereference, return, assignment, argument.
      *
-     * <p>Disabling one stops it being reported at all, which is different from
-     * {@link #failOn}: a family a project has decided not to satisfy yet should not fill the
-     * report with findings nobody will act on. Both are on by default.
+     * <p>On by default. Turning it off leaves only the initialisation rule, which is useful
+     * when auditing that one rule on its own and almost never otherwise.
      */
-    final ListProperty<String> checks
+    final Property<Boolean> nullnessCheck
+
+    /**
+     * Whether the definite-initialisation rule runs: an explicitly non-null field that no
+     * constructor assigns.
+     *
+     * <p>On by default. Turning it off stops those findings being reported at all, which is
+     * different from {@link #failOn} deciding what fails. A project whose fields are assigned
+     * by a container -- Spring's {@code @Autowired}, an ORM, a mapper -- has decided not to
+     * satisfy this rule yet; before this switch it had to learn to ignore the wall of
+     * findings instead.
+     */
+    final Property<Boolean> initializationCheck
 
     final ListProperty<String> guardNotNullWhenTrue
 
@@ -96,7 +107,8 @@ class NullCheckExtension {
         this.canary = project.objects.property(Boolean)
         this.failOnError = project.objects.property(Boolean)
         this.failOn = project.objects.listProperty(String)
-        this.checks = project.objects.listProperty(String)
+        this.nullnessCheck = project.objects.property(Boolean)
+        this.initializationCheck = project.objects.property(Boolean)
         this.guardNotNullWhenTrue = project.objects.listProperty(String)
         this.guardNotNullWhenFalse = project.objects.listProperty(String)
         this.toolVersion = project.objects.property(String)
@@ -109,7 +121,8 @@ class NullCheckExtension {
         canary.convention(true)
         failOnError.convention(false)
         failOn.convention(['null', 'initialization'])
-        checks.convention(['null', 'initialization'])
+        nullnessCheck.convention(true)
+        initializationCheck.convention(true)
         guardNotNullWhenTrue.convention([])
         guardNotNullWhenFalse.convention([])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)

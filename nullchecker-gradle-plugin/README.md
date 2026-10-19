@@ -58,7 +58,8 @@ repositories {
 nullcheck {
     failOnError = true            // 有"失败类"发现就让构建失败（默认 false，只报告）
     failOn      = ['null', 'initialization']   // 哪些分类算失败；'all' 连解析错误一起失败
-    checks      = ['all']                      // 跑哪些规则族；['null'] 直接不报"字段未初始化"
+    nullnessCheck       = true     // 默认开启：空指针/返回/传参/赋值
+    initializationCheck = true     // 默认开启；关掉后完全不报"字段未初始化"
     strict      = true            // 流敏感：也分析未注解代码
     targets     = ['src/main/groovy', 'src/main/java']
     reportFile  = 'build/reports/nullcheck/nullcheck.txt'
@@ -75,7 +76,8 @@ nullcheck {
 | --- | --- | --- |
 | `failOnError` | `false` | 有"失败类"发现时是否让构建失败。**建议先保持 false 摸底** |
 | `failOn` | `['null', 'initialization']` | 哪些分类算失败。`resolution`（静态检查解析不了的动态代码）默认只报告不失败；`['all']` 恢复"任何发现都失败" |
-| `checks` | `['all']` | 跑哪些规则族（`null` / `initialization`）。**这是"报不报"，不是"失不失败"**：关掉后该类发现完全不进报告 |
+| `nullnessCheck` | `true` | 空值规则族（解引用 / 返回 / 传参 / 赋值） |
+| `initializationCheck` | `true` | "字段必须初始化"规则族。**这是"报不报"，不是"失不失败"**：关掉后该类发现完全不进报告。两个都关会被拒绝——什么都不查不能看起来像干净 |
 | `guardNotNullWhenTrue` | `[]` | 返回 true 即保证参数 0 非空的方法，`类全名#方法名` |
 | `guardNotNullWhenFalse` | `[]` | 返回 false 即保证参数 0 非空的方法（如 `isNullOrEmpty`） |
 | `strict` | `false` | 打开后报告量会明显上升 |

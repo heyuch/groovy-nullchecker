@@ -173,9 +173,12 @@ class NullCheckPlugin implements Plugin<Project> {
         if (!extension.canary.get()) {
             args << '--no-canary'
         }
-        if (!extension.checks.get().isEmpty()) {
-            args << '--checks' << extension.checks.get().join(',')
+        List<String> checks = enabledChecks(extension)
+        if (checks.isEmpty()) {
+            throw new GradleException('nullcheck: nullnessCheck and initializationCheck are both ' +
+                    'off, which would check nothing. Enable at least one.')
         }
+        args << '--checks' << checks.join(',')
         if (!extension.failOn.get().isEmpty()) {
             args << '--fail-on' << extension.failOn.get().join(',')
         }
@@ -190,6 +193,23 @@ class NullCheckPlugin implements Plugin<Project> {
         args << '--report' << extension.reportFile.getOrElse(defaultReport.absolutePath)
         args.addAll(extension.targets.get())
         args
+    }
+
+    /**
+     * The rule families enabled by the extension, in the CLI's vocabulary.
+     *
+     * <p>Derived from the named booleans so the DSL offers completion instead of asking the
+     * user to remember a set of strings.
+     */
+    private static List<String> enabledChecks(NullCheckExtension extension) {
+        List<String> checks = []
+        if (extension.nullnessCheck.get()) {
+            checks << 'null'
+        }
+        if (extension.initializationCheck.get()) {
+            checks << 'initialization'
+        }
+        checks
     }
 
     /**
