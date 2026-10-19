@@ -143,6 +143,11 @@ java {
 // longer point at a checker version that was never released -- the failure mode PUBLISHING.md
 // used to have to warn about.
 tasks.named('processResources') {
+    // Declared as an input so the resource is regenerated whenever the version changes.
+    // Without it Gradle saw no changed input and reused the previously expanded file: a
+    // snapshot built right after a release still baked that release's version, and the
+    // plugin then resolved the release artifact instead of the snapshot beside it.
+    inputs.property('toolVersion', project.version.toString())
     filesMatching('io/github/heyuch/groovy/nullchecker/gradle/nullchecker.properties') {
         expand(toolVersion: project.version)
     }
