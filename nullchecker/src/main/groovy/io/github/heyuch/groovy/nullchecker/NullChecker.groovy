@@ -56,6 +56,8 @@ import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
+import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.ContinueStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.Statement
 import org.codehaus.groovy.ast.stmt.ThrowStatement
@@ -164,6 +166,10 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
     private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(['requireNonNull', 'checkNotNull'] as Set)
+    /** Packages whose constraints imply non-null but not "assigned in source". */
+    private static final Set<String> VALIDATION_ANNO_PACKAGES = Collections.unmodifiableSet([
+            'jakarta.validation.constraints', 'javax.validation.constraints'] as Set)
+
     private static final Set<String> ASSERTION_MESSAGE_TYPES = Collections.unmodifiableSet(['java.lang.String', 'java.util.function.Supplier'] as Set)
 
     /**
@@ -246,16 +252,81 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         // as "classes=1" for a 43-file project). The caller resets once per compilation
         // via resetCoverage() instead.
         afterVisitClass { ClassNode cn ->
-            countCovered(cn)
+            guarded("coverage of ${cn.name}") {
+                countCovered(cn)
+            }
         }
         afterVisitMethod { MethodNode method ->
-            method.code?.visit(makeVisitor(strict, method))
+            guarded("method ${method.declaringClass?.name}#${method.name}") {
+                method.code?.visit(makeVisitor(strict, method))
+            }
         }
         if (strict) {
             afterVisitClass { ClassNode cn ->
-                checkNonNullFieldInitialization(cn)
+                guarded("initialization of ${cn.name}") {
+                    checkNonNullFieldInitialization(cn)
+                }
             }
         }
+    }
+
+    /**
+     * Runs one unit of checking, recording a failure instead of letting it escape.
+     *
+     * <p>An exception thrown from inside the static type checker does not reach the caller:
+     * Groovy catches it per class, so the compilation completes and the tool reports the
+     * findings it happened to collect -- typically none. Observed directly: a checker bug
+     * turned a class that should report into {@code findings = 0} with a green build, and
+     * even the canary passed, because the canary's own sample never took the failing path.
+     *
+     * <p>The failure is therefore recorded and the rest of the classes are still checked;
+     * the harness turns any recorded failure into a hard error. Continuing keeps the report
+     * useful for diagnosis, while failing closed keeps a partial result from being read as
+     * a clean one.
+     */
+    private void guarded(String where, Closure body) {
+        try {
+            body.call()
+        } catch (Throwable failure) {
+            recordInternalError(where, failure)
+        }
+    }
+
+    /** Internal failures recorded for the current thread, oldest first. */
+    private static final ThreadLocal<List<String>> INTERNAL_ERRORS = new ThreadLocal<List<String>>()
+
+    /** Cap on recorded failures: the first few explain the problem, the rest do not. */
+    private static final int MAX_INTERNAL_ERRORS = 10
+
+    /** Records a failure of the checker itself; see {@link #guarded}. */
+    private static void recordInternalError(String where, Throwable failure) {
+        List<String> errors = INTERNAL_ERRORS.get()
+        if (errors == null) {
+            errors = new ArrayList<String>()
+            INTERNAL_ERRORS.set(errors)
+        }
+        if (errors.size() < MAX_INTERNAL_ERRORS) {
+            errors.add(where + ': ' + failure.getClass().name + ': ' + failure.message)
+        }
+    }
+
+    /**
+     * Failures recorded since the last {@link #resetInternalErrors}.
+     *
+     * <p>A non-empty list means the analysis was incomplete, so its finding count must not
+     * be trusted; callers are expected to fail rather than report.
+     */
+    static List<String> getInternalErrors() {
+        List<String> errors = INTERNAL_ERRORS.get()
+        if (errors == null) {
+            return new ArrayList<String>()
+        }
+        return new ArrayList<String>(errors)
+    }
+
+    /** Clears recorded failures so one run cannot inherit another's. */
+    static void resetInternalErrors() {
+        INTERNAL_ERRORS.set(new ArrayList<String>())
     }
 
     /** Coverage observed by the most recent run, so {@code findings = 0} stays readable. */
@@ -798,9 +869,15 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      */
     private void checkNonNullFieldInitialization(ClassNode cn) {
         if (cn.interface) return
+        // A Bean Validation constraint promises the value is not null *when validation
+        // runs*; it does not promise the constructor assigned it, and beans populated by an
+        // ORM or a deserializer legitimately start empty. A @NullMarked class is different:
+        // its marking is a language-level contract, so the requirement stands there.
+        boolean markedScope = isNonNullByDefault(cn)
         List<FieldNode> candidates = cn.fields.findAll { field ->
             !field.static && !isPrimitiveType(field.type) && field.initialValueExpression == null &&
-                isNonNullAnnotated(field) && !hasNullableAnno(field) && !hasMonotonicAnno(field)
+                isNonNullAnnotated(field) && !hasNullableAnno(field) && !hasMonotonicAnno(field) &&
+                !(isValidationConstraint(field) && !markedScope)
         }
         if (!candidates) return
         Set<String> initBlockAssigned = assignedFieldNames(cn.objectInitializerStatements)
@@ -1047,6 +1124,16 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         name == null ? null : name.replaceAll(/\.$/, '')
     }
 
+    /**
+     * Whether the node carries a Bean Validation constraint rather than a nullness
+     * annotation. Matched by package, because the constraint's simple name is exactly
+     * what the annotation lookup deliberately does not distinguish.
+     */
+    private static boolean isValidationConstraint(AnnotatedNode node) {
+        if (node == null) return false
+        node.annotations?.any { it.classNode?.packageName in VALIDATION_ANNO_PACKAGES } ?: false
+    }
+
     private static boolean isNullExpr(Expression expr) {
         if (expr instanceof ConstantExpression) return ((ConstantExpression) expr).isNullExpression()
         if (expr instanceof CastExpression) return isNullExpr(((CastExpression) expr).expression)
@@ -1058,7 +1145,20 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * whenever its receiver is, but also if the accessed property or method yields null.
      */
     private static boolean isSafeNavResult(Expression expr) {
-        (expr instanceof PropertyExpression && expr.safe) || (expr instanceof MethodCallExpression && expr.safe)
+        // A spread expression is flagged safe as well -- it tolerates a null receiver and
+        // yields an empty list instead. But that makes its *result* a List, never null,
+        // so treating it as a safe-navigation result reported every "xs*.prop" and its
+        // dereference. Spread method calls (xs*.trim()) do not carry the flag.
+        if (expr instanceof PropertyExpression) {
+            // isSpreadSafe, not "spread": Groovy's AST flag is named isSpreadSafe(), and
+            // reading a non-existent property throws inside the checker -- which the harness
+            // now turns into a hard failure rather than a clean-looking zero.
+            return expr.safe && !expr.spreadSafe
+        }
+        if (expr instanceof MethodCallExpression) {
+            return expr.safe && !expr.spreadSafe
+        }
+        false
     }
 
     private static boolean isSubscript(Expression expr) {
@@ -1108,6 +1208,10 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     private static boolean isEarlyExit(Statement stmt) {
         if (stmt instanceof ReturnStatement || stmt instanceof ThrowStatement) return true
+        // break and continue leave the current statement sequence as surely as return does:
+        // the statements after the `if` run only when the branch was NOT taken, so a null
+        // check guarded by `continue` narrows exactly like one guarded by `return`.
+        if (stmt instanceof BreakStatement || stmt instanceof ContinueStatement) return true
         if (stmt instanceof BlockStatement) {
             def stmts = stmt.statements
             return stmts && isEarlyExit(stmts.last())

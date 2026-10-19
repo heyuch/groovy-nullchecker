@@ -200,6 +200,7 @@ class NullCheckHarness {
         Result result = new Result()
         // Reset so a zero count means "this run saw nothing", not "some earlier run did".
         NullChecker.resetCoverage()
+        NullChecker.resetInternalErrors()
         try {
             unit.compile(Phases.INSTRUCTION_SELECTION)
             List errors = (List) (unit.errorCollector?.errors ?: [])
@@ -214,6 +215,16 @@ class NullCheckHarness {
             result.threw = true
             result.raw = e.message
             result.findings = parseFindings(e.message, files)
+        }
+        // Groovy swallows an exception raised inside a type-checking extension: the
+        // compilation still finishes, usually with no errors, so the run looks clean.
+        // See NullChecker#guarded. A recorded failure means part of the tree was never
+        // analysed, so no count from this run is reportable.
+        List<String> internalFailures = NullChecker.getInternalErrors()
+        if (!internalFailures.isEmpty()) {
+            throw new IllegalStateException(
+                    "the checker failed internally on ${files.size()} file(s), so its result " +
+                    "cannot be trusted: ${internalFailures[0]}")
         }
         result.coverage = NullChecker.lastCoverage
         result.coverage.files = files.size()

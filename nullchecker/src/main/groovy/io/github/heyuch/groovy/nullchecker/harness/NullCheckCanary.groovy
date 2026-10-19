@@ -46,6 +46,36 @@ class StaticCanary {
     int bad() { value.length() }
 }
 ''',
+            // Shapes the checker has crashed on, or could. They are expected to report
+            // nothing; their purpose is to be *analysed*, so an internal failure shows up
+            // here instead of in a consumer's first run.
+            'canary/SpreadCanary.groovy': '''package canary
+
+import groovy.transform.CompileStatic
+import corpus.canary.Nullable
+
+@CompileStatic
+class SpreadCanary {
+    static class Item {
+        @Nullable String code
+    }
+
+    static List<String> codes(List<Item> items) {
+        return items*.code.findAll { String value -> value != null }
+    }
+}
+''',
+            'canary/SafeNavCanary.groovy': '''package canary
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class SafeNavCanary {
+    static String trimmed(List<String> values) {
+        return values?.first()?.trim() ?: ''
+    }
+}
+''',
     ] as Map<String, String>
 
     /** The annotation the canary samples rely on; provided in memory, not on the classpath. */

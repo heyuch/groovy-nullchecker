@@ -143,6 +143,42 @@ rule=N03
 strict=never
 expect=none
 
+negative/spread_property_result.groovy
+rule=N13
+strict=never
+expect=none
+note=spread property result is a List; direct and via-local shapes
+
+negative/guards_loop_exit.groovy
+rule=N14
+strict=never
+expect=none
+note=continue and break narrow like return; for and while loops
+
+positive/validation_notnull_argument.groovy
+rule=R07
+strict=any
+expect=some
+note=Bean Validation @NotNull keeps its parameter contract
+
+positive/validation_notnull_return.groovy
+rule=R01
+strict=any
+expect=some
+note=Bean Validation @NotNull keeps its return contract
+
+negative/validation_notnull_field.groovy
+rule=N15
+strict=never
+expect=none
+note=constraint does not require initialisation; no @NullMarked here
+
+positive/validation_notnull_field_marked.groovy
+rule=R09
+strict=only
+expect=some
+note=@NullMarked outranks the constraint's looser guarantee
+
 negative/guards_groovy_truth.groovy
 rule=N04
 strict=never

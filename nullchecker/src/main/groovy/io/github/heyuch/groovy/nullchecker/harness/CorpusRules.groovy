@@ -58,6 +58,9 @@ class CorpusRules {
             N10: '@NullUnmarked opts out of a package/class default',
             N11: 'no marking in scope (subpackage or unmarked package)',
             N12: '@CompileStatic class with correct guards stays silent',
+            N13: 'a spread property result is a List and never null',
+            N14: 'continue / break ends the current path, so later statements are narrowed',
+            N15: 'a validation constraint does not require initialisation in source',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {
