@@ -262,6 +262,26 @@ the analysis was incomplete, so it is still printed and still counted. Configure
 `failOn` (plugin) / `--fail-on` (CLI): default `null,initialization`; `all` makes everything
 fail, as earlier versions did.
 
+**Choosing what runs** is a separate switch. `checks` (plugin) / `--checks` (CLI) selects the
+rule families that run at all:
+
+```groovy
+nullcheck {
+    checks = ['null']        // stop reporting uninitialised fields; keep every nullness rule
+}
+```
+
+That is not the same as `failOn`: disabling a family removes its findings from the report,
+which is what a project needs when it has decided it cannot satisfy the initialisation
+requirement yet (fields assigned by a container, for example) rather than teaching everyone
+to ignore a wall of output. `checks = ['all']` is the default.
+
+With package-level `@NullMarked`, the difference is large: on a service package with injected
+fields, `checks = ['null']` turns 195 findings into 71 — the 124 initialisation reports are
+injected fields the container assigns, and the remaining finds are methods that return null
+without `@Nullable` and nulls passed to non-null parameters, which is the signal worth acting
+on.
+
 ```
 findings   = 3 (null=2, initialization=0, resolution=1)
 fail-on    = null,initialization
@@ -317,6 +337,7 @@ nullcheck {
     failOnError = true                        // default false: report only
     strict      = true                        // optional
     failOn      = ['null', 'initialization']   // default; 'all' to fail on resolution too
+    checks      = ['all']                      // default; ['null'] drops uninitialised-field reports
     targets     = ['src/main/groovy', 'src/main/java']
 }
 ```

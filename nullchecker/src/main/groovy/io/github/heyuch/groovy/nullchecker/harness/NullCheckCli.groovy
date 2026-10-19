@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy.nullchecker.NullChecker
 
 /**
  * Command-line front end for the null checker.
@@ -29,6 +30,8 @@ class NullCheckCli {
   --report <file>       write the raw compiler output here
   --fail-on <list>      categories that fail the run (default: null,initialization;
                         use "all" for every category, including resolution errors)
+  --checks <list>       rule families to run: null, initialization, or all (default: all).
+                        Disabling one stops it being reported, not just failing the run
   --guard-when-true <c#m>   method asserts its first argument non-null when it returns true
   --guard-when-false <c#m>  ... when it returns false (e.g. isNullOrEmpty); repeatable
   --quiet               only print findings
@@ -75,6 +78,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         List<String> failOn = new ArrayList<String>(NullCheckHarness.DEFAULT_FAIL_ON)
         List<String> guardsTrue = new ArrayList<String>()
         List<String> guardsFalse = new ArrayList<String>()
+        List<String> checks = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> paths = []
 
         for (int i = 0; i < argv.size(); i++) {
@@ -105,6 +109,17 @@ but does not fail the run by default, because it is not a nullness claim.'''
                 case '--report':
                     report = value(argv, ++i, arg, err)
                     if (report == null) return 2
+                    break
+                case '--checks':
+                    String checkSpec = value(argv, ++i, arg, err)
+                    if (checkSpec == null) return 2
+                    List<String> parsed = parseChecks(checkSpec)
+                    if (parsed == null || parsed.isEmpty()) {
+                        err.println("nullcheck: --checks needs at least one of: " +
+                                'null, initialization, all')
+                        return 2
+                    }
+                    checks = parsed
                     break
                 case '--guard-when-true':
                     String guardTrue = value(argv, ++i, arg, err)
@@ -138,6 +153,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         }
 
         applyGuards(guardsTrue, guardsFalse)
+        System.setProperty('groovy.nullchecker.checks', checks.join(','))
 
         List<File> files = []
         List<String> missing = []
@@ -193,6 +209,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
             out.println "groovy     = ${GroovySystem.version}"
             out.println "extension  = ${extension}"
             out.println "strict     = ${strict}"
+            out.println "checks     = ${checks.join(',')}"
             if (guardsTrue || guardsFalse) {
                 out.println "guards     = true:[${guardsTrue.join(',')}] false:[${guardsFalse.join(',')}]"
             }
@@ -302,6 +319,31 @@ ${result.raw}
     private static void applyGuards(List<String> guardsTrue, List<String> guardsFalse) {
         System.setProperty('groovy.nullchecker.guards.true', guardsTrue.join(','))
         System.setProperty('groovy.nullchecker.guards.false', guardsFalse.join(','))
+    }
+
+    /**
+     * Parses {@code --checks}.
+     *
+     * @param spec comma-separated family names, or {@code all}
+     * @return names, or {@code null} when one is unknown
+     */
+    private static List<String> parseChecks(String spec) {
+        List<String> known = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
+        List<String> selected = []
+        for (String raw : spec.split(',')) {
+            String name = raw.trim().toLowerCase()
+            if (name.isEmpty()) {
+                continue
+            }
+            if (name == NullChecker.CHECKS_ALL) {
+                return known
+            }
+            if (!known.contains(name)) {
+                return null
+            }
+            selected.add(name)
+        }
+        selected
     }
 
     private static String value(List<String> argv, int index, String option, PrintStream err) {

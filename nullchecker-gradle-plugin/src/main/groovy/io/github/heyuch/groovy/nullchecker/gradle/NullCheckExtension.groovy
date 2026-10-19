@@ -63,6 +63,15 @@ class NullCheckExtension {
      * polarity is part of the declaration because it cannot be read off the name; getting
      * it wrong would hide a real finding instead of adding noise.
      */
+    /**
+     * Rule families to run, as {@code ['null', 'initialization']}.
+     *
+     * <p>Disabling one stops it being reported at all, which is different from
+     * {@link #failOn}: a family a project has decided not to satisfy yet should not fill the
+     * report with findings nobody will act on. Both are on by default.
+     */
+    final ListProperty<String> checks
+
     final ListProperty<String> guardNotNullWhenTrue
 
     /**
@@ -87,6 +96,7 @@ class NullCheckExtension {
         this.canary = project.objects.property(Boolean)
         this.failOnError = project.objects.property(Boolean)
         this.failOn = project.objects.listProperty(String)
+        this.checks = project.objects.listProperty(String)
         this.guardNotNullWhenTrue = project.objects.listProperty(String)
         this.guardNotNullWhenFalse = project.objects.listProperty(String)
         this.toolVersion = project.objects.property(String)
@@ -99,6 +109,7 @@ class NullCheckExtension {
         canary.convention(true)
         failOnError.convention(false)
         failOn.convention(['null', 'initialization'])
+        checks.convention(['null', 'initialization'])
         guardNotNullWhenTrue.convention([])
         guardNotNullWhenFalse.convention([])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)

@@ -166,6 +166,18 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
     private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(['requireNonNull', 'checkNotNull'] as Set)
+    /** Rule family: nullness of values (dereference, return, assignment, argument). */
+    static final String CHECK_NULL = 'null'
+
+    /** Rule family: an explicitly non-null field no constructor assigns. */
+    static final String CHECK_INITIALIZATION = 'initialization'
+
+    /** The value of {@link #CHECKS_PROPERTY} that enables every family. */
+    static final String CHECKS_ALL = 'all'
+
+    /** Comma-separated rule families to run; absent means {@link #CHECKS_ALL}. */
+    static final String CHECKS_PROPERTY = 'groovy.nullchecker.checks'
+
     /** Guard methods declared by the caller, as {@code declaringClass#method}. */
     private static final String GUARD_TRUE_PROPERTY = 'groovy.nullchecker.guards.true'
 
@@ -283,18 +295,45 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 countCovered(cn)
             }
         }
-        afterVisitMethod { MethodNode method ->
-            guarded("method ${method.declaringClass?.name}#${method.name}") {
-                method.code?.visit(makeVisitor(strict, method))
+        // Which rule families run is a caller decision, not a property of the code being
+        // checked: a project that cannot satisfy a family yet should stop seeing it rather
+        // than learn to ignore a wall of findings it has decided not to act on.
+        if (isCheckEnabled(CHECK_NULL)) {
+            afterVisitMethod { MethodNode method ->
+                guarded("method ${method.declaringClass?.name}#${method.name}") {
+                    method.code?.visit(makeVisitor(strict, method))
+                }
             }
         }
-        if (strict) {
+        if (strict && isCheckEnabled(CHECK_INITIALIZATION)) {
             afterVisitClass { ClassNode cn ->
                 guarded("initialization of ${cn.name}") {
                     checkNonNullFieldInitialization(cn)
                 }
             }
         }
+    }
+
+    /**
+     * Whether one rule family is enabled.
+     *
+     * <p>Both are on unless the caller says otherwise. An unknown name is treated as
+     * enabled by the checker; the CLI validates the value and rejects a typo, because a
+     * silently disabled check produces a zero that looks like a clean result.
+     */
+    private static boolean isCheckEnabled(String check) {
+        String raw = System.getProperty(CHECKS_PROPERTY)
+        if (raw == null || raw.trim().isEmpty()) {
+            return true
+        }
+        Set<String> enabled = new HashSet<String>()
+        for (String part : raw.split(',')) {
+            String name = part.trim().toLowerCase()
+            if (!name.isEmpty()) {
+                enabled.add(name)
+            }
+        }
+        enabled.isEmpty() || enabled.contains(check) || enabled.contains(CHECKS_ALL)
     }
 
     /**

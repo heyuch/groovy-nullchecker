@@ -31,6 +31,10 @@ checked by `./gradlew dualRun`.
   configurable by `--fail-on` (CLI) and `failOn` (plugin). Resolution errors — the static
   checker failing on dynamically dispatched code — are still reported but no longer fail by
   default.
+- **Selectable rule families.** `checks` (plugin) / `--checks` (CLI) turns the
+  `initialization` family off entirely, distinct from `failOn`, which only decides what fails.
+  This is what makes package-level `@NullMarked` usable where fields are assigned by a
+  container: on a service package it removes 124 of 195 findings, all of them injected fields.
 - **Declarable guard methods.** `guardNotNullWhenTrue` / `guardNotNullWhenFalse` (plugin),
   `--guard-when-true` / `--guard-when-false` (CLI), `groovy.nullchecker.guards.*` (system
   properties). Polarity is declared, because a reversed declaration would hide a real finding.

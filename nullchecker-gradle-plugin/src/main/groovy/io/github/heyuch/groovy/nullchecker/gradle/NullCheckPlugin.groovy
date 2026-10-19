@@ -173,6 +173,9 @@ class NullCheckPlugin implements Plugin<Project> {
         if (!extension.canary.get()) {
             args << '--no-canary'
         }
+        if (!extension.checks.get().isEmpty()) {
+            args << '--checks' << extension.checks.get().join(',')
+        }
         if (!extension.failOn.get().isEmpty()) {
             args << '--fail-on' << extension.failOn.get().join(',')
         }
