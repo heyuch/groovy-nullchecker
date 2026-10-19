@@ -145,7 +145,10 @@ Matched by **simple name**, so the package does not matter:
 | --- | --- |
 | Nullable | `Nullable`, `CheckForNull`, `MonotonicNonNull` |
 | Non-null | `NonNull`, `NotNull`, `Nonnull` |
-| Non-null by default | `NullMarked`, `NonNullByDefault`, `NonnullByDefault` |
+| Non-null by default (everything) | `NullMarked`, `NonNullByDefault`, `NonnullByDefault` |
+| Non-null **parameters** by default | `ParametersAreNonnullByDefault`, `ParametersAreNonNullByDefault`, `NonNullApi` |
+| Non-null **return values** by default | `ReturnValuesAreNonnullByDefault`, `NonNullApi` |
+| Non-null **fields** by default | `NonNullFields` |
 | Opt out of the default | `NullUnmarked` |
 
 > Annotations must be `RUNTIME`-retained. With `CLASS` retention the checker cannot see them
@@ -216,6 +219,28 @@ subpackages are **not** covered and must declare their own.
 
 > This goes beyond upstream — Groovy 6's `NullChecker` does not read package annotations at
 > all. See [PORT.md §4.2](PORT.md).
+
+### Scoped defaults
+
+The JSR-305 and Spring annotations mark one scope at a time, which is usually what a legacy
+codebase wants first: parameters are the cheapest thing to make non-null, return values need
+`@Nullable` annotations to go with them, and fields are the noisiest (anything a container
+assigns never has a constructor assignment).
+
+| Annotation | Parameters | Return values | Fields |
+| --- | --- | --- | --- |
+| `@ParametersAreNonnullByDefault` (JSR-305) | ✅ | — | — |
+| `@ReturnValuesAreNonnullByDefault` (JSR-305) | — | ✅ | — |
+| `@NonNullApi` (Spring) | ✅ | ✅ | — |
+| `@NonNullFields` (Spring) | — | — | ✅ |
+| `@NullMarked` (JSpecify) | ✅ | ✅ | ✅ |
+
+Measured on one real service package (71 files, `--strict`): no annotation 1 finding,
+`@ParametersAreNonnullByDefault` 26, `@NonNullApi` 71, `@NullMarked` 195 — the difference is
+entirely the scopes above, and the 124 extra under `@NullMarked` are field initialisation
+reports for injected fields.
+
+`@NullUnmarked` on a class opts out of whatever the package declares, for every scope.
 
 ---
 

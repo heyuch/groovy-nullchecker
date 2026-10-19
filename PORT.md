@@ -122,6 +122,25 @@ pairs the tolerated shape with one that must still be reported.
 | 2 | `continue` and `break` do not terminate a path, so `if (x == null) continue` narrows nothing | both count as path exits, like `return` and `throw` | The statements after the `if` run only when the branch was not taken. This is the narrowest loop guard in real code |
 | 3 | `jakarta`/`javax` validation `@NotNull` is honoured as a nullness contract *and* as a demand for definite initialisation | the contract is kept; only the initialisation requirement is suspended, and not inside a `@NullMarked` class | A runtime validation constraint promises non-null at validation time, not that the constructor assigned the field. Beans populated by an ORM or a deserializer start empty by design |
 
+### 2.7 Scoped package-level defaults (3)
+
+Upstream reads package annotations not at all, and this port previously modelled a default as
+a single on/off switch, so only `@NullMarked`-style markings could be expressed at package
+level. JSR-305 and Spring split the default per scope, so the switch is now resolved per
+scope: parameters (`@ParametersAreNonnullByDefault`), return values
+(`@ReturnValuesAreNonnullByDefault`), fields (`@NonNullFields`), and both at once
+(`@NonNullApi`), with `@NullMarked` covering all three.
+
+| Scope | Names honoured in addition to `@NullMarked`/`@NonNullByDefault` |
+| --- | --- |
+| Parameters | `ParametersAreNonnullByDefault`, `ParametersAreNonNullByDefault`, `NonNullApi` |
+| Return values | `ReturnValuesAreNonnullByDefault`, `NonNullApi` |
+| Fields | `NonNullFields` |
+
+`ReturnValuesAreNonnullByDefault` is part of the JSR-305 specification but absent from the
+reference jar, so a project that uses it supplies the annotation itself; matching is by simple
+name, as everywhere else. `@NullUnmarked` still opts out of every scope.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

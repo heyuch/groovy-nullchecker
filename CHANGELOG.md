@@ -31,6 +31,10 @@ checked by `./gradlew dualRun`.
   configurable by `--fail-on` (CLI) and `failOn` (plugin). Resolution errors — the static
   checker failing on dynamically dispatched code — are still reported but no longer fail by
   default.
+- **Scoped package-level defaults.** `@ParametersAreNonnullByDefault`,
+  `@ReturnValuesAreNonnullByDefault`, Spring's `@NonNullApi` and `@NonNullFields` are now read
+  from `package-info`, each covering only its own scope. Previously only `@NullMarked`-style
+  markings worked at package level, and the JSR-305 ones worked only on a class.
 - **Selectable rule families.** `checks` (plugin) / `--checks` (CLI) turns the
   `initialization` family off entirely, distinct from `failOn`, which only decides what fails.
   This is what makes package-level `@NullMarked` usable where fields are assigned by a

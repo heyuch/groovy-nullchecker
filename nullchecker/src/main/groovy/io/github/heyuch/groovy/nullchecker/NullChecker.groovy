@@ -163,6 +163,20 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static final Set<String> NONNULL_BY_DEFAULT_ANNOS = Collections.unmodifiableSet(['NonNullByDefault', 'NonnullByDefault', 'NullMarked'] as Set)
     private static final Set<String> NULL_UNMARKED_ANNOS = Collections.unmodifiableSet(['NullUnmarked'] as Set)
 
+    /**
+     * Defaults that apply to parameters only. {@code @NonNullApi} is Spring's package-level
+     * marking and covers returns as well, so it appears in both sets.
+     */
+    private static final Set<String> PARAMETER_DEFAULT_ANNOS = Collections.unmodifiableSet([
+            'ParametersAreNonnullByDefault', 'ParametersAreNonNullByDefault', 'NonNullApi'] as Set)
+
+    /** Defaults that apply to return values only. */
+    private static final Set<String> RETURN_DEFAULT_ANNOS = Collections.unmodifiableSet([
+            'ReturnValuesAreNonnullByDefault', 'NonNullApi'] as Set)
+
+    /** Defaults that apply to fields only. */
+    private static final Set<String> FIELD_DEFAULT_ANNOS = Collections.unmodifiableSet(['NonNullFields'] as Set)
+
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
     private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(['requireNonNull', 'checkNotNull'] as Set)
@@ -413,7 +427,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         if (hasAnno(cn, COMPILE_STATIC_ANNOS)) {
             LAST_COVERAGE.compileStaticClasses++
         }
-        if (isNonNullByDefault(cn)) {
+        if (isAnyNonNullByDefault(cn)) {
             LAST_COVERAGE.nonNullByDefaultClasses++
         }
         LAST_COVERAGE.methodsWithReturnType += cn.methods.count { MethodNode m ->
@@ -485,7 +499,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     private CheckingVisitor makeVisitor(boolean flowSensitive, MethodNode method) {
-        boolean classNonNullByDefault = method.declaringClass != null && isNonNullByDefault(method.declaringClass)
+        boolean classNonNullByDefault = method.declaringClass != null &&
+            isReturnValueNonNullByDefault(method.declaringClass)
         boolean methodNonNull = method.returnType != VOID_TYPE && (hasNonNullAnno(method) || (classNonNullByDefault && !hasNullableAnno(method)))
         if (methodNonNull) {
             def stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
@@ -536,7 +551,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     def target = findTargetVariable(expression.leftExpression)
                     boolean fieldNonNull = target instanceof AnnotatedNode && hasNonNullAnno(target)
                     if (!fieldNonNull && target instanceof FieldNode && !hasNullableAnno(target)) {
-                        fieldNonNull = target.declaringClass != null && isNonNullByDefault(target.declaringClass)
+                        fieldNonNull = target.declaringClass != null &&
+                            isFieldNonNullByDefault(target.declaringClass)
                     }
                     if (fieldNonNull && isNullExpr(expression.rightExpression)) {
                         addStaticTypeError("Cannot assign null to @NonNull variable '${expression.leftExpression.name}'", expression)
@@ -895,7 +911,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 // @NullCheck/@ParametersAreNonnullByDefault/@NonNullByDefault on method or class makes non-primitive params effectively @NonNull
                 def declaringClass = target.declaringClass
                 boolean nullChecked = hasNullCheckAnno(target) || hasNonNullByDefaultAnno(target) ||
-                    (declaringClass != null && (hasNullCheckAnno(declaringClass) || isNonNullByDefault(declaringClass)))
+                    (declaringClass != null && (hasNullCheckAnno(declaringClass) ||
+                            isParameterNonNullByDefault(declaringClass)))
                 int limit = Math.min(args.expressions.size(), params.length)
                 for (int i = 0; i < limit; i++) {
                     def arg = args.getExpression(i)
@@ -973,7 +990,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         // runs*; it does not promise the constructor assigned it, and beans populated by an
         // ORM or a deserializer legitimately start empty. A @NullMarked class is different:
         // its marking is a language-level contract, so the requirement stands there.
-        boolean markedScope = isNonNullByDefault(cn)
+        boolean markedScope = isFieldNonNullByDefault(cn)
         List<FieldNode> candidates = cn.fields.findAll { field ->
             !field.static && !isPrimitiveType(field.type) && field.initialValueExpression == null &&
                 isNonNullAnnotated(field) && !hasNullableAnno(field) && !hasMonotonicAnno(field) &&
@@ -1065,7 +1082,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private boolean isNonNullAnnotated(AnnotatedNode node) {
         if (hasNonNullAnno(node)) return true
         ClassNode owner = node instanceof FieldNode ? ((FieldNode) node).declaringClass : null
-        owner != null && isNonNullByDefault(owner)
+        owner != null && isFieldNonNullByDefault(owner)
     }
 
     private static boolean hasMonotonicAnno(AnnotatedNode node) {
@@ -1102,7 +1119,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     private static boolean declaresNonNullByDefault(AnnotatedNode node) {
-        node.annotations?.any { it.classNode?.nameWithoutPackage in NONNULL_BY_DEFAULT_ANNOS } ?: false
+        declaresAny(node, NONNULL_BY_DEFAULT_ANNOS)
+    }
+
+    private static boolean declaresAny(AnnotatedNode node, Set<String> names) {
+        node.annotations?.any { it.classNode?.nameWithoutPackage in names } ?: false
     }
 
     private static boolean hasNullUnmarkedAnno(AnnotatedNode node) {
@@ -1139,29 +1160,83 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * annotated element itself.
      */
     private boolean isNonNullByDefault(ClassNode cn) {
+        isNullDefaultInScope(cn, Collections.emptySet())
+    }
+
+    /** Parameter defaults: "@NullMarked"-style plus the parameter-scoped annotations. */
+    private boolean isParameterNonNullByDefault(ClassNode cn) {
+        isNullDefaultInScope(cn, PARAMETER_DEFAULT_ANNOS)
+    }
+
+    /** Return-value defaults: "@NullMarked"-style plus the return-scoped annotations. */
+    private boolean isReturnValueNonNullByDefault(ClassNode cn) {
+        isNullDefaultInScope(cn, RETURN_DEFAULT_ANNOS)
+    }
+
+    /** Field defaults: "@NullMarked"-style plus the field-scoped annotations. */
+    private boolean isFieldNonNullByDefault(ClassNode cn) {
+        isNullDefaultInScope(cn, FIELD_DEFAULT_ANNOS)
+    }
+
+    /** Any default at all, whatever it covers; used for the coverage counter. */
+    private boolean isAnyNonNullByDefault(ClassNode cn) {
+        Set<String> anyScope = new HashSet<String>(PARAMETER_DEFAULT_ANNOS)
+        anyScope.addAll(RETURN_DEFAULT_ANNOS)
+        anyScope.addAll(FIELD_DEFAULT_ANNOS)
+        isNullDefaultInScope(cn, anyScope)
+    }
+
+    /**
+     * Resolves whether a non-null default applies to one scope.
+     *
+     * <p>A default is not one switch but three: JSR-305 and Spring split it into parameters
+     * ({@code @ParametersAreNonnullByDefault}), return values
+     * ({@code @ReturnValuesAreNonnullByDefault}) and fields ({@code @NonNullFields}), while
+     * {@code @NullMarked}/{@code @NonNullByDefault} cover all three. A single boolean could
+     * not express that, which is why the parameter-scoped annotations were honoured on a
+     * class but silently ignored on a package.
+     *
+     * <p>Precedence: the class chain is consulted innermost-first and an {@code @NullUnmarked}
+     * anywhere on it opts out entirely; package annotations are consulted next. Within one
+     * level an opt-out beats a marking.
+     *
+     * @param cn         class whose defaults are being resolved
+     * @param scopeAnnos additional annotation names that count for this scope
+     * @return whether the scope's values are non-null by default
+     */
+    private boolean isNullDefaultInScope(ClassNode cn, Set<String> scopeAnnos) {
+        Set<String> accepted = new HashSet<String>(NONNULL_BY_DEFAULT_ANNOS)
+        accepted.addAll(scopeAnnos)
         for (ClassNode c = cn; c != null; c = c.outerClass) {
             if (hasNullUnmarkedAnno(c)) return false
-            if (declaresNonNullByDefault(c)) return true
+            if (declaresAny(c, accepted)) return true
         }
+        List<String> pkgAnnos = packageAnnotationNames(cn)
+        if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
+        pkgAnnos.any { String n -> accepted.contains(n) }
+    }
+
+    /**
+     * The simple names of the annotations declared on a class's package, from every source
+     * that can carry them: a source {@code package-info} in this compilation, the package
+     * node, and a precompiled {@code package-info.class} on the classpath.
+     */
+    private List<String> packageAnnotationNames(ClassNode cn) {
+        List<String> names = new ArrayList<String>()
         String pkgName = normalisePackageName(cn?.package?.name)
         List<String> fromSource = pkgName == null ? null : PORT_PACKAGE_ANNOS[pkgName]
         if (fromSource != null) {
-            if (fromSource.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
-            if (fromSource.any { String n -> NONNULL_BY_DEFAULT_ANNOS.contains(n) }) return true
+            names.addAll(fromSource)
         }
         def pkg = cn?.package
         if (pkg != null) {
-            if (hasNullUnmarkedAnno(pkg)) return false
-            if (declaresNonNullByDefault(pkg)) return true
+            names.addAll(pkg.annotations*.classNode*.nameWithoutPackage ?: [])
         }
-        // Last resort: a precompiled package-info.class from a dependency, whose
-        // annotations Groovy 4 does not surface on the source class's package node.
         List<String> fromClasspath = pkgName == null ? null : lookupPackageAnnotations(pkgName)
         if (fromClasspath != null) {
-            if (fromClasspath.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
-            if (fromClasspath.any { String n -> NONNULL_BY_DEFAULT_ANNOS.contains(n) }) return true
+            names.addAll(fromClasspath)
         }
-        false
+        names
     }
 
     /**

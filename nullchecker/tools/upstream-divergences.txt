@@ -15,6 +15,14 @@ pkg/marked/FieldsFromPackage.groovy [strict]|package-level @NullMarked is read f
 positive/nonnull_local_declaration.groovy [annotations]|a locally declared @NonNull is checked; upstream does not report locals
 positive/nonnull_local_declaration.groovy [strict]|a locally declared @NonNull is checked; upstream does not report locals
 
+# ── Scoped package defaults (JSR-305 / Spring) ───────────────────────────────
+pkg/params/ParamsDefault.groovy [annotations]|@ParametersAreNonnullByDefault on the package covers parameters; upstream only honours the class-level form
+pkg/params/ParamsDefault.groovy [strict]|@ParametersAreNonnullByDefault on the package covers parameters; upstream only honours the class-level form
+pkg/returns/ReturnsDefault.groovy [annotations]|@ReturnValuesAreNonnullByDefault on the package covers return values; upstream does not know the annotation
+pkg/returns/ReturnsDefault.groovy [strict]|@ReturnValuesAreNonnullByDefault on the package covers return values; upstream does not know the annotation
+pkg/spring/SpringDefault.groovy [annotations]|Spring's @NonNullApi covers parameters and returns; upstream does not know the annotation
+pkg/spring/SpringDefault.groovy [strict]|Spring's @NonNullApi covers parameters and returns; upstream does not know the annotation
+
 # ── Fixes: upstream reports, this port does not ──────────────────────────────
 negative/spread_property_result.groovy [annotations]|xs*.prop always yields a List, so its result is never null; upstream reports the following call
 negative/spread_property_result.groovy [strict]|same spread defect, plus the local variable it is assigned to; upstream reports both

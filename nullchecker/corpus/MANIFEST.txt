@@ -23,6 +23,25 @@
 # `expect=some` means "at least one". Repeated rule ids are deliberate: several
 # fixtures exercise different shapes of the same rule.
 
+# ── Package-level defaults with a scope (JSR-305 / Spring) ───────────────────
+pkg/params/ParamsDefault.groovy
+rule=R07
+strict=any
+expect=some
+note=@ParametersAreNonnullByDefault on the package covers parameters
+
+pkg/returns/ReturnsDefault.groovy
+rule=R01
+strict=any
+expect=some
+note=@ReturnValuesAreNonnullByDefault covers returns and must not cover parameters
+
+pkg/spring/SpringDefault.groovy
+rule=R01
+strict=any
+expect=some
+note=Spring @NonNullApi covers parameters and returns
+
 # ── R01: null returned from an @NonNull method ───────────────────────────────
 positive/nonnull_return.groovy
 rule=R01
