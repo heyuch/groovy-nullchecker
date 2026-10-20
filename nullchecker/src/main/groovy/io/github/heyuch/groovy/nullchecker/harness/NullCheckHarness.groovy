@@ -299,6 +299,7 @@ class NullCheckHarness {
         // Reset so a zero count means "this run saw nothing", not "some earlier run did".
         NullChecker.resetCoverage()
         NullChecker.resetInternalErrors()
+        NullChecker.resetCaches()
         try {
             unit.compile(Phases.INSTRUCTION_SELECTION)
             List errors = (List) (unit.errorCollector?.errors ?: [])

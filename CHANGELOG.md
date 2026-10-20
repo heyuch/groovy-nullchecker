@@ -18,6 +18,18 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **`containerLookups` switch** (plugin; `--no-container-lookups` on the CLI) turns the
   family off while a project migrates, leaving the type-based findings in place.
 
+### Performance
+
+- **Package-annotation lookups are cached** per class and per package, instead of resolving
+  `package-info.class` through up to four classloaders for every scope decision. On a
+  319-file module this was the largest single checker cost (about 10% of JFR samples, mostly
+  in class loading) and is now gone.
+- **Annotation simple names are cached per node**, removing repeated declaration and type
+  annotation walks while deciding a scope.
+- Measured end to end on that module: about 10-15% faster; the checker still roughly doubles
+  the compilation of one module, which is dominated by Groovy's own parser and static type
+  checker. See `PORT.md` §5.8 for the profile and the remaining structural option.
+
 ## [0.3.1]
 
 ### Fixed

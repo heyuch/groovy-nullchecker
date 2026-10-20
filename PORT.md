@@ -373,10 +373,14 @@ The annotation member is declared `Class[]`, but at runtime only a `String` is h
 Passing a `Class` or `ClassExpression` is silently ignored, producing a green build that
 checked nothing.
 
-### 5.6 Annotations must be `RUNTIME`-retained
+### 5.6 Annotation retention
 
-With `CLASS` retention the checker does not see the annotation and every rule based on it
-goes silent. This one is easy to hit with a hand-written annotation.
+A `RUNTIME`-retained annotation always works. `CLASS`-retained declaration annotations on
+compiled classes are read as well -- verified with a `@Contract` in a dependency -- provided
+the annotation's own class is on the compile classpath; without it the annotation is silently
+dropped. The case that genuinely needs `RUNTIME` is a precompiled `package-info.class`, which
+is read through reflection. A hand-written annotation should therefore be `RUNTIME` unless
+there is a reason not to be.
 
 ### 5.7 `x in y` is not an obstacle
 
@@ -384,6 +388,39 @@ goes silent. This one is easy to hit with a hand-written annotation.
 recompiled against Groovy 4 rather than the jar being moved, the compiler emits Groovy 4's own
 implementation. No rewriting was needed.
 
+### 5.8 Where the checker's time goes
+
+Measured on a 319-file module (43k lines, 456 classes), compiling to `INSTRUCTION_SELECTION`
+with and without the customizer, and sampled with JFR:
+
+| Configuration | Time |
+| --- | --- |
+| Plain Groovy static compilation | ~3.4 s |
+| With the null checker | ~7.5 s |
+
+The checker roughly doubles the compilation of one module. Inside that, the dominant costs were
+not the nullness rules themselves:
+
+1. **Package-annotation lookups.** `lookupPackageAnnotations` tried up to four classloaders
+   with `Class.forName` for every scope decision of every class, resolving the same
+   `package-info.class` thousands of times. It showed up as the single largest checker frame
+   (about 10% of all samples, mostly in `ZipFile`/class loading). Caching by class and by
+   package name, cleared per compilation unit, removed it.
+2. **Annotation scans.** `hasAnno` walked declaration and type annotations for every node,
+   several times per scope. A per-node cache of the simple names removed the repeated walks.
+3. **Dynamic dispatch.** The DSL class extends `TypeCheckingDSL` and the visitor is an
+   anonymous class, so both run dynamically. `@CompileStatic` on the outer class is not
+   possible: it hides the DSL's `context`, `afterVisitClass` and `addStaticTypeError`, which
+   are resolved dynamically. Extracting the visitor into a statically compiled named class
+   would recover a few percent, at the cost of a large refactor.
+
+What remains is Groovy's own parser and static type checker plus class loading, which the
+checker cannot avoid. The larger lever is structural: the Gradle plugin runs the CLI as a
+**separate compilation**, so a build pays for one normal compile and one checking compile. A
+customizer inside `compileGroovy` would pay the checking cost once instead of twice, but
+findings would have to be collected rather than raised as compiler errors.
+
+## 6. What is not verified
 ---
 
 ## 6. What is not verified

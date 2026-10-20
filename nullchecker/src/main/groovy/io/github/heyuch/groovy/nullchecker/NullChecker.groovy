@@ -300,6 +300,17 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         PORT_OPTIONS.clear()
     }
 
+    /** Drops per-compilation caches, so a new compilation cannot see a stale package answer. */
+    static void resetCaches() {
+        PORT_CACHE_UNIT = null
+        PORT_PACKAGE_ANNOS = [:]
+        PORT_PACKAGE_ANNO_BY_CLASS.clear()
+        PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
+        PORT_CLASS_LOADERS = null
+        PORT_DECL_ANNO_NAMES.clear()
+        PORT_TYPE_ANNO_NAMES.clear()
+    }
+
     /**
      * Reads the {@code strict} flag the way Groovy 6's {@code options?.strict} would.
      *
@@ -325,7 +336,18 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     @Override
     Object run() {
         boolean strict = isStrictEnabled()
-        PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+        def unit = context?.compilationUnit
+        if (unit != null && !unit.is(PORT_CACHE_UNIT)) {
+            PORT_CACHE_UNIT = unit
+            PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+            PORT_PACKAGE_ANNO_BY_CLASS.clear()
+            PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
+            PORT_CLASS_LOADERS = null
+            PORT_DECL_ANNO_NAMES.clear()
+            PORT_TYPE_ANNO_NAMES.clear()
+        } else if (unit == null) {
+            PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+        }
         PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
         PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
         PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
@@ -492,6 +514,24 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * {@code package-info} happens to be compiled before or after its package's classes.
      */
     private static Map<String, List<String>> PORT_PACKAGE_ANNOS = [:]
+
+    /**
+     * Per-compilation caches for package-annotation lookups.
+     *
+     * <p>{@link #lookupPackageAnnotations} walks up to four classloaders with
+     * {@code Class.forName}, which resolves {@code package-info.class} entries from the
+     * classpath. It is called for every scope decision of every class, so without a cache the
+     * same package is resolved thousands of times -- measured as the largest single cost in
+     * the checker. Both maps are cleared when a new compilation unit is seen.
+     */
+    private static final Map<String, List<String>> PORT_PACKAGE_ANNO_BY_CLASS = [:]
+
+    private static final Map<String, List<String>> PORT_PACKAGE_ANNO_BY_PACKAGE = [:]
+
+
+    private static Object PORT_CACHE_UNIT
+
+    private static List<ClassLoader> PORT_CLASS_LOADERS
 
     /**
      * Scans the compilation unit for {@code package-info} classes and records the
@@ -1506,9 +1546,42 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * (e.g. JSpecify's) appear on the type rather than the declaration, in particular
      * for classes read from bytecode or via reflection.
      */
+    /**
+     * Annotation simple names per node, cached for the compilation.
+     *
+     * <p>{@link #hasAnno} is asked several times for the same node while deciding a scope
+     * (parameter default, return default, field default), and each answer walked both the
+     * declaration and the type annotations. The sets are small, but the walk and the closure
+     * allocation were not free on a module with thousands of methods.
+     */
+    private static final Map<AnnotatedNode, Set<String>> PORT_DECL_ANNO_NAMES = new IdentityHashMap<>()
+
+    private static final Map<AnnotatedNode, Set<String>> PORT_TYPE_ANNO_NAMES = new IdentityHashMap<>()
+
     private static boolean hasAnno(AnnotatedNode node, Set<String> annoNames) {
-        if (node.annotations?.any { it.classNode?.nameWithoutPackage in annoNames }) return true
-        typeOf(node)?.typeAnnotations?.any { it.classNode?.nameWithoutPackage in annoNames } ?: false
+        if (node == null) return false
+        Set<String> declared = PORT_DECL_ANNO_NAMES.get(node)
+        if (declared == null) {
+            declared = new HashSet<String>()
+            node.annotations?.each { AnnotationNode annotation ->
+                String name = annotation.classNode?.nameWithoutPackage
+                if (name != null) declared.add(name)
+            }
+            PORT_DECL_ANNO_NAMES.put(node, declared)
+        }
+        if (!Collections.disjoint(declared, annoNames)) return true
+        ClassNode type = typeOf(node)
+        if (type == null) return false
+        Set<String> typeAnnotations = PORT_TYPE_ANNO_NAMES.get(node)
+        if (typeAnnotations == null) {
+            typeAnnotations = new HashSet<String>()
+            type.typeAnnotations?.each { AnnotationNode annotation ->
+                String name = annotation.classNode?.nameWithoutPackage
+                if (name != null) typeAnnotations.add(name)
+            }
+            PORT_TYPE_ANNO_NAMES.put(node, typeAnnotations)
+        }
+        !Collections.disjoint(typeAnnotations, annoNames)
     }
 
     private static ClassNode typeOf(AnnotatedNode node) {
@@ -1633,6 +1706,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * node, and a precompiled {@code package-info.class} on the classpath.
      */
     private List<String> packageAnnotationNames(ClassNode cn) {
+        String cacheKey = cn?.name
+        if (cacheKey != null) {
+            List<String> cached = PORT_PACKAGE_ANNO_BY_CLASS.get(cacheKey)
+            if (cached != null) return cached
+        }
         List<String> names = new ArrayList<String>()
         String pkgName = normalisePackageName(cn?.package?.name)
         List<String> fromSource = pkgName == null ? null : PORT_PACKAGE_ANNOS[pkgName]
@@ -1646,6 +1724,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         List<String> fromClasspath = pkgName == null ? null : lookupPackageAnnotations(pkgName)
         if (fromClasspath != null) {
             names.addAll(fromClasspath)
+        }
+        if (cacheKey != null) {
+            PORT_PACKAGE_ANNO_BY_CLASS.put(cacheKey, names)
         }
         names
     }
@@ -1664,18 +1745,23 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * @return annotation simple names, or {@code null} when no package class is loadable
      */
     private List<String> lookupPackageAnnotations(String packageName) {
+        if (PORT_PACKAGE_ANNO_BY_PACKAGE.containsKey(packageName)) {
+            return PORT_PACKAGE_ANNO_BY_PACKAGE.get(packageName)
+        }
         String resource = packageName + '.package-info'
         for (ClassLoader loader : candidateClassLoaders()) {
             try {
                 Class<?> pkgClass = Class.forName(resource, false, loader)
                 List<String> names = pkgClass.getPackage()?.annotations*.annotationType()*.simpleName
                 if (names) {
+                    PORT_PACKAGE_ANNO_BY_PACKAGE.put(packageName, names)
                     return names
                 }
             } catch (Throwable ignored) {
                 // this loader cannot see it; try the next one
             }
         }
+        PORT_PACKAGE_ANNO_BY_PACKAGE.put(packageName, null)
         null
     }
 
@@ -1689,6 +1775,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * exactly the configuration most users have.
      */
     private List<ClassLoader> candidateClassLoaders() {
+        if (PORT_CLASS_LOADERS != null) {
+            return PORT_CLASS_LOADERS
+        }
         List<ClassLoader> loaders = []
         try {
             loaders << context?.compilationUnit?.transformLoader
@@ -1702,7 +1791,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         }
         loaders << Thread.currentThread().contextClassLoader
         loaders << NullChecker.classLoader
-        loaders.findAll { ClassLoader l -> l != null }.unique()
+        loaders = loaders.findAll { ClassLoader l -> l != null }.unique()
+        PORT_CLASS_LOADERS = loaders
+        loaders
     }
 
     /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
