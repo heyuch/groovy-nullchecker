@@ -1,5 +1,7 @@
 # nullchecker
 
+English | [简体中文](README.zh-CN.md)
+
 Compile-time null checking for **Groovy 4**.
 
 Groovy 4 ships no null checker: its `groovy-typecheckers` artifact contains only
@@ -303,8 +305,12 @@ Matched by **simple name**, so the package does not matter:
 | Non-null **fields** by default | `NonNullFields` |
 | Opt out of the default | `NullUnmarked` |
 
-> Annotations must be `RUNTIME`-retained. With `CLASS` retention the checker cannot see them
-> and the rules go quiet. All common nullness libraries use `RUNTIME`.
+> Retention: annotations written in source are always visible. In a compiled dependency a
+> declaration annotation is read from the class file, so `CLASS` works there too — the
+> annotation's own class has to be on the compile classpath. A precompiled
+> `package-info.class` is read through reflection and does need `RUNTIME`. Type-use
+> annotations in compiled classes are safest with `RUNTIME`, which every common nullness
+> library uses.
 
 **Bean Validation's `@NotNull`, `@NotEmpty` and `@NotBlank`** (`jakarta.validation.constraints`,
 `javax.validation...`, `org.hibernate.validator.constraints`) are non-null contracts and are
@@ -645,7 +651,7 @@ Full DSL and behaviour: [nullchecker-gradle-plugin/README.md](nullchecker-gradle
 | --- | --- |
 | Class name | `io.github.heyuch.groovy.nullchecker.NullChecker`, not `groovy.typecheckers.NullChecker` |
 | `strict` | Configured out of band, not as an extension parameter |
-| Annotations | Must be `RUNTIME`-retained |
+| Annotations | `RUNTIME` always works; a precompiled `package-info.class` needs it |
 | Local declarations | This port reports a locally declared `@NonNull` initialised with null; Groovy 6 does not |
 | Spread results | `xs*.prop` is never null here; Groovy 6 reports the following call |
 | Loop exits | `continue` and `break` narrow like `return` here; Groovy 6 only recognises `return`/`throw` |
