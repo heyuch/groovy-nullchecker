@@ -186,6 +186,18 @@ strict=any
 expect=none
 note=unconditional postcondition, the annotation form of requireNonNull
 
+positive/container_lookup_deref.groovy
+rule=R05
+strict=any
+expect=some
+note=Map.get and subscript, find and max are nullable lookups even with non-null values
+
+negative/container_lookup_guarded.groovy
+rule=N22
+strict=any
+expect=none
+note=containsKey, getOrDefault, safe navigation and first() stay silent
+
 negative/flow_no_return.groovy
 rule=N21
 strict=any

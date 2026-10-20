@@ -223,6 +223,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     private static Set<String> PORT_NEVER_RETURNS = Collections.emptySet()
 
+    /** Whether container lookups that can miss are nullable. */
+    private static final String CONTAINER_LOOKUPS_PROPERTY = 'groovy.nullchecker.containerlookups'
+
+    private static boolean PORT_CONTAINER_LOOKUPS = true
+
     /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
     private static Set<String> readGuardEntries(String property) {
         String raw = System.getProperty(property)
@@ -324,6 +329,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
         PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
         PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
+        PORT_CONTAINER_LOOKUPS = !'false'.equalsIgnoreCase(
+                System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
         // run() would leave the counters describing only the last class seen (observed
@@ -821,8 +828,12 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             @Override
             void visitIfElse(IfStatement ifElse) {
                 def facts = visitCondition(ifElse.booleanExpression.expression)
-                withGuards(facts.whenTrue) { ifElse.ifBlock.visit(this) }
-                withGuards(facts.whenFalse) { ifElse.elseBlock.visit(this) }
+                withGuards(facts.whenTrue) {
+                    withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
+                }
+                withGuards(facts.whenFalse) {
+                    withLookupGuards(facts.lookupsFalse) { ifElse.elseBlock.visit(this) }
+                }
                 // Early exit: if (x == null) return/throw → x is non-null after (and vice versa)
                 if (isEarlyExit(ifElse.ifBlock)) {
                     applyFacts(facts.whenFalse)
@@ -835,7 +846,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             @Override
             void visitWhileLoop(WhileStatement loop) {
                 def facts = visitCondition(loop.booleanExpression.expression)
-                withGuards(facts.whenTrue) { loop.loopBlock.visit(this) }
+                withGuards(facts.whenTrue) {
+                    withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
+                }
             }
 
             @Override
@@ -844,9 +857,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 def facts = visitCondition(condition)
                 // for elvis, the true expression is the (already visited) condition
                 if (!condition.is(expression.trueExpression) && !expression.booleanExpression.is(expression.trueExpression)) {
-                    withGuards(facts.whenTrue) { expression.trueExpression.visit(this) }
+                    withGuards(facts.whenTrue) {
+                        withLookupGuards(facts.lookupsTrue) { expression.trueExpression.visit(this) }
+                    }
                 }
-                withGuards(facts.whenFalse) { expression.falseExpression.visit(this) }
+                withGuards(facts.whenFalse) {
+                    withLookupGuards(facts.lookupsFalse) { expression.falseExpression.visit(this) }
+                }
             }
 
             @Override
@@ -886,17 +903,29 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_AND) {
                     def left = analyzeCondition(condition.leftExpression, visiting)
                     def right = visiting
-                        ? withGuards(left.whenTrue) { analyzeCondition(condition.rightExpression, true) }
+                        ? withGuards(left.whenTrue) {
+                            withLookupGuards(left.lookupsTrue) {
+                                analyzeCondition(condition.rightExpression, true)
+                            }
+                        }
                         : analyzeCondition(condition.rightExpression, false)
                     facts.whenTrue = left.whenTrue + right.whenTrue
                     facts.whenFalse = left.whenFalse.intersect(right.whenFalse)
+                    facts.lookupsTrue = left.lookupsTrue + right.lookupsTrue
+                    facts.lookupsFalse = left.lookupsFalse.intersect(right.lookupsFalse)
                 } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_OR) {
                     def left = analyzeCondition(condition.leftExpression, visiting)
                     def right = visiting
-                        ? withGuards(left.whenFalse) { analyzeCondition(condition.rightExpression, true) }
+                        ? withGuards(left.whenFalse) {
+                            withLookupGuards(left.lookupsFalse) {
+                                analyzeCondition(condition.rightExpression, true)
+                            }
+                        }
                         : analyzeCondition(condition.rightExpression, false)
                     facts.whenTrue = left.whenTrue.intersect(right.whenTrue)
                     facts.whenFalse = left.whenFalse + right.whenFalse
+                    facts.lookupsTrue = left.lookupsTrue.intersect(right.lookupsTrue)
+                    facts.lookupsFalse = left.lookupsFalse + right.lookupsFalse
                 } else {
                     if (visiting) {
                         condition.visit(this)
@@ -943,6 +972,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                         applyObjectGuard(target, condition, facts)
                         applyContractGuard(target, condition, facts)
                         applyConfiguredGuard(target, condition, facts)
+                        applyContainsKeyGuard(condition, facts)
                     }
                 }
                 facts
@@ -1065,6 +1095,94 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 }
             }
 
+            /** Lookup facts proved by {@code containsKey}, scoped to the branch that proved them. */
+            private final Deque<Set<String>> lookupGuards = new ArrayDeque<>()
+
+            private <T> T withLookupGuards(Set<String> keys, Closure<T> body) {
+                if (!keys) {
+                    return body()
+                }
+                lookupGuards.push(new HashSet<String>(keys))
+                try {
+                    return body()
+                } finally {
+                    lookupGuards.pop()
+                }
+            }
+
+            private boolean isLookupGuarded(Expression container, Expression key) {
+                if (lookupGuards.isEmpty()) return false
+                String expected = lookupKey(container, key)
+                if (expected == null) return false
+                for (Set<String> frame : lookupGuards) {
+                    if (frame.contains(expected)) return true
+                }
+                false
+            }
+
+            /**
+             * Recognises {@code map.containsKey(key)}: a true result proves the key is
+             * present, which makes a later {@code get(key)} non-null -- but only when the
+             * map's values cannot themselves be null. With nullable values, a present key
+             * may still hold an explicit null.
+             */
+            private void applyContainsKeyGuard(Expression condition, GuardFacts facts) {
+                if (!(condition instanceof MethodCallExpression)) return
+                if (condition.methodAsString != 'containsKey') return
+                if (!isMapLike(typeOfExpression(condition.objectExpression))) return
+                def args = condition.arguments
+                if (!(args instanceof TupleExpression) || args.expressions.size() != 1) return
+                String key = lookupKey(condition.objectExpression, args.getExpression(0))
+                if (key != null) {
+                    facts.lookupsTrue.add(key)
+                }
+            }
+
+            /**
+             * Whether a call returns null because a lookup can miss: {@code Map.get} and
+             * friends, and the collection methods that return no result ({@code find}) or
+             * cannot answer for an empty collection ({@code max}, {@code min}).
+             *
+             * <p>The element type says whether a <em>stored</em> value may be null. These
+             * methods are partial regardless of that, which is why the rule lives here rather
+             * than being folded into the type argument's default.
+             */
+            private boolean isNullableContainerLookup(Expression expression) {
+                if (!PORT_CONTAINER_LOOKUPS) return false
+                if (!(expression instanceof MethodCallExpression)) return false
+                MethodCallExpression call = (MethodCallExpression) expression
+                ClassNode receiver = typeOfExpression(call.objectExpression)
+                String name = call.methodAsString
+                List<Expression> args = call.arguments instanceof TupleExpression
+                        ? ((TupleExpression) call.arguments).expressions
+                        : Collections.emptyList()
+                if (isMapLike(receiver)) {
+                    if (name == 'getOrDefault') {
+                        return args.size() == 2 && isKnownNullable(args.get(1))
+                    }
+                    if (name in MAP_LOOKUP_METHODS) {
+                        if (args.size() == 1 && hasNonNullMapValue(receiver)) {
+                            return !isLookupGuarded(call.objectExpression, args.get(0))
+                        }
+                        return true
+                    }
+                }
+                if (name in PARTIAL_COLLECTION_METHODS && isCollectionLike(receiver)) {
+                    return true
+                }
+                false
+            }
+
+            private boolean isNullableMapSubscript(Expression expression) {
+                if (!PORT_CONTAINER_LOOKUPS) return false
+                if (!isSubscript(expression)) return false
+                BinaryExpression subscript = (BinaryExpression) expression
+                ClassNode receiver = typeOfExpression(subscript.leftExpression)
+                if (!isMapLike(receiver)) return false
+                if (!hasNonNullMapValue(receiver)) return true
+                !isLookupGuarded(subscript.leftExpression, subscript.rightExpression)
+            }
+
             /**
              * Applies narrowing for calls that guarantee an argument is non-null when
              * they complete normally: {@code Objects.requireNonNull} and Guava-style
@@ -1172,12 +1290,15 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
                 } else if (isNullableEntryCall(receiver)) {
                     addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
+                } else if (receiver instanceof MethodCallExpression && isNullableContainerLookup(receiver)) {
+                    addStaticTypeError("Potential null dereference: '${receiver.methodAsString}()' may return null", context)
                 } else if (receiver instanceof MethodCallExpression || receiver instanceof StaticMethodCallExpression) {
                     def targetMethod = receiver.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (targetMethod instanceof MethodNode && (hasNullableAnno(targetMethod) || inferredNullableTypeUse(receiver))) {
                         addStaticTypeError("Potential null dereference: '${targetMethod.name}()' may return null", context)
                     }
-                } else if (isSubscript(receiver) && inferredNullableTypeUse(receiver)) {
+                } else if (isSubscript(receiver)
+                        && (inferredNullableTypeUse(receiver) || isNullableMapSubscript(receiver))) {
                     addStaticTypeError("Potential null dereference: '${receiver.text}' may be null", context)
                 } else if (receiver instanceof PropertyExpression) {
                     if (nullableProperty(receiver) || isNullableEntryProperty(receiver)) {
@@ -1234,12 +1355,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 if (isSafeNavResult(expr)) return true
                 if (expr instanceof MethodCallExpression || expr instanceof StaticMethodCallExpression) {
                     if (isNullableEntryCall(expr)) return true
+                    if (expr instanceof MethodCallExpression && isNullableContainerLookup(expr)) return true
                     def target = expr.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (!(target instanceof MethodNode)) return false
                     return hasNullableAnno(target) || inferredNullableTypeUse(expr)
                 }
                 if (isSubscript(expr)) {
-                    return inferredNullableTypeUse(expr)
+                    return inferredNullableTypeUse(expr) || isNullableMapSubscript(expr)
                 }
                 if (expr instanceof PropertyExpression) {
                     return nullableProperty(expr) || isNullableEntryProperty(expr)
@@ -1616,6 +1738,36 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         type.name == 'java.util.Map' || type.isDerivedFrom(ClassHelper.MAP_TYPE)
     }
 
+    /** Map methods whose result is null when the key is absent (or the value was null). */
+    private static final Set<String> MAP_LOOKUP_METHODS = Collections.unmodifiableSet(
+            ['get', 'getAt', 'remove', 'put', 'putIfAbsent', 'replace',
+             'compute', 'computeIfAbsent', 'computeIfPresent', 'merge'] as Set<String>)
+
+    /** Collection methods that return no result, or cannot answer for an empty collection. */
+    private static final Set<String> PARTIAL_COLLECTION_METHODS = Collections.unmodifiableSet(
+            ['find', 'findResult', 'max', 'min'] as Set<String>)
+
+    private static final ClassNode ITERABLE_TYPE = ClassHelper.make(Iterable)
+
+    private static boolean isCollectionLike(ClassNode type) {
+        if (type == null) return false
+        if (type.isArray()) return true
+        type.name in ['java.lang.Iterable', 'java.util.Collection', 'java.util.List', 'java.util.Set']
+                || type.isDerivedFrom(ITERABLE_TYPE)
+    }
+
+    /** Whether a map's values are non-null, so {@code containsKey} can prove a lookup. */
+    private static boolean hasNonNullMapValue(ClassNode mapType) {
+        MapEntryTypes types = mapEntryTypes(mapType)
+        types != null && !hasNullableTypeUse(types.valueType)
+    }
+
+    private static String lookupKey(Expression container, Expression key) {
+        if (container == null || key == null) return null
+        if (container instanceof VariableExpression && container.isThisExpression()) return null
+        container.text + '|' + key.text
+    }
+
     private static boolean hasNullableTypeUse(ClassNode type) {
         type?.typeAnnotations?.any { it.classNode?.nameWithoutPackage in NULLABLE_ANNOS } ?: false
     }
@@ -1892,5 +2044,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static class GuardFacts {
         Set<Variable> whenTrue = new HashSet<>()
         Set<Variable> whenFalse = new HashSet<>()
+        /** Lookup keys (container text|key text) proved present in that branch. */
+        Set<String> lookupsTrue = new HashSet<>()
+        Set<String> lookupsFalse = new HashSet<>()
     }
 }

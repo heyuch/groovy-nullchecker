@@ -103,6 +103,17 @@ class NullCheckExtension {
     final ListProperty<String> neverReturns
 
     /**
+     * Whether container lookups that can miss are nullable: {@code Map.get}, the subscript,
+     * {@code remove}, {@code put}, {@code find}, {@code max}, {@code min} and the rest.
+     *
+     * <p>On by default, because the null comes from the operation, not from the element type:
+     * {@code Map<String, String>} says its values are non-null, yet {@code get(missing)} is
+     * still null. Turning it off restores the older behaviour, where only a
+     * {@code @Nullable} value type made a lookup nullable.
+     */
+    final Property<Boolean> containerLookups
+
+    /**
      * The checker version to use.
      *
      * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
@@ -123,6 +134,7 @@ class NullCheckExtension {
         this.guardNotNullWhenTrue = project.objects.listProperty(String)
         this.guardNotNullWhenFalse = project.objects.listProperty(String)
         this.neverReturns = project.objects.listProperty(String)
+        this.containerLookups = project.objects.property(Boolean)
         this.toolVersion = project.objects.property(String)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
@@ -138,6 +150,7 @@ class NullCheckExtension {
         guardNotNullWhenTrue.convention([])
         guardNotNullWhenFalse.convention([])
         neverReturns.convention([])
+        containerLookups.convention(true)
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
     }
 }

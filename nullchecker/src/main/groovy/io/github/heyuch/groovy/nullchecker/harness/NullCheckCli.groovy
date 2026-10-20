@@ -36,6 +36,8 @@ class NullCheckCli {
   --guard-when-false <c#m>  ... when it returns false (e.g. isNullOrEmpty); repeatable
   --never-returns <c#m>     method never returns normally (e.g. Panic#notExpectedResult);
                             repeatable, and makes the statements after a call unreachable
+  --no-container-lookups    do not treat Map.get/find/max and friends as nullable; those
+                            results are nullable because the lookup can miss
   --quiet               only print findings
   --no-canary           skip the pre-flight self-check (NOT recommended)
   --help                show this message
@@ -81,6 +83,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         List<String> guardsTrue = new ArrayList<String>()
         List<String> guardsFalse = new ArrayList<String>()
         List<String> neverReturns = new ArrayList<String>()
+        boolean containerLookups = true
         List<String> checks = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> paths = []
 
@@ -139,6 +142,9 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     if (neverReturn == null) return 2
                     neverReturns << neverReturn
                     break
+                case '--no-container-lookups':
+                    containerLookups = false
+                    break
                 case '--fail-on':
                     String spec = value(argv, ++i, arg, err)
                     if (spec == null) return 2
@@ -162,6 +168,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
 
         applyGuards(guardsTrue, guardsFalse)
         System.setProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
+        System.setProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
         System.setProperty('groovy.nullchecker.checks', checks.join(','))
 
         List<File> files = []
@@ -224,6 +231,9 @@ but does not fail the run by default, because it is not a nullness claim.'''
             }
             if (neverReturns) {
                 out.println "never      = [${neverReturns.join(',')}]"
+            }
+            if (!containerLookups) {
+                out.println 'container  = lookups off'
             }
             out.println "files      = ${files.size()}"
         }

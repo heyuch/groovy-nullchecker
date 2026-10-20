@@ -57,7 +57,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.1'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.4.0'
 }
 ```
 
@@ -70,7 +70,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.3.1.jar')
+    compileOnly files('libs/groovy-nullchecker-0.4.0.jar')
 }
 ```
 
@@ -84,7 +84,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
 }
 ```
 
@@ -368,6 +368,44 @@ byCode.collect { it.value.length() }      // entry inside a closure
 Two shapes are not tracked: an untyped `Map.Entry` variable, and `entrySet()` iteration — both
 lose the key and value types before the checker sees them. Reading through the map still works
 in those cases, and there are no false positives from them.
+
+### Lookups that can miss
+
+A container's element type says whether a **stored** value may be null. Some operations can
+return null even when it cannot, because the lookup itself may miss:
+
+| Call | Result | Why |
+| --- | --- | --- |
+| `map.get(k)`, `map[k]` | nullable | the key may be absent |
+| `map.remove(k)`, `map.put(k, v)` | nullable | they return the previous value |
+| `map.getOrDefault(k, d)` | non-null when `d` is non-null | there is a fallback |
+| `list.find { }`, `findResult { }` | nullable | nothing matched |
+| `list.max()`, `min()` | nullable | the collection may be empty |
+| `list.first()`, `last()` | non-null | on an empty collection they throw |
+
+This is why `Map<String, String>` does not make `get` safe: the values are non-null, but the
+key may not be there. Check the lookup, or make it total:
+
+```groovy
+map.getOrDefault(code, '').length()
+if (map.containsKey(code)) {
+    map.get(code).length()      // narrowed: containsKey proved the key is present
+}
+map.get(code)?.length()
+```
+
+`containsKey` only narrows when the values are non-null; with `Map<String, @Nullable String>`
+a present key may still hold an explicit null.
+
+The family can be turned off while a project migrates:
+
+```groovy
+nullcheck {
+    containerLookups = false
+}
+```
+
+CLI: `--no-container-lookups`.
 
 ### Guard patterns it accepts
 
@@ -662,7 +700,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
 }
 
 nullcheck {

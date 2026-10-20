@@ -3,6 +3,21 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.0]
+
+### Added
+
+- **Container lookups that can miss are nullable.** `Map.get`, the subscript, `remove`,
+  `put`, `compute*` and `merge`, plus `find`, `findResult`, `max` and `min`, can return null
+  even when the element type is non-null: the null comes from the operation, not from the
+  stored value. `Map<String, String>` therefore no longer makes `get(missingKey)` look safe.
+- **`containsKey` narrows a lookup** in the true branch, and `getOrDefault` stays non-null
+  when its default is. `first()`/`last()` stay non-null: they throw on an empty collection.
+  Narrowing requires non-null values -- a present key in `Map<K, @Nullable V>` may still hold
+  an explicit null.
+- **`containerLookups` switch** (plugin; `--no-container-lookups` on the CLI) turns the
+  family off while a project migrates, leaving the type-based findings in place.
+
 ## [0.3.1]
 
 ### Fixed

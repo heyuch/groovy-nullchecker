@@ -37,7 +37,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'   // 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'   // 版本号必填
 }
 
 repositories {
@@ -64,7 +64,7 @@ nullcheck {
     targets     = ['src/main/groovy', 'src/main/java']
     reportFile  = 'build/reports/nullcheck/nullcheck.txt'
     canary      = true            // 关掉自检（不建议）
-    toolVersion = '0.3.1'
+    toolVersion = '0.4.0'
 
     // 项目自己的守卫方法：声明极性，而不是猜名字
     guardNotNullWhenTrue  = ['com.acme.Utils#isNotEmpty']        // 返回 true  ⇒ 参数 0 非空
@@ -72,6 +72,9 @@ nullcheck {
 
     // 永不返回的方法：调用之后的语句按不可达处理（兜底 return null 不再报）
     neverReturns = ['com.bytesforce.exception.Panic#notExpectedResult']
+
+    // 可能查不到的查找（Map.get / 下标 / find / max）按可空处理；默认开启
+    containerLookups = true
 }
 ```
 
@@ -84,11 +87,12 @@ nullcheck {
 | `guardNotNullWhenTrue` | `[]` | 返回 true 即保证参数 0 非空的方法，`类全名#方法名` |
 | `guardNotNullWhenFalse` | `[]` | 返回 false 即保证参数 0 非空的方法（如 `isNullOrEmpty`） |
 | `neverReturns` | `[]` | 永不返回的方法，`类全名#方法名`。声明后调用之后的语句不可达，兜底 `return null` 不再报；`@NoReturn` 类注解、`@Contract('-> fail')` 或 `@Contract('_, _ -> fail')` 可替代 |
+| `containerLookups` | `true` | 可能落空的查找按可空处理：`Map.get`/下标/`remove`/`put`/`find`/`max`/`min`。`containsKey` 在值非空时收窄；关掉后只有 `@Nullable` 值类型才让查找可空 |
 | `strict` | `false` | 打开后报告量会明显上升 |
 | `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
-| `toolVersion` | `0.3.1` | 解析不到的版本会**明确失败**，不会静默变绿 |
+| `toolVersion` | `0.4.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
 

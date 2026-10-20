@@ -52,7 +52,7 @@ repositories {
 
 dependencies {
     // 仅编译期使用。它永远不会进入你的运行时 classpath。
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.1'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.4.0'
 }
 ```
 
@@ -63,7 +63,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.3.1.jar')
+    compileOnly files('libs/groovy-nullchecker-0.4.0.jar')
 }
 ```
 
@@ -76,7 +76,7 @@ Gradle 需要仓库里的 plugin marker，所以只能按 id 安装。）
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
 }
 ```
 
@@ -341,6 +341,44 @@ byCode.collect { it.value.length() }      // 闭包里的 entry
 
 有两种形态不跟踪：未指定泛型的 `Map.Entry` 变量，以及 `entrySet()` 迭代——它们在检查器
 看到之前就丢失了 key/value 类型。这两种情况下直接读 map 仍然有效，也不会因此误报。
+
+### 可能查不到的查找
+
+容器的元素类型描述的是**存进去的值**能不能为 null。有些操作即使元素非空也会返回 null，
+因为查找本身可能落空：
+
+| 调用 | 结果 | 原因 |
+| --- | --- | --- |
+| `map.get(k)`、`map[k]` | 可空 | 键可能不存在 |
+| `map.remove(k)`、`map.put(k, v)` | 可空 | 返回的是旧值 |
+| `map.getOrDefault(k, d)` | `d` 非空时非空 | 有兜底 |
+| `list.find { }`、`findResult { }` | 可空 | 没找到 |
+| `list.max()`、`min()` | 可空 | 集合可能为空 |
+| `list.first()`、`last()` | 非空 | 空集合时直接抛异常 |
+
+所以 `Map<String, String>` 并不能让 `get` 变安全：值非空，但键可能不在。要么判断查找结果，
+要么用不会落空的写法：
+
+```groovy
+map.getOrDefault(code, '').length()
+if (map.containsKey(code)) {
+    map.get(code).length()      // 已收窄：containsKey 证明键存在
+}
+map.get(code)?.length()
+```
+
+`containsKey` 只在值非空时才收窄；`Map<String, @Nullable String>` 下键存在也可能是显式
+null。
+
+迁移期间可以关掉这族规则：
+
+```groovy
+nullcheck {
+    containerLookups = false
+}
+```
+
+CLI：`--no-container-lookups`。
 
 ### 接受的守卫写法
 
@@ -609,7 +647,7 @@ coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWit
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
 }
 
 nullcheck {

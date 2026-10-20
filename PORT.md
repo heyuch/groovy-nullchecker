@@ -200,6 +200,22 @@ not enough: the call still returns for other arguments. The two positive control
 failure direction: without the declaration the fallback return and the guard dereference are
 still reported.
 
+### 2.11 Container lookups that can miss (2)
+
+Upstream derives the nullness of `map.get(k)` from the value type argument, so under
+`@NullMarked` a `Map<String, String>` lookup looks non-null and an absent key is invisible. The
+two questions are independent: the type argument says whether a **stored** value may be null,
+the operation says whether it can return nothing.
+
+This port treats the partial operations as nullable regardless of the element type --
+`Map.get`, the subscript, `remove`, `put`, `compute*`, `merge`, and the collection methods
+`find`, `findResult`, `max`, `min`. `getOrDefault` stays non-null when its default is,
+`first()`/`last()` stay non-null because they throw on an empty collection, and
+`containsKey(k)` narrows a `get(k)`/subscript in the true branch **only when the values are
+non-null**: with a nullable value type a present key may hold an explicit null. The family is
+switchable (`containerLookups = false` / `--no-container-lookups`) for a project that is not
+ready for the new findings.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

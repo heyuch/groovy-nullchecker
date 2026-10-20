@@ -29,6 +29,10 @@ negative/guards_ensures_nonnull_if.groovy [strict]|@EnsuresNonNullIf narrows the
 negative/guards_ensures_nonnull.groovy [annotations]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 negative/guards_ensures_nonnull.groovy [strict]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 
+# ── Container lookups that can miss ──────────────────────────────────────────
+positive/container_lookup_deref.groovy [annotations]|Map.get/subscript, find and max are nullable because the lookup can miss; upstream derives nullness from the value type argument only
+positive/container_lookup_deref.groovy [strict]|Map.get/subscript, find and max are nullable because the lookup can miss; upstream derives nullness from the value type argument only
+
 # ── Calls that never return ──────────────────────────────────────────────────
 negative/flow_no_return.groovy [annotations]|@Contract(_, _ -> fail) and @NoReturn make following statements unreachable; upstream has no no-return analysis
 negative/flow_no_return.groovy [strict]|@Contract(_, _ -> fail) and @NoReturn make following statements unreachable; upstream has no no-return analysis

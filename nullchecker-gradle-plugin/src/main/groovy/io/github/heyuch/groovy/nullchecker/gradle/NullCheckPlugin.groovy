@@ -191,6 +191,9 @@ class NullCheckPlugin implements Plugin<Project> {
         for (String neverReturn : extension.neverReturns.get()) {
             args << '--never-returns' << neverReturn
         }
+        if (!extension.containerLookups.get()) {
+            args << '--no-container-lookups'
+        }
         File defaultReport = new File(project.layout.buildDirectory.get().asFile,
                 'reports/nullcheck/nullcheck.txt')
         args << '--report' << extension.reportFile.getOrElse(defaultReport.absolutePath)
