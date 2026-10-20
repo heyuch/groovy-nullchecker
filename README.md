@@ -121,6 +121,156 @@ Runnable consumer projects for both paths are in [examples/](examples/).
 
 ---
 
+## Annotating your code
+
+How you annotate is what decides what the check can see. Annotations are matched by **simple
+name**, so any library works; the examples use JSpecify, which is the one to pick for new code:
+
+```groovy
+compileOnly 'org.jspecify:jspecify:1.0.0'
+```
+
+Whatever you choose must be on the **compile classpath** of the modules being checked. The
+checker resolves the annotation classes themselves, including ones inside compiled
+dependencies — an annotation it cannot resolve is silently ignored.
+
+### What you mean, and what to write
+
+| You mean | Write | Place |
+| --- | --- | --- |
+| this package is non-null by default | `@NullMarked` | `package-info.java` |
+| this **value** may be null | `@Nullable` | return type, parameter, field, local variable |
+| this **container's elements** may be null | `@Nullable` inside the type argument | `List<@Nullable X>`, `Set<@Nullable X>` |
+| this **map value** may be null | `@Nullable` in the value position | `Map<K, @Nullable V>` |
+| this **map key** may be null | `@Nullable` in the key position | `Map<@Nullable K, V>` |
+| this package is not ready for this yet | `@NullUnmarked` | class or `package-info.java` |
+| this helper proves its argument non-null | `@EnsuresNonNullIf`, `@EnsuresNonNull`, JetBrains `@Contract` | on the helper |
+
+### Start with one package
+
+```java
+// src/main/java/com/example/order/package-info.java
+@org.jspecify.annotations.NullMarked
+package com.example.order;
+```
+
+Everything in that package is non-null by default, so you only mark the exceptions. Packages
+you have not touched behave as before; adopt one at a time.
+
+### The nullable value
+
+```groovy
+@NullMarked
+class OrderService {
+    @Nullable
+    Order find(String id) {          // may return nothing
+        return repository.find(id)
+    }
+
+    void apply(@Nullable String note) {   // caller may pass nothing
+    }
+
+    @Nullable
+    String remark                      // may be absent on this bean
+}
+```
+
+Callers must then check the value before dereferencing it, and the check accepts every normal
+guard: `if (order != null)`, `order?.total() ?: 0`, an early `return`, `continue` in a loop.
+
+### The nullable container versus its elements
+
+These two are different, and the difference is the whole feature:
+
+```groovy
+@Nullable List<String> maybeMissing    // the list itself may be null
+List<@Nullable String> mayContainNull  // the list exists, some elements are null
+```
+
+For the second, every way of taking an element out yields something nullable, so it is
+reported unless checked:
+
+```groovy
+names[0].length()               // subscript
+names.get(0).length()           // get
+names.first().length()          // DGM accessor
+for (String n : names) n.length()        // for-each variable
+names.each { it.length() }               // closure parameter and implicit it
+```
+
+Maps work per half:
+
+```groovy
+Map<String, @Nullable String> byCode     // value may be null
+Map<@Nullable String, String> byName     // key may be null
+
+byCode.get(code).length()
+byCode[code].length()
+for (String v : byCode.values()) v.length()
+for (String k : byName.keySet()) k.length()
+for (Map.Entry<String, String> e : byCode) e.value.length()
+byCode.each { k, v -> v.length() }
+```
+
+The annotation describes what reading an element may give you; it does not by itself police
+what is put into the collection. Detailed rules, and the two shapes that are not tracked, are
+in [Container elements](#container-elements).
+
+### The helper that proves non-null
+
+When the guard is a method, say so on the method instead of at every call site:
+
+```groovy
+// returns false when the collection is null or empty
+@EnsuresNonNullIf(expression = '#1', result = false)
+static boolean isNullOrEmpty(Collection<?> values) { ... }
+
+// throws for a null argument, so after the call it is non-null
+@EnsuresNonNull(expression = '#1')
+static <T> T require(T value) { ... }
+
+// the same two, for a project that already annotates helpers for IntelliJ
+@Contract('null -> true')  static boolean isNullOrEmpty(Collection<?> values) { ... }
+@Contract('null -> false') static boolean isNotNullOrEmpty(Collection<?> values) { ... }
+```
+
+No build configuration is involved, and it works from a compiled dependency. The polarity has
+to match what the method actually does: a reversed declaration narrows the wrong branch and
+the guarded code is still reported.
+
+### Bean Validation constraints
+
+`@NotNull`, `@NotEmpty` and `@NotBlank` are read as non-null contracts, because all three
+reject null before examining anything. They are not a requirement to initialise a field in
+source — a bean populated by an ORM or a mapper is valid as long as it is non-null when
+validation runs. Use `@Nullable` (not the absence of `@NotNull`) to say that a value may be
+missing; `@Size`, `@Pattern`, `@Email` and the rest accept null and say nothing about it.
+
+### Framework-managed fields
+
+Under `@NullMarked` every field is non-null, so strict mode asks where it is assigned — and a
+field injected by Spring, an ORM or a mapper never is. Turn that one rule off for those
+modules:
+
+```groovy
+nullcheck {
+    initializationCheck = false
+}
+```
+
+### An order that works
+
+1. `@NullMarked` on one leaf package (`package-info.java`), run the check with `strict = true`.
+2. Mark the return values that can be empty with `@Nullable`, then fix the callers.
+3. Mark parameters that accept nothing, then the fields that can be absent.
+4. Where a collection may hold nulls, put the annotation on the type argument rather than on
+   the collection.
+5. Declare the project's own guards once (`@Contract` or the guard lists), so they stop being
+   findings.
+6. Only then turn on `failOnError` for that module, and repeat in the next package.
+
+---
+
 ## What it checks
 
 | Situation | Example |
