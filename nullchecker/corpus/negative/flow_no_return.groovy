@@ -27,12 +27,27 @@ class FlowNoReturn {
         throw new IllegalStateException('give up')
     }
 
+    @Contract('-> fail')
+    static void abort() {
+        throw new IllegalStateException('abort')
+    }
+
     @NonNull
     static Object fallbackReturn() {
         try {
             return new Object()
         } catch (Exception e) {
             notExpected('unexpected', e)
+        }
+        return null
+    }
+
+    @NonNull
+    static Object fallbackWithEmptyContract() {
+        try {
+            return new Object()
+        } catch (Exception e) {
+            abort()
         }
         return null
     }

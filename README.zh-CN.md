@@ -388,7 +388,7 @@ static boolean isNullOrEmpty(Collection<?> values) { ... }
 `return null` 不再被报出：
 
 ```groovy
-@NoReturn                     // 或 @Contract('_, _ -> fail')，或 neverReturns = [...]
+@NoReturn                     // 或 @Contract('-> fail')，或 neverReturns 清单
 static void giveUp() { throw new IllegalStateException('give up') }
 
 static Object execute() {
@@ -402,8 +402,19 @@ static Object execute() {
 ```
 
 它同样能收窄：`if (x == null) giveUp()` 之后 `x` 非空，效果与 `throw` 相同。`@NoReturn` 按
-简单名匹配；`@Contract('_, _ -> fail')` 表示"任意参数、总是抛出"；只写 `'null -> fail'`
-不够，因为其他参数下调用仍会返回。
+简单名匹配；`@Contract('-> fail')` 表示"任意调用都抛出"——空参数列表是合法的 contract
+语法，`'_, _ -> fail'` 则按参数个数表达同一件事。只写 `'null -> fail'` 不够，因为其他参数
+下调用仍会返回。
+
+方法属于无法改注解的库时，用配置声明：
+
+```groovy
+nullcheck {
+    neverReturns = ['com.acme.Panic#notExpectedResult']
+}
+```
+
+CLI：`--never-returns com.acme.Panic#notExpectedResult`，可重复。
 
 helper 也可以声明自己的契约，当方法属于本项目或你可控的库时，这比集中清单更好：
 

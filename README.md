@@ -420,7 +420,7 @@ A helper that never returns is a guard too. Declare it once and the statements a
 become unreachable, so the fallback `return null` at the end of the method is not reported:
 
 ```groovy
-@NoReturn                     // or @Contract('_, _ -> fail'), or neverReturns = [...]
+@NoReturn                     // or @Contract('-> fail'), or the neverReturns list
 static void giveUp() { throw new IllegalStateException('give up') }
 
 static Object execute() {
@@ -434,9 +434,20 @@ static Object execute() {
 ```
 
 It narrows as well: `if (x == null) giveUp()` leaves `x` non-null afterwards, exactly like
-`throw`. `@NoReturn` is matched by simple name, and `@Contract('_, _ -> fail')` means "any
-argument, always throws"; a single `'null -> fail'` is not enough, because the call returns for
-every other argument.
+`throw`. `@NoReturn` is matched by simple name, and `@Contract('-> fail')` means "any call fails" —
+the empty argument list is valid contract syntax, and `'_, _ -> fail'` says the same thing
+per-arity. A single `'null -> fail'` is not enough, because the call returns for every other
+argument.
+
+If the method belongs to a library you cannot annotate, declare it instead:
+
+```groovy
+nullcheck {
+    neverReturns = ['com.acme.Panic#notExpectedResult']
+}
+```
+
+CLI: `--never-returns com.acme.Panic#notExpectedResult`, repeatable.
 
 A helper can also declare its own contract, which is better than a central list when the
 method belongs to the project or to a library you control:

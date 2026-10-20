@@ -83,7 +83,7 @@ nullcheck {
 | `initializationCheck` | `true` | "字段必须初始化"规则族。**这是"报不报"，不是"失不失败"**：关掉后该类发现完全不进报告。两个都关会被拒绝——什么都不查不能看起来像干净 |
 | `guardNotNullWhenTrue` | `[]` | 返回 true 即保证参数 0 非空的方法，`类全名#方法名` |
 | `guardNotNullWhenFalse` | `[]` | 返回 false 即保证参数 0 非空的方法（如 `isNullOrEmpty`） |
-| `neverReturns` | `[]` | 永不返回的方法，`类全名#方法名`。声明后调用之后的语句不可达，兜底 `return null` 不再报；`@NoReturn` 类注解或 `@Contract('_, _ -> fail')` 可替代 |
+| `neverReturns` | `[]` | 永不返回的方法，`类全名#方法名`。声明后调用之后的语句不可达，兜底 `return null` 不再报；`@NoReturn` 类注解、`@Contract('-> fail')` 或 `@Contract('_, _ -> fail')` 可替代 |
 | `strict` | `false` | 打开后报告量会明显上升 |
 | `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
