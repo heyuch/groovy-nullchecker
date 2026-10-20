@@ -8,9 +8,11 @@ import java.lang.annotation.Target;
 /**
  * Stand-in for JetBrains' {@code @Contract}, matched by simple name.
  *
- * <p>The real annotation has CLASS retention, so a compiled dependency's contract is not
- * visible to a checker that reads bytecode annotations; source code and RUNTIME-retained
- * copies work. Projects that already use it for IntelliJ keep one annotation for both tools.
+ * <p>The real annotation has CLASS retention; this copy is RUNTIME so a fixture can use it
+ * either way. Retention is not a limitation for the checker -- annotations are read from the
+ * class file, so a contract compiled into a dependency works -- but the annotation's own class
+ * has to be on the compile classpath. Projects that already use it for IntelliJ keep one
+ * annotation for both tools.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})

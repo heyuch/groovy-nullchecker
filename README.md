@@ -252,9 +252,13 @@ static boolean isNullOrEmpty(Collection<?> values) { ... }
 ```
 
 Only those two shapes are interpreted. `!null`, `_`, `param1`, `new` and the rest of the
-grammar are left alone rather than guessed at. The real annotation has `CLASS` retention, so a
-contract inside a compiled dependency is not visible; one written in source, or copied with
-`RUNTIME` retention, is.
+grammar are left alone rather than guessed at.
+
+The real annotation is `CLASS`-retained, which is fine: annotations are read from the class
+file, so a contract compiled into a dependency works, including one in another module of the
+same build. The annotation's own class must be on the compile classpath — normally true,
+because the project needs it to compile the annotation in the first place. Without it the
+annotation is silently dropped and the contract does nothing.
 
 A helper can also declare its own contract, which is better than a central list when the
 method belongs to the project or to a library you control:
