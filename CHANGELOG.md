@@ -3,6 +3,20 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.1]
+
+### Fixed
+
+- **A call that never returns no longer leaves the code after it reported.** A helper that
+  always throws is invisible in its signature, so a fallback `return null` after a
+  `try`/`catch` that ends with such a helper was reported as returning null from a non-null
+  method even though it can never run. A declared no-return call now terminates the block for
+  the checker as well, and narrows like a `throw`: `if (x == null) giveUp()` leaves `x`
+  non-null. Declare the helper with `@NoReturn` (also `@NeverReturns` /
+  `@DoesNotReturn`), with JetBrains `@Contract('_, _ -> fail')`, or with the new
+  `neverReturns` list. A partial `'null -> fail'` is deliberately not treated as "never
+  returns".
+
 ## [0.3.0]
 
 ### Added

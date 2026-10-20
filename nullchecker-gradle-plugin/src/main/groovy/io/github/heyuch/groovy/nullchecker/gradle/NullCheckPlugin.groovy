@@ -188,6 +188,9 @@ class NullCheckPlugin implements Plugin<Project> {
         for (String guard : extension.guardNotNullWhenFalse.get()) {
             args << '--guard-when-false' << guard
         }
+        for (String neverReturn : extension.neverReturns.get()) {
+            args << '--never-returns' << neverReturn
+        }
         File defaultReport = new File(project.layout.buildDirectory.get().asFile,
                 'reports/nullcheck/nullcheck.txt')
         args << '--report' << extension.reportFile.getOrElse(defaultReport.absolutePath)

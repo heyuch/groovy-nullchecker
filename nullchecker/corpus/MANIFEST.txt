@@ -186,6 +186,24 @@ strict=any
 expect=none
 note=unconditional postcondition, the annotation form of requireNonNull
 
+negative/flow_no_return.groovy
+rule=N21
+strict=any
+expect=none
+note=@Contract(_, _ -> fail) and @NoReturn make a fallback return and a guard-narrowed deref silent
+
+positive/flow_fallback_return.groovy
+rule=R01
+strict=any
+expect=some
+note=without a declaration the fallback return is reachable and reported
+
+positive/flow_guard_no_contract.groovy
+rule=R05
+strict=any
+expect=some
+note=without a declaration an always-throwing helper does not narrow
+
 negative/guards_contract.groovy
 rule=N20
 strict=any

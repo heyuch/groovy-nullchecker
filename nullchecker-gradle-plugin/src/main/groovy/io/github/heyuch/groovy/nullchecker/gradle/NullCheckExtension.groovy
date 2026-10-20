@@ -92,6 +92,17 @@ class NullCheckExtension {
     final ListProperty<String> guardNotNullWhenFalse
 
     /**
+     * Methods that never return normally, as {@code com.acme.Panic#notExpectedResult}.
+     *
+     * <p>Declared because a method that always throws is invisible in its signature. With the
+     * declaration, the statements after a call become unreachable, so a fallback
+     * {@code return null} at the end of a method is not reported as returning null from a
+     * non-null method. A {@code @NoReturn}-style annotation, or a {@code @Contract} whose
+     * arguments are all {@code _} and whose result is {@code fail}, works without this list.
+     */
+    final ListProperty<String> neverReturns
+
+    /**
      * The checker version to use.
      *
      * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
@@ -111,6 +122,7 @@ class NullCheckExtension {
         this.initializationCheck = project.objects.property(Boolean)
         this.guardNotNullWhenTrue = project.objects.listProperty(String)
         this.guardNotNullWhenFalse = project.objects.listProperty(String)
+        this.neverReturns = project.objects.listProperty(String)
         this.toolVersion = project.objects.property(String)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
@@ -125,6 +137,7 @@ class NullCheckExtension {
         initializationCheck.convention(true)
         guardNotNullWhenTrue.convention([])
         guardNotNullWhenFalse.convention([])
+        neverReturns.convention([])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
     }
 }

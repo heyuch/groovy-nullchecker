@@ -34,6 +34,8 @@ class NullCheckCli {
                         Disabling one stops it being reported, not just failing the run
   --guard-when-true <c#m>   method asserts its first argument non-null when it returns true
   --guard-when-false <c#m>  ... when it returns false (e.g. isNullOrEmpty); repeatable
+  --never-returns <c#m>     method never returns normally (e.g. Panic#notExpectedResult);
+                            repeatable, and makes the statements after a call unreachable
   --quiet               only print findings
   --no-canary           skip the pre-flight self-check (NOT recommended)
   --help                show this message
@@ -78,6 +80,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         List<String> failOn = new ArrayList<String>(NullCheckHarness.DEFAULT_FAIL_ON)
         List<String> guardsTrue = new ArrayList<String>()
         List<String> guardsFalse = new ArrayList<String>()
+        List<String> neverReturns = new ArrayList<String>()
         List<String> checks = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> paths = []
 
@@ -131,6 +134,11 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     if (guardFalse == null) return 2
                     guardsFalse << guardFalse
                     break
+                case '--never-returns':
+                    String neverReturn = value(argv, ++i, arg, err)
+                    if (neverReturn == null) return 2
+                    neverReturns << neverReturn
+                    break
                 case '--fail-on':
                     String spec = value(argv, ++i, arg, err)
                     if (spec == null) return 2
@@ -153,6 +161,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         }
 
         applyGuards(guardsTrue, guardsFalse)
+        System.setProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
         System.setProperty('groovy.nullchecker.checks', checks.join(','))
 
         List<File> files = []
@@ -212,6 +221,9 @@ but does not fail the run by default, because it is not a nullness claim.'''
             out.println "checks     = ${checks.join(',')}"
             if (guardsTrue || guardsFalse) {
                 out.println "guards     = true:[${guardsTrue.join(',')}] false:[${guardsFalse.join(',')}]"
+            }
+            if (neverReturns) {
+                out.println "never      = [${neverReturns.join(',')}]"
             }
             out.println "files      = ${files.size()}"
         }

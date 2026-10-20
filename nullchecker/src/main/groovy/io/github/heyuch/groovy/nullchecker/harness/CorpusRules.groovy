@@ -65,6 +65,7 @@ class CorpusRules {
             N18: '@EnsuresNonNull narrows the named argument after a normal return',
             N19: 'nullable collection elements narrow on a check and stay silent otherwise',
             N20: 'a JetBrains @Contract narrows the argument it describes',
+            N21: 'a call that never returns makes the code after it unreachable',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

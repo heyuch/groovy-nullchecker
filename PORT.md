@@ -175,6 +175,31 @@ the key and value types of the map being iterated, and `each`/`eachWithIndex` re
 `collect { it.value }` are covered too. An untyped `Map.Entry` variable and `entrySet()`
 iteration lose those types before the checker sees them, and are left alone.
 
+### 2.10 Calls that never return (2)
+
+A helper that always throws is invisible in its signature. The common shape is a catch block
+that ends with such a helper and a fallback `return null` after the `try`:
+
+```groovy
+try {
+    return doSomething()
+} catch (Exception e) {
+    Panic.notExpectedResult('Unexpected', e)   // always throws
+}
+return null                                    // cannot run, but looked reachable
+```
+
+The fallback was reported as returning null from a non-null method even though it can never
+be reached. This port treats a call to a declared no-return method as terminating the block,
+propagates that through `try`/`catch` and `if`/`else`, and uses it for guard narrowing, so
+`if (x == null) giveUp()` narrows exactly like a `throw`. Declaration is required — three ways,
+all matched by simple name: `@NoReturn`/`@NeverReturns`/`@DoesNotReturn`, JetBrains
+`@Contract` with an all-`_` argument list and result `fail` (`@Contract('_, _ -> fail')`), or
+the project's `neverReturns` list. A partial clause such as `'null -> fail'` is deliberately
+not enough: the call still returns for other arguments. The two positive controls pin the
+failure direction: without the declaration the fallback return and the guard dereference are
+still reported.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

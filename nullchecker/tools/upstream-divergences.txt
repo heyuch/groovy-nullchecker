@@ -29,6 +29,10 @@ negative/guards_ensures_nonnull_if.groovy [strict]|@EnsuresNonNullIf narrows the
 negative/guards_ensures_nonnull.groovy [annotations]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 negative/guards_ensures_nonnull.groovy [strict]|@EnsuresNonNull narrows the named argument after a normal return; upstream does not know the annotation
 
+# ── Calls that never return ──────────────────────────────────────────────────
+negative/flow_no_return.groovy [annotations]|@Contract(_, _ -> fail) and @NoReturn make following statements unreachable; upstream has no no-return analysis
+negative/flow_no_return.groovy [strict]|@Contract(_, _ -> fail) and @NoReturn make following statements unreachable; upstream has no no-return analysis
+
 # ── JetBrains @Contract ──────────────────────────────────────────────────────
 negative/guards_contract.groovy [annotations]|@Contract null -> fail / true / false narrows the argument; upstream does not know the annotation
 negative/guards_contract.groovy [strict]|@Contract null -> fail / true / false narrows the argument; upstream does not know the annotation

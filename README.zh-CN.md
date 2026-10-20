@@ -52,7 +52,7 @@ repositories {
 
 dependencies {
     // 仅编译期使用。它永远不会进入你的运行时 classpath。
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.1'
 }
 ```
 
@@ -63,7 +63,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.3.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.3.1.jar')
 }
 ```
 
@@ -76,7 +76,7 @@ Gradle 需要仓库里的 plugin marker，所以只能按 id 安装。）
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
 }
 ```
 
@@ -384,6 +384,27 @@ static boolean isNullOrEmpty(Collection<?> values) { ... }
 包括同一构建里另一个模块中的契约。注解类本身必须在编译 classpath 上——通常本来就满足，
 因为项目要编译这个注解就离不开它。没有它，注解会被静默丢弃，契约不生效。
 
+永不返回的 helper 也是一种守卫。声明一次，调用之后的语句就不可达，方法末尾的兜底
+`return null` 不再被报出：
+
+```groovy
+@NoReturn                     // 或 @Contract('_, _ -> fail')，或 neverReturns = [...]
+static void giveUp() { throw new IllegalStateException('give up') }
+
+static Object execute() {
+    try {
+        return doSomething()
+    } catch (Exception e) {
+        giveUp()
+    }
+    return null               // 不报：giveUp 永不返回
+}
+```
+
+它同样能收窄：`if (x == null) giveUp()` 之后 `x` 非空，效果与 `throw` 相同。`@NoReturn` 按
+简单名匹配；`@Contract('_, _ -> fail')` 表示"任意参数、总是抛出"；只写 `'null -> fail'`
+不够，因为其他参数下调用仍会返回。
+
 helper 也可以声明自己的契约，当方法属于本项目或你可控的库时，这比集中清单更好：
 
 ```groovy
@@ -577,7 +598,7 @@ coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWit
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
 }
 
 nullcheck {

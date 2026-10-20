@@ -57,7 +57,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.3.1'
 }
 ```
 
@@ -70,7 +70,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.3.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.3.1.jar')
 }
 ```
 
@@ -84,7 +84,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
 }
 ```
 
@@ -416,6 +416,28 @@ same build. The annotation's own class must be on the compile classpath — norm
 because the project needs it to compile the annotation in the first place. Without it the
 annotation is silently dropped and the contract does nothing.
 
+A helper that never returns is a guard too. Declare it once and the statements after a call
+become unreachable, so the fallback `return null` at the end of the method is not reported:
+
+```groovy
+@NoReturn                     // or @Contract('_, _ -> fail'), or neverReturns = [...]
+static void giveUp() { throw new IllegalStateException('give up') }
+
+static Object execute() {
+    try {
+        return doSomething()
+    } catch (Exception e) {
+        giveUp()
+    }
+    return null               // not reported: giveUp never returns
+}
+```
+
+It narrows as well: `if (x == null) giveUp()` leaves `x` non-null afterwards, exactly like
+`throw`. `@NoReturn` is matched by simple name, and `@Contract('_, _ -> fail')` means "any
+argument, always throws"; a single `'null -> fail'` is not enough, because the call returns for
+every other argument.
+
 A helper can also declare its own contract, which is better than a central list when the
 method belongs to the project or to a library you control:
 
@@ -629,7 +651,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.3.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.3.1'
 }
 
 nullcheck {

@@ -57,6 +57,9 @@ import org.codehaus.groovy.ast.expr.TupleExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
+import org.codehaus.groovy.ast.stmt.CatchStatement
+import org.codehaus.groovy.ast.stmt.SynchronizedStatement
+import org.codehaus.groovy.ast.stmt.TryCatchStatement
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
@@ -215,6 +218,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     private static Set<String> PORT_GUARDS_FALSE = Collections.emptySet()
 
+    /** Methods declared to never return normally, as {@code declaringClass#method}. */
+    private static final String NEVER_RETURNS_PROPERTY = 'groovy.nullchecker.neverreturns'
+
+    private static Set<String> PORT_NEVER_RETURNS = Collections.emptySet()
+
     /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
     private static Set<String> readGuardEntries(String property) {
         String raw = System.getProperty(property)
@@ -315,6 +323,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         PORT_PACKAGE_ANNOS = collectPackageAnnotations()
         PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
         PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
+        PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
         // run() would leave the counters describing only the last class seen (observed
@@ -786,6 +795,18 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             }
 
             @Override
+            /**
+             * Stops walking a block once a statement cannot complete normally: what follows is
+             * unreachable, and reporting it would be reporting code that never runs.
+             */
+            @Override
+            void visitBlockStatement(BlockStatement block) {
+                for (Statement statement : block.statements) {
+                    statement.visit(this)
+                    if (cannotCompleteNormally(statement)) return
+                }
+            }
+
             void visitReturnStatement(ReturnStatement statement) {
                 super.visitReturnStatement(statement)
                 if (methodNonNull) {
@@ -1763,14 +1784,82 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     private static boolean isEarlyExit(Statement stmt) {
-        if (stmt instanceof ReturnStatement || stmt instanceof ThrowStatement) return true
-        // break and continue leave the current statement sequence as surely as return does:
-        // the statements after the `if` run only when the branch was NOT taken, so a null
-        // check guarded by `continue` narrows exactly like one guarded by `return`.
-        if (stmt instanceof BreakStatement || stmt instanceof ContinueStatement) return true
-        if (stmt instanceof BlockStatement) {
-            def stmts = stmt.statements
-            return stmts && isEarlyExit(stmts.last())
+        cannotCompleteNormally(stmt)
+    }
+
+    /**
+     * Whether a statement can never complete normally, which makes everything after it in the
+     * same block unreachable.
+     *
+     * <p>This exists for one real shape: a helper that always throws being called at the end of
+     * a catch block, followed by a fallback {@code return null}. Without it the fallback looks
+     * reachable and is reported as returning null from a non-null method, even though it can
+     * never run. {@code break} and {@code continue} count here for the same reason they count
+     * as early exits in guard analysis: control leaves the current statement sequence.
+     */
+    private static boolean cannotCompleteNormally(Statement statement) {
+        if (statement == null) return false
+        if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) return true
+        if (statement instanceof BreakStatement || statement instanceof ContinueStatement) return true
+        if (statement instanceof ExpressionStatement) return isNoReturnCall(statement.expression)
+        if (statement instanceof BlockStatement) {
+            for (Statement child : statement.statements) {
+                if (cannotCompleteNormally(child)) return true
+            }
+            return false
+        }
+        if (statement instanceof IfStatement) {
+            return statement.elseBlock != null
+                    && cannotCompleteNormally(statement.ifBlock)
+                    && cannotCompleteNormally(statement.elseBlock)
+        }
+        if (statement instanceof TryCatchStatement) {
+            if (!cannotCompleteNormally(statement.tryStatement)) return false
+            for (CatchStatement clause : statement.catchStatements) {
+                if (!cannotCompleteNormally(clause.code)) return false
+            }
+            if (statement.finallyStatement != null && cannotCompleteNormally(statement.finallyStatement)) {
+                return true
+            }
+            return true
+        }
+        if (statement instanceof SynchronizedStatement) {
+            return cannotCompleteNormally(statement.code)
+        }
+        false
+    }
+
+    /** Annotation simple names that promise a method never returns normally. */
+    private static final Set<String> NO_RETURN_ANNOS = Collections.unmodifiableSet(
+            ['NoReturn', 'NeverReturns', 'DoesNotReturn'] as Set<String>)
+
+    /**
+     * Whether a call never returns normally.
+     *
+     * <p>Three declarations say so, all matched by simple name: {@code @NoReturn} (and the two
+     * spellings in {@link #NO_RETURN_ANNOS}), JetBrains' {@code @Contract} with a clause whose
+     * result is {@code fail} and whose arguments are all {@code _} (any value), and the
+     * project's own {@code neverReturns} list. A single failing branch such as
+     * {@code "null -> fail"} is not enough: the call still returns for other arguments.
+     */
+    private static boolean isNoReturnCall(Expression expression) {
+        if (!(expression instanceof MethodCallExpression) && !(expression instanceof StaticMethodCallExpression)) {
+            return false
+        }
+        def target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
+        if (!(target instanceof MethodNode)) return false
+        MethodNode method = (MethodNode) target
+        String key = method.declaringClass?.name + '#' + method.name
+        if (PORT_NEVER_RETURNS.contains(key)) return true
+        for (String annotation : NO_RETURN_ANNOS) {
+            if (findAnnotation(method, annotation) != null) return true
+        }
+        AnnotationNode contract = findAnnotation(method, 'Contract')
+        if (contract == null) return false
+        String spec = stringMember(contract, 'value')
+        for (ContractClause clause : parseContract(spec)) {
+            if (clause.result != 'fail') continue
+            if (clause.arguments.every { it == '_' || it.isEmpty() }) return true
         }
         false
     }
