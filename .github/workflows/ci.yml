@@ -14,9 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  check:
-    name: check
+  test:
+    name: test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -30,17 +31,46 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
-      # Nothing has to be staged first, which is worth stating because it is not obvious and it
-      # is not true of every project like this. `check` runs both halves of the gate:
-      #
-      #   * the corpus gate -- every rule exercised by a fixture that must be reported, every
-      #     guard form by one that must stay silent, so a rule cannot be added without evidence
-      #     that it fires;
-      #   * the plugin's TestKit functional tests, which drive real Gradle builds and whose inner
-      #     builds resolve the checker from ~/.m2 -- the functionalTest task installs it there
-      #     itself, so a fresh runner needs no prior publish.
-      - name: Check
-        run: ./gradlew check
+      # The checker's unit/corpus tests and the plugin's TestKit functional tests. functionalTest
+      # installs the checker into ~/.m2 itself, so a fresh runner needs no prior publish.
+      - name: Unit, corpus and functional tests
+        run: ./gradlew :nullchecker:test :nullchecker-gradle-plugin:functionalTest
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            nullchecker/build/test-results/test/
+            nullchecker/build/reports/tests/test/
+            nullchecker-gradle-plugin/build/test-results/functionalTest/
+            nullchecker-gradle-plugin/build/reports/tests/functionalTest/
+          if-no-files-found: warn
+
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # The test job owns the test suites. This job keeps the static/quality gates: CodeNarc,
+      # SpotBugs (including test bytecode), Spotless, the corpus-driven dogfood run and the
+      # plugin functional task's dependencies. Excluding the suites keeps the two jobs from
+      # doing the same work twice.
+      - name: Check static and quality gates
+        run: ./gradlew check -x test -x functionalTest
 
       # Not part of `check` because it needs the Groovy 6 reference implementation. It is
       # an informational comparison: the port intentionally evolves beyond upstream, so
