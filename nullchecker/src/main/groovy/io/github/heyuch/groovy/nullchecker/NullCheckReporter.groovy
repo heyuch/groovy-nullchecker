@@ -63,5 +63,14 @@ class NullCheckReporter {
         if (errors.size() < MAX_INTERNAL_ERRORS) {
             errors.add(where + ': ' + failure.getClass().name + ': ' + failure.message)
         }
+        // Compile mode runs the reporter in a compiler worker, while the Gradle report runs in
+        // another JVM; a static list cannot cross that boundary. The sidecar keeps a checker
+        // bug from looking like a clean result.
+        String findingsFile = System.getProperty('groovy.nullchecker.findingsFile')
+        if (findingsFile) {
+            File errorsFile = new File(findingsFile + '.errors')
+            errorsFile.getParentFile()?.mkdirs()
+            errorsFile.append("${where}: ${failure.getClass().name}: ${failure.message}\n".toString(), 'UTF-8')
+        }
     }
 }

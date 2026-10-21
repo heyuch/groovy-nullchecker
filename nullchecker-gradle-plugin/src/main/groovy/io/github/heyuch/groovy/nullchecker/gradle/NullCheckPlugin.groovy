@@ -9,21 +9,29 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.compile.GroovyCompile
 
 /**
  * Adds a {@code nullcheck} task that runs the Groovy 4 null checker over a project's
  * sources without modifying them.
  *
- * <p>Why a separate task, and why the CLI underneath:
+ * <p>The default is a separate task with the CLI underneath:
  * <ul>
  *   <li>A separate task cannot break {@code compileGroovy}, so an existing codebase can be
- *       measured before anything is gated on the result.</li>
+ *       measured before anything is gated on the result -- including code that does not
+ *       compile.</li>
  *   <li>The CLI already carries the two things that are easy to get wrong: it registers the
  *       checker so {@code @CompileStatic} classes are actually visited, and it proves it can
  *       still see a violation before reporting any number.</li>
  *   <li>No source changes and no compiler configuration script, so the checker never
  *       becomes a dependency of the application itself.</li>
  * </ul>
+ *
+ * <p>Setting {@code nullcheck { compileCheck = true }} opts into the other mode: the checker
+ * is added to the compiler worker's classpath, a generated configuration script registers it,
+ * and findings are collected into a file instead of compiler errors. That removes the second
+ * compilation, at the cost of losing the report for code that does not compile and the canary;
+ * the default stays standalone for those reasons.
  *
  * <p>The checker is resolved from the project's own repositories, so {@code mavenLocal()}
  * must be present until the artifact is published publicly. If it cannot be resolved the
@@ -47,6 +55,9 @@ class NullCheckPlugin implements Plugin<Project> {
     static final String TOOL_GROUP = 'io.github.heyuch'
     static final String TOOL_NAME = 'groovy-nullchecker'
     static final String CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.harness.NullCheckCli'
+
+    /** Reads the findings file produced by compile mode; no compilation of its own. */
+    static final String FINDINGS_CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.NullCheckFindingsCli'
     static final String TASK_NAME = 'nullcheck'
 
     /** Groovy the tool itself runs on; must match the checker's major version. */
@@ -70,37 +81,41 @@ class NullCheckPlugin implements Plugin<Project> {
             Configuration tool = resolvedToolConfiguration(project, extension)
             JavaExec javaExec = task.get()
 
-            // The project's own compile classpath is included so the checker can resolve the
-            // annotations and types the sources actually import. Without it, every
-            // unresolvable import is reported as a finding and buries the real ones.
-            //
-            // The main output is included as a FILE collection rather than via
-            // sourceSets.main.output, because the latter carries a task dependency on
-            // compileGroovy. That would make `nullcheck` refuse to run whenever the project
-            // does not compile -- exactly when a report is most useful, and exactly the
-            // state a project adopting this checker is likely to be in.
-            // The run needs three things on its classpath: the tool, the project's compile
-            // classpath (so annotations and types resolve), and compileJava's output (so
-            // annotation classes and package-info.class are readable from this compilation).
-            //
-            // Deliberately NOT sourceSets.main.output: that belongs to compileGroovy too, so
-            // referencing it would both force a dependency on compiling the code under
-            // analysis and trip Gradle's implicit-dependency validation. compileJava's own
-            // output directory is the narrow thing that is actually needed, and compileJava
-            // is already declared as the dependency.
-            javaExec.classpath = project.files(tool, compileClasspathOf(project), compileJavaOutputOf(project))
+            if (extension.compileCheck.get()) {
+                configureCompileMode(project, extension, javaExec, tool)
+            } else {
+                // The project's own compile classpath is included so the checker can resolve the
+                // annotations and types the sources actually import. Without it, every
+                // unresolvable import is reported as a finding and buries the real ones.
+                //
+                // The main output is included as a FILE collection rather than via
+                // sourceSets.main.output, because the latter carries a task dependency on
+                // compileGroovy. That would make `nullcheck` refuse to run whenever the project
+                // does not compile -- exactly when a report is most useful, and exactly the
+                // state a project adopting this checker is likely to be in.
+                // The run needs three things on its classpath: the tool, the project's compile
+                // classpath (so annotations and types resolve), and compileJava's output (so
+                // annotation classes and package-info.class are readable from this compilation).
+                //
+                // Deliberately NOT sourceSets.main.output: that belongs to compileGroovy too, so
+                // referencing it would both force a dependency on compiling the code under
+                // analysis and trip Gradle's implicit-dependency validation. compileJava's own
+                // output directory is the narrow thing that is actually needed, and compileJava
+                // is already declared as the dependency.
+                javaExec.classpath = project.files(tool, compileClasspathOf(project), compileJavaOutputOf(project))
 
-            // compileJava only, never compileGroovy. Java sources are where @Nullable-style
-            // annotations usually live and the checker needs them compiled; but making the
-            // report depend on compiling the Groovy code under analysis would mean a project
-            // that does not compile can never be measured -- exactly when a report is most
-            // useful. compileJava and compileGroovy are independent, so a broken Groovy
-            // source does not block the former.
-            project.tasks.findByName('compileJava')?.with { compileJava ->
-                javaExec.dependsOn(compileJava)
+                // compileJava only, never compileGroovy. Java sources are where @Nullable-style
+                // annotations usually live and the checker needs them compiled; but making the
+                // report depend on compiling the Groovy code under analysis would mean a project
+                // that does not compile can never be measured -- exactly when a report is most
+                // useful. compileJava and compileGroovy are independent, so a broken Groovy
+                // source does not block the former.
+                project.tasks.findByName('compileJava')?.with { compileJava ->
+                    javaExec.dependsOn(compileJava)
+                }
+
+                javaExec.args = buildArgs(project, extension)
             }
-
-            javaExec.args = buildArgs(project, extension)
 
             javaExec.doLast {
                 int code = javaExec.executionResult.get().exitValue
@@ -121,6 +136,89 @@ class NullCheckPlugin implements Plugin<Project> {
                 }
             }
         }
+    }
+
+    /**
+     * Runs the checker in the project's own {@code compileGroovy}.
+     *
+     * <p>The checker is put on the compiler's Groovy classpath, never on the application's
+     * compile/runtime classpath. A generated configuration script adds the checker's
+     * customizer and points it at a findings file; {@code nullcheck} then only reads that file.
+     */
+    private static void configureCompileMode(Project project, NullCheckExtension extension,
+                                             JavaExec javaExec, Configuration tool) {
+        if (project.tasks.findByName('compileGroovy') == null) {
+            throw new GradleException('nullcheck: compileCheck requires the Groovy plugin ' +
+                    '(no compileGroovy task in this project)')
+        }
+        TaskProvider<GroovyCompile> compile = project.tasks.named('compileGroovy', GroovyCompile)
+        File buildDir = project.layout.buildDirectory.get().asFile
+        File findingsFile = new File(buildDir, 'nullcheck/findings.tsv')
+        File scriptFile = new File(project.projectDir, '.gradle/nullcheck/compile-check.groovy')
+        File reportFile = new File(extension.reportFile.getOrElse(
+                new File(buildDir, 'reports/nullcheck/nullcheck.txt').absolutePath))
+        Configuration checker = project.configurations.detachedConfiguration(
+                project.dependencies.create(
+                        "${TOOL_GROUP}:${TOOL_NAME}:${extension.toolVersion.get()}".toString()))
+
+        scriptFile.parentFile.mkdirs()
+        scriptFile.setText(compileScript(extension, findingsFile), 'UTF-8')
+
+        compile.configure { GroovyCompile task ->
+            task.classpath = project.files(task.classpath, checker)
+            task.groovyClasspath = project.files(task.groovyClasspath, checker)
+            task.groovyOptions.configurationScript = scriptFile
+            task.outputs.file(findingsFile)
+            task.doFirst {
+                findingsFile.parentFile.mkdirs()
+                findingsFile.text = ''
+                new File(findingsFile.absolutePath + '.errors').text = ''
+                new File(findingsFile.absolutePath + '.coverage').text = ''
+            }
+        }
+
+        javaExec.mainClass.set(FINDINGS_CLI_CLASS)
+        javaExec.classpath = project.files(tool)
+        javaExec.dependsOn(compile)
+        List<String> args = ['--findings', findingsFile.absolutePath]
+        if (!extension.failOn.get().isEmpty()) {
+            args.addAll(['--fail-on', extension.failOn.get().join(',')])
+        }
+        args.addAll(['--report', reportFile.absolutePath])
+        javaExec.args = args
+
+        if (extension.canary.get()) {
+            project.logger.warn('nullcheck: compileCheck mode does not run the canary; ' +
+                    'set nullcheck.canary = false to silence this warning')
+        }
+    }
+
+    /** The configuration script the compiler worker runs before compiling. */
+    private static String compileScript(NullCheckExtension extension, File findingsFile) {
+        List<String> checks = enabledChecks(extension)
+        if (checks.isEmpty()) {
+            throw new GradleException('nullcheck: nullnessCheck and initializationCheck are both ' +
+                    'off, which would check nothing. Enable at least one.')
+        }
+        String contracts = extension.contracts.get().collect { String owner, String spec ->
+            "${owner}=${spec}".toString()
+        }.join(';')
+        return """import io.github.heyuch.groovy.nullchecker.NullCheckCustomizer
+
+System.setProperty('groovy.nullchecker.findingsFile', '${escape(findingsFile.absolutePath)}')
+System.setProperty('groovy.nullchecker.strict', '${extension.strict.get()}')
+System.setProperty('groovy.nullchecker.checks', '${escape(checks.join(','))}')
+System.setProperty('groovy.nullchecker.containerlookups', '${extension.containerLookups.get()}')
+System.setProperty('groovy.nullchecker.guards.true', '${escape(extension.guardNotNullWhenTrue.get().join(','))}')
+System.setProperty('groovy.nullchecker.guards.false', '${escape(extension.guardNotNullWhenFalse.get().join(','))}')
+System.setProperty('groovy.nullchecker.neverreturns', '${escape(extension.neverReturns.get().join(','))}')
+System.setProperty('groovy.nullchecker.contracts', '${escape(contracts)}')
+configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extension.extension.get())}'))
+"""
+    }
+
+    private static String escape(String value) {
+        return value == null ? '' : value.replace('\\', '\\\\').replace("'", "\\'")
     }
 
     /**

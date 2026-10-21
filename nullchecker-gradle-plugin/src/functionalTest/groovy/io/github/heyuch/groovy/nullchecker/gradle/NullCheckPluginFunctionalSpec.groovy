@@ -200,6 +200,51 @@ class Clean {
         result.output.contains('coverage')
     }
 
+    def 'compile mode collects findings during compileGroovy and reports them afterwards'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { compileCheck = true }')
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then: 'one compile ran, and the report came from the collected findings'
+        result.task(':compileGroovy').outcome == TaskOutcome.SUCCESS
+        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        result.output.contains('Violation.groovy')
+        result.output.contains('findings=1')
+    }
+
+    def 'compile mode gates the build when failOnError is enabled'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { compileCheck = true; failOnError = true }')
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult result = runAndFail('nullcheck')
+
+        then:
+        result.output.contains('findings reported')
+    }
+
+    def 'compile mode stays silent on guarded code'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { compileCheck = true; failOnError = true }')
+        writeAnnotation()
+        writeClean()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then:
+        result.output.contains('findings=0')
+    }
+
     def 'gates the build when failOnError is enabled'() {
         given:
         writeSettings()

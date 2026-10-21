@@ -7,6 +7,15 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Opt-in compile-time checking for the Gradle plugin** (`nullcheck { compileCheck = true }`):
+  the checker runs inside `compileGroovy`, so the build pays for one compilation instead of a
+  normal compile plus a separate CLI compile. Findings are collected into a findings file (not
+  added as compiler errors), so `failOnError = false` still reports without failing; the
+  `nullcheck` task then reports and applies the usual `failOn`/`failOnError` policy. A checker
+  internal error or a compile that visited no classes makes the task exit with code 2 rather
+  than look clean. The default remains the standalone CLI, which can still report on code that
+  does not compile and runs the canary.
+
 - **A single contract registry.** `@Contract`, `@EnsuresNonNullIf`, `@EnsuresNonNull`,
   `@NoReturn`, the `neverReturns` / `guardNotNullWhenTrue/False` configuration and the
   built-in table for `Map.get`, `find`, `max`, `Objects.requireNonNull` and friends now resolve

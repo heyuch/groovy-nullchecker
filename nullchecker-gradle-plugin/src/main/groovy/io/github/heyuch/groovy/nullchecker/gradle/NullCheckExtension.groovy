@@ -133,6 +133,19 @@ class NullCheckExtension {
      */
     final Property<String> toolVersion
 
+    /**
+     * Run the checker inside {@code compileGroovy} instead of a separate CLI compilation.
+     *
+     * <p>On, the checker shares the compilation the project already pays for, and findings are
+     * collected and reported by {@code nullcheck} afterwards. Off (the default), the checker
+     * runs as its own compilation, which can still measure a project that does not compile.
+     *
+     * <p>Compile mode analyses Groovy sources only (Java sources are not compiled by
+     * {@code compileGroovy}), does not run the canary, and requires the project's Groovy to be
+     * 4.0.x. See the README for the trade-offs.
+     */
+    final Property<Boolean> compileCheck
+
     NullCheckExtension(Project project) {
         this.extension = project.objects.property(String)
         this.strict = project.objects.property(Boolean)
@@ -149,6 +162,7 @@ class NullCheckExtension {
         this.containerLookups = project.objects.property(Boolean)
         this.contracts = project.objects.mapProperty(String, String)
         this.toolVersion = project.objects.property(String)
+        this.compileCheck = project.objects.property(Boolean)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
         strict.convention(false)
@@ -166,5 +180,6 @@ class NullCheckExtension {
         containerLookups.convention(true)
         contracts.convention([:])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
+        compileCheck.convention(false)
     }
 }

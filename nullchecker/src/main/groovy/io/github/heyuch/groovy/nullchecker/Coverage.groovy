@@ -43,5 +43,11 @@ class Coverage {
             last.nonNullByDefaultClasses++
         }
         last.methodsWithReturnType += cn.methods.count { MethodNode m -> m.returnType != VOID_TYPE }
+        String findingsFile = System.getProperty('groovy.nullchecker.findingsFile')
+        if (findingsFile) {
+            File coverageFile = new File(findingsFile + '.coverage')
+            coverageFile.getParentFile()?.mkdirs()
+            coverageFile.append(cn.name + '\n', 'UTF-8')
+        }
     }
 }

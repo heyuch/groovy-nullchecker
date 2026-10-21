@@ -1,7 +1,7 @@
 # Gradle 插件
 
-一行接入：`nullcheck` 任务在**不改源码、不写 configuration script** 的前提下，
-对整个项目做一次编译期空值检查。
+一行接入：`nullcheck` 任务在**不改源码**的前提下，对整个项目做一次编译期空值检查。
+默认是独立的 CLI 编译；`compileCheck = true` 时改为复用 `compileGroovy`，省掉第二次编译。
 
 - 完整支持 **`@CompileStatic`**（这正是裸注入与源码注解都到不了的那一类）
 - 完整支持**包级 `@NullMarked`**
@@ -56,6 +56,7 @@ repositories {
 
 ```groovy
 nullcheck {
+    compileCheck = false          // true：在 compileGroovy 内检查，省掉一次独立编译
     failOnError = true            // 有"失败类"发现就让构建失败（默认 false，只报告）
     failOn      = ['null', 'initialization']   // 哪些分类算失败；'all' 连解析错误一起失败
     nullnessCheck       = true     // 默认开启：空指针/返回/传参/赋值
@@ -86,6 +87,7 @@ nullcheck {
 
 | 属性 | 默认 | 说明 |
 | --- | --- | --- |
+| `compileCheck` | `false` | `true`：把检查器挂进 `compileGroovy`，复用同一次编译；见下文"编译内检查" |
 | `failOnError` | `false` | 有"失败类"发现时是否让构建失败。**建议先保持 false 摸底** |
 | `failOn` | `['null', 'initialization']` | 哪些分类算失败。`resolution`（静态检查解析不了的动态代码）默认只报告不失败；`['all']` 恢复"任何发现都失败" |
 | `nullnessCheck` | `true` | 空值规则族（解引用 / 返回 / 传参 / 赋值） |
@@ -102,6 +104,38 @@ nullcheck {
 | `toolVersion` | `0.5.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
+
+### 编译内检查（`compileCheck = true`）
+
+默认模式是独立 CLI：它不依赖 `compileGroovy`，所以**项目编译不过时也能出报告**。代价是每个模块
+多一次完整编译。编译内模式复用同一次 `compileGroovy`：
+
+```groovy
+nullcheck {
+    compileCheck = true
+    failOnError  = true
+}
+```
+
+实现方式：
+
+- 检查器被放到**编译器 worker 的 classpath**（`compileGroovy.classpath` / `groovyClasspath`），
+  不进入应用的 runtime/published 依赖；
+- 插件生成一个 `configurationScript`，在 worker 内设置检查器参数，并把 findings 写到
+  `build/nullcheck/findings.tsv`；
+- 检查器在**收集模式**下工作：finding 不再变成编译器错误，而是写入该文件；
+- `nullcheck` 任务依赖 `compileGroovy`，只读取该文件、打印并按 `failOn` / `failOnError` 决定是否失败。
+
+代价与限制（务必读）：
+
+- **编译失败就没有报告**：`nullcheck` 依赖 `compileGroovy`，源码编译不过时任务不会运行；
+  "先量一下坏代码"的场景请用默认模式；
+- **不检查 Java 源码**：`compileGroovy` 只编译 Groovy；`package-info.java` 仍会作为编译输入被读取；
+- **不跑 canary**：默认模式的 canary 会编译一个必然违规的样本，证明检查器真能看见问题；
+  编译内模式没有这一步，默认仍会打印一条警告。若需要这层保护，保持默认模式或把它作为单独的 CI 步骤；
+- **要求项目 Groovy 是 4.0.x**：检查器运行在项目自己的编译器里，不再固定 4.0.30；
+- 会覆盖项目已有的 `groovyOptions.configurationScript`（少见，若需要请合并）；
+- 检查器会出现在该任务**编译 classpath**上（不是 runtime，也不是发布依赖），以便类型检查扩展能被加载。
 
 ## 输出怎么读
 
@@ -135,12 +169,13 @@ nullcheck: findings reported (exit 1)
 它只依赖 `compileJava` —— 那是注解类所在的那一步。所以你项目**编译不过的时候也能出报告**，
 而这恰恰是最需要报告的时候。若让报告依赖 `compileGroovy`，一个编译错误就会把你挡在报告之外。
 
-**2. 任务用 CLI，而不是把自己塞进编译流程。**
-塞进 `compileGroovy`（configuration script 那条路）会带来两个问题：一是每次编译都跑一遍，
-二是**错误直接让编译失败**，没有 baseline 的余地；而且 configuration script 跑在**隔离的类加载器**里，
-连检查器的类都 import 不到（实测：`import` 报 "unable to resolve class"，改 `Class.forName`
-仍 `ClassNotFoundException`，把依赖从 `compileOnly` 换成 `implementation` 也不行）。
-独立任务则是你要接进 `check` 时一行的事，不想接就永远只是"看一眼"。
+**2. 默认独立 CLI，`compileCheck` 才进编译流程。**
+独立任务的好处是**不依赖 `compileGroovy`**：项目编译不过时仍能出报告，而且能跑 canary。
+早期把检查器塞进 `compileGroovy` 确实失败了：configuration script 跑在隔离类加载器里，import 不到
+检查器（`ClassNotFoundException`），而且 finding 直接变成编译错误。
+现在的 `compileCheck` 解决了这两点：检查器被放进编译 classpath，configuration script 通过
+`groovyClasspath` 加载它；finding 在收集模式下写入 findings 文件，而不是 `addStaticTypeError`。
+它仍是**可选**的，因为"编译不过也能报告"和 canary 是默认模式独有的价值。
 
 **3. 不存在的根只警告，全都不存在才报错。**
 默认 `targets` 两个根都给了，但纯 Groovy 项目没有 `src/main/java`。若把"根不存在"当错误，
@@ -155,7 +190,7 @@ nullcheck: findings reported (exit 1)
 
 ## 已验证
 
-`./gradlew :nullchecker-gradle-plugin:functionalTest` —— 8 个用例，每个都**真跑一次 Gradle 构建**（TestKit）：
+`./gradlew :nullchecker-gradle-plugin:functionalTest` —— 11 个用例，每个都**真跑一次 Gradle 构建**（TestKit）：
 
 | 用例 | 断言 |
 | --- | --- |
@@ -165,6 +200,9 @@ nullcheck: findings reported (exit 1)
 | 包级 `@NullMarked` | 类上无注解也被覆盖 ⇒ `package-info` 确实被读到 |
 | **项目编译不过** | `nullcheck` 仍出报告（`compileGroovy` 未被执行）|
 | `toolVersion` 不存在 | 构建失败并给出该版本号，**不会静默变绿** |
+| `compileCheck = true` | `compileGroovy` 内收集 finding，`nullcheck` 报告，默认不阻断 |
+| `compileCheck + failOnError = true` | 构建失败 |
+| `compileCheck` 且守卫正确 | `findings=0`，不误报 |
 
 不写单元测试是刻意的：这个插件的全部职责就是组装出一个会产生特定退出码的任务，
 而那类"看起来正常、其实什么都没查"的失效**只有在真实构建里才观察得到**。
