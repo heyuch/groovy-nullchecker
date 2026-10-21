@@ -72,7 +72,7 @@ nullcheck {
     guardNotNullWhenFalse = ['com.acme.MyCollectionUtils#isNullOrEmpty']  // 返回 false ⇒ 参数 0 非空
 
     // 永不返回的方法：调用之后的语句按不可达处理（兜底 return null 不再报）
-    neverReturns = ['com.bytesforce.exception.Panic#notExpectedResult']
+    neverReturns = ['com.acme.Panic#notExpectedResult']
 
     // 可能查不到的查找（Map.get / 下标 / find / max）按可空处理；默认开启
     containerLookups = true
