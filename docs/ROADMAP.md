@@ -182,10 +182,13 @@ Acceptance: the Optional fixture passes in both annotation and strict modes.
 
 #### Q1. One finding-classification owner (#5)
 
-Status: next.
+Status: done.
 
-- Move the fragment/category mapping into core; have the harness delegate.
-- Compile mode and CLI must classify the same message identically.
+- `NullCheckCategories` owns the fragment/category mapping and the category labels.
+- `NullCheckFinding` and the harness delegate to it; the harness keeps only the enum mapping.
+- Compile mode and the CLI classify the same message identically.
+
+Acceptance: `NullCheckCategoriesSpec` plus the existing sink/corpus tests.
 
 #### Q2. SpotBugs test filter (#7)
 

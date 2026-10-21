@@ -15,26 +15,14 @@ import groovy.transform.PackageScope
 @PackageScope
 class NullCheckFinding {
 
-    static final String NULL = 'null'
+    static final String NULL = NullCheckCategories.NULL
 
-    static final String INITIALIZATION = 'initialization'
+    static final String INITIALIZATION = NullCheckCategories.INITIALIZATION
 
-    static final String RESOLUTION = 'resolution'
+    static final String RESOLUTION = NullCheckCategories.RESOLUTION
 
     /** Selects every category when used in a fail-on list. */
     static final String ALL = 'all'
-
-    /** Message fragments that identify a nullness finding; kept in step with the CLI. */
-    static final List<String> NULL_FRAGMENTS = [
-            'Potential null dereference:',
-            'Cannot dereference null',
-            'Cannot return null from @NonNull method',
-            'Cannot return @Nullable value from @NonNull method',
-            'Cannot assign null to @NonNull',
-            'Cannot assign null to @MonotonicNonNull',
-            'Cannot pass null to @NonNull parameter',
-            'Cannot pass @Nullable value to @NonNull parameter',
-    ] as List<String>
 
     String file = ''
 
@@ -50,18 +38,7 @@ class NullCheckFinding {
     }
 
     static String classify(String message) {
-        if (message == null) {
-            return RESOLUTION
-        }
-        for (String fragment : NULL_FRAGMENTS) {
-            if (message.contains(fragment)) {
-                return NULL
-            }
-        }
-        if (message.contains('@NonNull field')) {
-            return INITIALIZATION
-        }
-        return RESOLUTION
+        return NullCheckCategories.classify(message)
     }
 
     String toTsv() {

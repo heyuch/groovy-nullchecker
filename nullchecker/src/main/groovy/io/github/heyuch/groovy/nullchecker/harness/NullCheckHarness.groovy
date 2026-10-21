@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy.nullchecker.NullCheckCategories
 import io.github.heyuch.groovy.nullchecker.NullCheckCoverage
 import io.github.heyuch.groovy.nullchecker.NullCheckCustomizer
 import io.github.heyuch.groovy.nullchecker.NullChecker
@@ -86,18 +87,6 @@ class NullCheckHarness {
 
     }
 
-    /** Message fragments that identify a nullness finding. */
-    private static final List<String> NULL_FRAGMENTS = [
-            'Potential null dereference:',
-            'Cannot dereference null',
-            'Cannot return null from @NonNull method',
-            'Cannot return @Nullable value from @NonNull method',
-            'Cannot assign null to @NonNull',
-            'Cannot assign null to @MonotonicNonNull',
-            'Cannot pass null to @NonNull parameter',
-            'Cannot pass @Nullable value to @NonNull parameter',
-    ] as List<String>
-
     /** Categories that fail a run by default: the nullness rules the tool exists for. */
     static final List<String> DEFAULT_FAIL_ON = [Category.NULL.label, Category.INITIALIZATION.label] as List<String>
 
@@ -124,16 +113,11 @@ class NullCheckHarness {
      * nullness claim.
      */
     static Category categoryOf(String message) {
-        if (message == null) {
-            return Category.RESOLUTION
-        }
-        for (String fragment : NULL_FRAGMENTS) {
-            if (message.contains(fragment)) {
-                return Category.NULL
+        String label = NullCheckCategories.classify(message)
+        for (Category category : Category.values()) {
+            if (category.label == label) {
+                return category
             }
-        }
-        if (message.contains('@NonNull field')) {
-            return Category.INITIALIZATION
         }
         return Category.RESOLUTION
     }

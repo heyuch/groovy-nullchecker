@@ -19,6 +19,12 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### Finding classification has one owner
+
+`NullCheckCategories` owns the message-to-category table and labels. `NullCheckFinding` and the
+harness delegate to it; the harness keeps only the enum mapping. Compile mode, the CLI and the
+harness therefore classify a message identically.
+
 ### Java Optional/Stream unwrapping
 
 `Optional.orElse` now follows its argument (`orElse(null)` is nullable), `orElseGet` is
@@ -60,16 +66,6 @@ nullable). `any`/`every` are boolean, and `find`/`findResult` stay nullable beca
 can still miss. N24 pins those semantics.
 
 ## Gradle plugin: compile mode
-
-### 5. Duplicate finding classification
-
-`NullCheckFinding.NULL_FRAGMENTS` duplicates the fragment list in
-`NullCheckHarness.categoryOf`. They must stay in step or compile mode and the CLI classify the
-same message differently.
-
-Direction: move classification to the core (one owner), have the harness delegate.
-
-Priority: low.
 
 ### 7. SpotBugs does not analyse test bytecode
 
