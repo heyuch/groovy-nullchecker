@@ -16,7 +16,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.*
 @PackageScope
 class PackageScopes {
 
-    private final CompilationUnit unit
+    private final ClassLoader transformLoader
 
     private final ClassLoader sourceLoader
 
@@ -29,9 +29,9 @@ class PackageScopes {
     private List<ClassLoader> classLoaders
 
     PackageScopes(CompilationUnit unit, ClassLoader sourceLoader) {
-        this.unit = unit
+        this.transformLoader = unit?.transformLoader
         this.sourceLoader = sourceLoader
-        sourceAnnotations.putAll(collectSourceAnnotations())
+        sourceAnnotations.putAll(collectSourceAnnotations(unit))
     }
 
     /**
@@ -64,10 +64,9 @@ class PackageScopes {
      *
      * @return package name to annotation simple names
      */
-    Map<String, List<String>> collectSourceAnnotations() {
+    private Map<String, List<String>> collectSourceAnnotations(CompilationUnit unit) {
         Map<String, List<String>> found = [:]
         try {
-            def unit = unit
             unit?.AST?.classes?.each { ClassNode cn ->
                 if (cn.name.endsWith('.package-info')) {
                     def pkg = cn.package
@@ -251,7 +250,7 @@ class PackageScopes {
         }
         List<ClassLoader> loaders = []
         try {
-            loaders << unit?.transformLoader
+            loaders << transformLoader
         } catch (Throwable ignored) {
             // not reachable in this setup
         }

@@ -32,6 +32,7 @@ import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.ast.CodeVisitorSupport
 import org.codehaus.groovy.ast.ConstructorNode
 import org.codehaus.groovy.ast.FieldNode
@@ -221,11 +222,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     static NullCheckCoverage getLastCoverage() {
-        coverage.snapshot()
+        lastCoverage.snapshot()
     }
 
     static void resetCoverage() {
-        coverage.reset()
+        lastCoverage = new Coverage()
     }
 
     static List<String> getInternalErrors() {
@@ -238,10 +239,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Drops per-compilation caches, so a new compilation cannot see a stale answer. */
     static void resetCaches() {
-        PORT_CACHE_UNIT = null
-        scopes = null
+        SESSIONS.clear()
         AstSupport.resetCaches()
-        contracts = new ContractRegistry()
     }
 
     /**
@@ -251,89 +250,53 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     @Override
     Object run() {
         NullCheckConfig config = NullCheckConfig.read(PORT_OPTIONS)
-        def unit = context?.compilationUnit
-        if (unit != null && !unit.is(PORT_CACHE_UNIT)) {
-            PORT_CACHE_UNIT = unit
-            scopes = new PackageScopes(unit, context?.source?.classLoader)
-            AstSupport.resetCaches()
-            contracts = new ContractRegistry()
-        } else if (unit == null) {
-            scopes = new PackageScopes(null, context?.source?.classLoader)
-            contracts = new ContractRegistry()
-        }
+        CompilationUnit unit = context?.compilationUnit
+        NullCheckSession session = sessionFor(unit, config, context?.source?.classLoader)
+        lastCoverage = session.coverage
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
         // run() would leave the counters describing only the last class seen (observed
         // as "classes=1" for a 43-file project). The caller resets once per compilation
         // via resetCoverage() instead.
         afterVisitClass { ClassNode cn ->
-            reporter.guard("coverage of ${cn.name}") {
-                coverage.cover(cn, scopes)
-            }
+            session.cover(cn, reporter)
         }
         // Which rule families run is a caller decision, not a property of the code being
         // checked: a project that cannot satisfy a family yet should stop seeing it rather
         // than learn to ignore a wall of findings it has decided not to act on.
         if (config.nullnessCheck) {
             afterVisitMethod { MethodNode method ->
-                reporter.guard("method ${method.declaringClass?.name}#${method.name}") {
-                    method.code?.visit(makeVisitor(config, method))
-                }
+                session.check(method, reporter)
             }
         }
         if (config.strict && config.initializationCheck) {
             afterVisitClass { ClassNode cn ->
-                reporter.guard("initialization of ${cn.name}") {
-                    new InitializationCheck(scopes, reporter).check(cn)
-                }
+                session.checkInitialization(cn, reporter)
             }
         }
     }
 
-    private static Object PORT_CACHE_UNIT
-
-    private static ContractRegistry contracts = new ContractRegistry()
-
-    private static PackageScopes scopes
-
-    private static Coverage coverage = new Coverage()
+    private static NullCheckSession sessionFor(CompilationUnit unit, NullCheckConfig config, ClassLoader sourceLoader) {
+        if (unit == null) {
+            return new NullCheckSession(config, null, sourceLoader)
+        }
+        synchronized (SESSIONS) {
+            NullCheckSession session = SESSIONS.get(unit)
+            if (session == null) {
+                session = new NullCheckSession(config, unit, sourceLoader)
+                SESSIONS.put(unit, session)
+            }
+            return session
+        }
+    }
 
     /** Reports into this DSL instance, so a finding lands on the current type-checking context. */
     private final NullCheckReporter reporter = new NullCheckReporter({ message, node ->
         addStaticTypeError(message, node)
     })
 
-    private CheckingVisitor makeVisitor(NullCheckConfig config, MethodNode method) {
-        boolean classNonNullByDefault = method.declaringClass != null &&
-            scopes.isReturnValueNonNullByDefault(method.declaringClass)
-        boolean methodNonNull = method.returnType != VOID_TYPE && (hasNonNullAnno(method) || (classNonNullByDefault && !hasNullableAnno(method)))
-        if (methodNonNull) {
-            def stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
-            if (stash instanceof List) {
-                stash.each { node ->
-                    addStaticTypeError("Cannot return null from @NonNull method '${method.name}'", node)
-                }
-            }
-        }
-        def initialNullable = method.parameters.findAll { hasNullableAnno(it) } as Set<Variable>
+    private static final Map<CompilationUnit, NullCheckSession> SESSIONS =
+            Collections.synchronizedMap(new WeakHashMap<CompilationUnit, NullCheckSession>())
 
-        new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable, scopes, contracts, reporter, config.containerLookups)
-    }
-
-    //--------------------------------------------------------------------------
-
-    /**
-     * Checks the node's declaration annotations and, for methods, parameters and fields,
-     * also the type-use annotations of the declared type. Type-use only annotations
-     * (e.g. JSpecify's) appear on the type rather than the declaration, in particular
-     * for classes read from bytecode or via reflection.
-     */
-    /**
-     * Annotation simple names per node, cached for the compilation.
-     *
-     * <p>{@link #hasAnno} is asked several times for the same node while deciding a scope
-     * (parameter default, return default, field default), and each answer walked both the
-     * declaration and the type annotations. The sets are small, but the walk and the closure
-     * allocation were not free on a module with thousands of methods.
-     */
+    private static Coverage lastCoverage = new Coverage()
 }
