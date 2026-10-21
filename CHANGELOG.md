@@ -26,8 +26,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Phase 0 + F1 of the flow design are implemented.** Strict mode now snapshots branch facts
   and joins them: may-null joins by the per-variable `Nullness` table, guards/non-empty/lookups
   by intersection, and early-exit branches are excluded. This fixes the branch-order and
-  early-return FP/FN shapes from `docs/NULLNESS-FLOW.md`; the full CFG remains F2. A strict
-  corpus fixture and `FlowStateSpec` pin the behavior.
+  early-return FP/FN shapes from `docs/NULLNESS-FLOW.md`. Strict `for`/`do-while`/`switch`
+  state joins are also in place; the explicit CFG/worklist remains F2b. A strict corpus fixture
+  and `FlowStateSpec` pin the behavior.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

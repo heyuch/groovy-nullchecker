@@ -51,16 +51,17 @@ corpus change.
 
 #### F2. Statement-level CFG and worklist
 
-Status: next (F1 map is ready; native visitor migration happens here).
+Status: in progress.
 
-- Build a statement-level CFG: block, if, while/do/for, break/continue, return/throw.
-- Condition refinement reuses `GuardFacts`, applied to CFG edge states.
-- Worklist dataflow with join over all predecessors; loops reach a fixed point through back
-  edges.
-- `switch` with fall-through and `break`; expression short-circuit conditions.
+- F2a (done): strict `for`/`do-while`/`switch` state snapshots and joins; zero-iteration
+  paths and switch outcomes are covered by `strict/flow_loop_switch.groovy`.
+- F2b (next): explicit statement-level CFG: block, if, while/do/for, break/continue,
+  return/throw; worklist dataflow; loop fixed points; switch fall-through/break edges;
+  condition refinement on CFG edges.
+- The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
-Acceptance: branch, no-else, zero/multi-iteration loop and break/continue fixtures; no
-duplicate findings; default annotation mode unchanged.
+Acceptance: branch, no-else, zero/multi-iteration loop, break/continue and switch fixtures;
+no duplicate findings; default annotation mode unchanged.
 
 #### F3. `try/catch/finally`
 

@@ -53,13 +53,16 @@ import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.CaseStatement
 import org.codehaus.groovy.ast.stmt.CatchStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
+import org.codehaus.groovy.ast.stmt.DoWhileStatement
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.ast.stmt.SwitchStatement
 import org.codehaus.groovy.ast.stmt.SynchronizedStatement
 import org.codehaus.groovy.ast.stmt.ThrowStatement
 import org.codehaus.groovy.ast.stmt.TryCatchStatement
@@ -249,13 +252,63 @@ class NullCheckVisitor extends CheckingVisitor {
             nullableElements.add(loopVar)
         }
         try {
-            super.visitForLoop(statement)
+            if (!flowSensitive) {
+                super.visitForLoop(statement)
+                return
+            }
+            statement.collectionExpression.visit(this)
+            FlowState afterCollection = captureState()
+            restoreState(afterCollection)
+            statement.loopBlock.visit(this)
+            FlowState body = captureState()
+            restoreState(afterCollection)
+            FlowState merged = FlowState.join(afterCollection, body)
+            restoreState(merged ?: afterCollection)
         } finally {
             if (loopVar != null) {
                 entryVariables.remove(loopVar)
                 nullableElements.remove(loopVar)
             }
         }
+    }
+
+    @Override
+    void visitDoWhileLoop(DoWhileStatement loop) {
+        if (!flowSensitive) {
+            super.visitDoWhileLoop(loop)
+            return
+        }
+        loop.loopBlock.visit(this)
+        visitCondition(loop.booleanExpression.expression)
+    }
+
+    @Override
+    void visitSwitch(SwitchStatement statement) {
+        if (!flowSensitive) {
+            super.visitSwitch(statement)
+            return
+        }
+        FlowState before = captureState()
+        statement.expression.visit(this)
+        FlowState afterExpression = captureState()
+        List<FlowState> outcomes = new ArrayList<FlowState>()
+        for (CaseStatement caseStatement : statement.caseStatements) {
+            restoreState(afterExpression)
+            caseStatement.code?.visit(this)
+            outcomes.add(captureState())
+        }
+        if (statement.defaultStatement != null) {
+            restoreState(afterExpression)
+            statement.defaultStatement.visit(this)
+            outcomes.add(captureState())
+        } else {
+            outcomes.add(afterExpression)
+        }
+        FlowState merged = outcomes.isEmpty() ? afterExpression : outcomes.get(0)
+        for (int i = 1; i < outcomes.size(); i++) {
+            merged = FlowState.join(merged, outcomes.get(i))
+        }
+        restoreState(merged ?: before)
     }
 
     @Override

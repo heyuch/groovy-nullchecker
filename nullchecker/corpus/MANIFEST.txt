@@ -117,6 +117,12 @@ strict=only
 expect=3
 note=branch join: either-branch and no-else warn; the return path is excluded
 
+
+strict/flow_loop_switch.groovy
+rule=R05
+strict=only
+expect=3
+note=while/for zero-iteration paths and switch outcomes join; do-while runs once
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06
