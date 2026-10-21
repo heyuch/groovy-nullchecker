@@ -161,37 +161,16 @@ import static org.codehaus.groovy.syntax.Types.isAssignment
 class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Rule family: nullness of values (dereference, return, assignment, argument). */
-    static final String CHECK_NULL = 'null'
+    static final String CHECK_NULL = NullCheckConfig.CHECK_NULL
 
     /** Rule family: an explicitly non-null field no constructor assigns. */
-    static final String CHECK_INITIALIZATION = 'initialization'
+    static final String CHECK_INITIALIZATION = NullCheckConfig.CHECK_INITIALIZATION
 
     /** The value of {@link #CHECKS_PROPERTY} that enables every family. */
-    static final String CHECKS_ALL = 'all'
+    static final String CHECKS_ALL = NullCheckConfig.CHECKS_ALL
 
     /** Comma-separated rule families to run; absent means {@link #CHECKS_ALL}. */
-    static final String CHECKS_PROPERTY = 'groovy.nullchecker.checks'
-
-    private static Set<String> PORT_GUARDS_TRUE = Collections.emptySet()
-
-    private static Set<String> PORT_GUARDS_FALSE = Collections.emptySet()
-
-    private static Set<String> PORT_NEVER_RETURNS = Collections.emptySet()
-
-    /** Whether container lookups that can miss are nullable. */
-    private static final String CONTAINER_LOOKUPS_PROPERTY = 'groovy.nullchecker.containerlookups'
-
-    private static Map<String, Contract> PORT_CONFIG_CONTRACTS = [:]
-
-    private static final Map<MethodNode, Contract> PORT_CONTRACT_CACHE = new IdentityHashMap<>()
-
-    private static boolean PORT_CONTAINER_LOOKUPS = true
-
-    /** Packages whose constraints imply non-null but not "assigned in source". */
-    private static final Set<String> VALIDATION_ANNO_PACKAGES = Collections.unmodifiableSet([
-            'jakarta.validation.constraints',
-            'javax.validation.constraints',
-            'org.hibernate.validator.constraints'] as Set)
+    static final String CHECKS_PROPERTY = NullCheckConfig.CHECKS_PROPERTY
 
     /**
      * PORT: back-port of Groovy 6's extension parameters ({@code getOptions()}).
@@ -208,7 +187,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static final Map<String, Object> PORT_OPTIONS = [:]
 
     /** System property that enables {@code strict} mode process-wide. */
-    static final String STRICT_PROPERTY = 'groovy.nullchecker.strict'
+    static final String STRICT_PROPERTY = NullCheckConfig.STRICT_PROPERTY
 
     /**
      * Environment variable that enables {@code strict} mode process-wide.
@@ -218,7 +197,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * practical channel for a CI job: turn strict on for the whole build without
      * editing any build file.
      */
-    static final String STRICT_ENV = 'GROOVY_NULLCHECKER_STRICT'
+    static final String STRICT_ENV = NullCheckConfig.STRICT_ENV
 
     /**
      * Replaces the extension options, mirroring Groovy 6's options map.
@@ -266,32 +245,12 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     /**
-     * Reads the {@code strict} flag the way Groovy 6's {@code options?.strict} would.
-     *
-     * <p>Because Groovy 4 cannot pass {@code 'Ext(strict: true)'}, three out-of-band
-     * channels are accepted, in order of specificity: {@link #setOptions(Map)} for
-     * programmatic use, then the {@link #STRICT_PROPERTY} system property, then the
-     * {@link #STRICT_ENV} environment variable for build/CI-wide switches.
-     */
-    private static boolean isStrictEnabled() {
-        if (PORT_OPTIONS.strict == true) {
-            return true
-        }
-        if (Boolean.getBoolean(STRICT_PROPERTY)) {
-            return true
-        }
-        'true'.equalsIgnoreCase(java.lang.System.getenv(STRICT_ENV))
-    }
-
-    /**
      * Registers null-safety checks for each visited method body and, in strict mode,
      * definite-initialization checks for {@code @NonNull} fields of each visited class.
      */
     @Override
     Object run() {
-        boolean strict = isStrictEnabled()
-        PORT_CONTAINER_LOOKUPS = !'false'.equalsIgnoreCase(
-                System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
+        NullCheckConfig config = NullCheckConfig.read(PORT_OPTIONS)
         def unit = context?.compilationUnit
         if (unit != null && !unit.is(PORT_CACHE_UNIT)) {
             PORT_CACHE_UNIT = unit
@@ -315,67 +274,21 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         // Which rule families run is a caller decision, not a property of the code being
         // checked: a project that cannot satisfy a family yet should stop seeing it rather
         // than learn to ignore a wall of findings it has decided not to act on.
-        if (isCheckEnabled(CHECK_NULL)) {
+        if (config.nullnessCheck) {
             afterVisitMethod { MethodNode method ->
                 reporter.guard("method ${method.declaringClass?.name}#${method.name}") {
-                    method.code?.visit(makeVisitor(strict, method))
+                    method.code?.visit(makeVisitor(config, method))
                 }
             }
         }
-        if (strict && isCheckEnabled(CHECK_INITIALIZATION)) {
+        if (config.strict && config.initializationCheck) {
             afterVisitClass { ClassNode cn ->
                 reporter.guard("initialization of ${cn.name}") {
-                    checkNonNullFieldInitialization(cn)
+                    new InitializationCheck(scopes, reporter).check(cn)
                 }
             }
         }
     }
-
-    /**
-     * Whether one rule family is enabled.
-     *
-     * <p>Both are on unless the caller says otherwise. An unknown name is treated as
-     * enabled by the checker; the CLI validates the value and rejects a typo, because a
-     * silently disabled check produces a zero that looks like a clean result.
-     */
-    private static boolean isCheckEnabled(String check) {
-        String raw = System.getProperty(CHECKS_PROPERTY)
-        if (raw == null || raw.trim().isEmpty()) {
-            return true
-        }
-        Set<String> enabled = new HashSet<String>()
-        for (String part : raw.split(',')) {
-            String name = part.trim().toLowerCase()
-            if (!name.isEmpty()) {
-                enabled.add(name)
-            }
-        }
-        enabled.isEmpty() || enabled.contains(check) || enabled.contains(CHECKS_ALL)
-    }
-
-    /**
-     * Package-level annotations collected up front, keyed by package name.
-     *
-     * <p>Needed because Groovy 4 gives every <em>source</em> class its own
-     * {@code PackageNode}: the annotations from a source {@code package-info.java} or
-     * {@code package-info.groovy} land on the package node of the {@code package-info}
-     * class only, and the {@code PackageNode} of the classes in that package comes back
-     * with an empty annotation list. Reading {@code classNode.package.annotations} --
-     * which is correct for precompiled {@code package-info.class} on the classpath --
-     * therefore finds nothing for sources in the same compilation.
-     *
-     * <p>Populated before any class is visited, so the answer does not depend on whether
-     * {@code package-info} happens to be compiled before or after its package's classes.
-     */
-    /**
-     * Per-compilation caches for package-annotation lookups.
-     *
-     * <p>{@link #lookupPackageAnnotations} walks up to four classloaders with
-     * {@code Class.forName}, which resolves {@code package-info.class} entries from the
-     * classpath. It is called for every scope decision of every class, so without a cache the
-     * same package is resolved thousands of times -- measured as the largest single cost in
-     * the checker. Both maps are cleared when a new compilation unit is seen.
-     */
 
     private static Object PORT_CACHE_UNIT
 
@@ -390,9 +303,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         addStaticTypeError(message, node)
     })
 
-    private CheckingVisitor makeVisitor(boolean flowSensitive, MethodNode method) {
+    private CheckingVisitor makeVisitor(NullCheckConfig config, MethodNode method) {
         boolean classNonNullByDefault = method.declaringClass != null &&
-            isReturnValueNonNullByDefault(method.declaringClass)
+            scopes.isReturnValueNonNullByDefault(method.declaringClass)
         boolean methodNonNull = method.returnType != VOID_TYPE && (hasNonNullAnno(method) || (classNonNullByDefault && !hasNullableAnno(method)))
         if (methodNonNull) {
             def stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
@@ -404,95 +317,10 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         }
         def initialNullable = method.parameters.findAll { hasNullableAnno(it) } as Set<Variable>
 
-        new NullCheckVisitor(flowSensitive, method, methodNonNull, initialNullable, scopes, contracts, reporter, PORT_CONTAINER_LOOKUPS)
+        new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable, scopes, contracts, reporter, config.containerLookups)
     }
 
     //--------------------------------------------------------------------------
-
-    /**
-     * Checks that each explicitly-annotated {@code @NonNull} instance field is definitely
-     * initialized: at its declaration, in an instance initializer block, or by every
-     * declared constructor (a constructor delegating via {@code this(...)} relies on its
-     * delegate). Only performed in {@code strict} mode. Fields that are merely non-null
-     * by default (e.g. under {@code @NullMarked} without an explicit annotation) are not
-     * checked, so idiomatic Groovy property classes constructed via named arguments stay
-     * noise-free. Assignment detection is not path-sensitive: an assignment anywhere in
-     * a constructor counts.
-     */
-    private void checkNonNullFieldInitialization(ClassNode cn) {
-        if (cn.interface) return
-        // A Bean Validation constraint promises the value is not null *when validation
-        // runs*; it does not promise the constructor assigned it, and beans populated by an
-        // ORM or a deserializer legitimately start empty. A @NullMarked class is different:
-        // its marking is a language-level contract, so the requirement stands there.
-        boolean markedScope = isFieldNonNullByDefault(cn)
-        List<FieldNode> candidates = cn.fields.findAll { field ->
-            !field.static && !isPrimitiveType(field.type) && field.initialValueExpression == null &&
-                isNonNullAnnotated(field) && !hasNullableAnno(field) && !hasMonotonicAnno(field) &&
-                !(isValidationConstraint(field) && !markedScope)
-        }
-        if (!candidates) return
-        Set<String> initBlockAssigned = assignedFieldNames(cn.objectInitializerStatements)
-        List<ConstructorNode> ctors = cn.declaredConstructors
-        List<Set<String>> ctorAssigned = ctors.findAll { !delegatesToThis(it) }
-                                              .collect { assignedFieldNames([it.code]) }
-        for (field in candidates) {
-            if (field.name in initBlockAssigned) continue
-            if (!ctors) {
-                addStaticTypeError("@NonNull field '${field.name}' is not initialized", field)
-            } else if (ctorAssigned.any { !(field.name in it) }) {
-                addStaticTypeError("@NonNull field '${field.name}' is not initialized by all constructors", field)
-            }
-        }
-    }
-
-    private static boolean delegatesToThis(ConstructorNode ctor) {
-        def first = ctor.firstStatement
-        first instanceof ExpressionStatement && first.expression instanceof ConstructorCallExpression &&
-            ((ConstructorCallExpression) first.expression).thisCall
-    }
-
-    /**
-     * Collects the names of fields assigned (by simple name or via {@code this.name})
-     * anywhere within the given statements.
-     */
-    private static Set<String> assignedFieldNames(List<Statement> statements) {
-        Set<String> names = []
-        def collector = new CodeVisitorSupport() {
-            @Override
-            void visitBinaryExpression(BinaryExpression expression) {
-                if (isAssignment(expression.operation.type)) {
-                    def left = expression.leftExpression
-                    if (left instanceof VariableExpression) {
-                        names.add(left.name)
-                    } else if (left instanceof PropertyExpression && left.objectExpression instanceof VariableExpression
-                            && ((VariableExpression) left.objectExpression).thisExpression) {
-                        def name = left.propertyAsString
-                        if (name != null) names.add(name)
-                    }
-                }
-                super.visitBinaryExpression(expression)
-            }
-        }
-        statements.each { it?.visit(collector) }
-        names
-    }
-
-    /**
-     * Whether a member counts as non-null: explicitly annotated, or inheriting a
-     * package/class-level {@code @NullMarked} default.
-     *
-     * <p>The definite-initialisation check needs this rather than
-     * {@link #hasNonNullAnno} alone, otherwise a package marked {@code @NullMarked}
-     * would demand non-null returns and parameters but silently not require its fields
-     * to be initialised -- the same marking meaning two different things depending on
-     * which check happened to look.
-     */
-    private boolean isNonNullAnnotated(AnnotatedNode node) {
-        if (hasNonNullAnno(node)) return true
-        ClassNode owner = node instanceof FieldNode ? ((FieldNode) node).declaringClass : null
-        owner != null && isFieldNonNullByDefault(owner)
-    }
 
     /**
      * Checks the node's declaration annotations and, for methods, parameters and fields,
@@ -508,38 +336,4 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * declaration and the type annotations. The sets are small, but the walk and the closure
      * allocation were not free on a module with thousands of methods.
      */
-    private static final Map<AnnotatedNode, Set<String>> PORT_DECL_ANNO_NAMES = new IdentityHashMap<>()
-
-    private static final Map<AnnotatedNode, Set<String>> PORT_TYPE_ANNO_NAMES = new IdentityHashMap<>()
-
-    private boolean isNonNullByDefault(ClassNode cn) {
-        scopes.isNonNullByDefault(cn)
-    }
-
-    private boolean isParameterNonNullByDefault(ClassNode cn) {
-        scopes.isParameterNonNullByDefault(cn)
-    }
-
-    private boolean isReturnValueNonNullByDefault(ClassNode cn) {
-        scopes.isReturnValueNonNullByDefault(cn)
-    }
-
-    private boolean isFieldNonNullByDefault(ClassNode cn) {
-        scopes.isFieldNonNullByDefault(cn)
-    }
-
-    private boolean isAnyNonNullByDefault(ClassNode cn) {
-        scopes.isAnyNonNullByDefault(cn)
-    }
-
-    /**
-     * Whether the node carries a Bean Validation constraint rather than a nullness
-     * annotation. Matched by package, because the constraint's simple name is exactly
-     * what the annotation lookup deliberately does not distinguish.
-     */
-    private static boolean isValidationConstraint(AnnotatedNode node) {
-        if (node == null) return false
-        node.annotations?.any { it.classNode?.packageName in VALIDATION_ANNO_PACKAGES } ?: false
-    }
-
 }
