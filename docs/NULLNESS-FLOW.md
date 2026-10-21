@@ -1,6 +1,6 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 approved; Phase 1/2 deferred until evidence
+- Status: Phase 0 implemented (strict-only branch join); Phase 1/2 deferred until evidence
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
 - Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
 
@@ -414,8 +414,8 @@ x.f.g          // 深度上限 2，最多到第二层
 
 任务：
 
-1. 新增 `FlowState`，包含 `locals`、`nonEmpty`、`presentLookups`、`unreachable`；
-   只在 strict 路径启用，默认 annotation 路径继续走旧实现。
+1. 新增 `FlowState`；Phase 0 先快照现有 `nullableVars` / `guardedVars` / `nonEmptyVars` /
+   `lookupGuards`，只在 strict 路径启用；per-variable `Nullness` map 留给 Phase 1。
 2. `visitIfElse`：
    - `before = flow.copy()`；
    - 用 `before` 复制出 then/else 两个状态；
@@ -434,7 +434,7 @@ x.f.g          // 深度上限 2，最多到第二层
 
 - 第 4 节 5 个用例全部符合期望；
 - 默认 annotation 模式的 corpus 零变化（不是要求 strict 零变化）；
-- `UNKNOWN` 的 join 语义有独立单元测试；
+- `FlowState.join` 的 union/intersection 和 copy 独立性有独立单元测试；
 - `strict` 模式只新增预期的 finding；
 - `FlowState.join` 有单元测试，覆盖 NULL/NON_NULL/MAYBE/UNKNOWN/UNREACHABLE。
 
@@ -521,6 +521,13 @@ x.f.g          // 深度上限 2，最多到第二层
   `CHANGELOG.md`。
 - 向上游提交仍然可选；如果提交，默认模式的行为需要单独讨论，不再是本项目的硬约束。
 - Phase 0 仍只在 strict 路径启用，目的是控制风险，不是兼容性要求。
+
+### 8.1.1 实现说明（Phase 0）
+
+为了降低一次重写 1200 多行 visitor 的风险，Phase 0 的 `FlowState` 先只快照现有的
+`nullableVars` / `guardedVars` / `nonEmptyVars` / `lookupGuards`，在 `if` / 三元 / `while`
+的分支边界做 union/intersection；§5.2 的 per-variable `Nullness` map 和 §5.3 的完整
+`UNKNOWN` 格是 Phase 1 的目标模型，不是本次已落地的内容。§4 的 5 个用例已经覆盖。
 
 ### 8.2 corpus
 

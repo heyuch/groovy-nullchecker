@@ -111,6 +111,12 @@ strict=only
 expect=some
 note=null reaches the variable by assignment, not by its initialiser
 
+strict/flow_branch_merge.groovy
+rule=R05
+strict=only
+expect=3
+note=branch join: either-branch and no-else warn; the return path is excluded
+
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06

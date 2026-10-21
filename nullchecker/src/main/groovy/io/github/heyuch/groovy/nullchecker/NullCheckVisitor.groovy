@@ -424,6 +424,33 @@ class NullCheckVisitor extends CheckingVisitor {
     @Override
     void visitIfElse(IfStatement ifElse) {
         GuardFacts facts = visitCondition(ifElse.booleanExpression.expression)
+        if (!flowSensitive) {
+            visitIfElseLexical(ifElse, facts)
+            return
+        }
+        FlowState before = captureState()
+        restoreState(before)
+        applyFacts(facts.whenTrue)
+        applyNonEmptyFacts(facts.nonEmptyTrue)
+        applyLookupFacts(facts.lookupsTrue)
+        ifElse.ifBlock.visit(this)
+        boolean thenExits = cannotCompleteNormally(ifElse.ifBlock)
+        FlowState afterThen = captureState()
+
+        restoreState(before)
+        applyFacts(facts.whenFalse)
+        applyNonEmptyFacts(facts.nonEmptyFalse)
+        applyLookupFacts(facts.lookupsFalse)
+        ifElse.elseBlock.visit(this)
+        boolean elseExits = cannotCompleteNormally(ifElse.elseBlock)
+        FlowState afterElse = captureState()
+
+        FlowState merged = FlowState.join(thenExits ? null : afterThen, elseExits ? null : afterElse)
+        restoreState(merged ?: before)
+    }
+
+    /** The annotation-mode path: sequential branch visits, no join. */
+    private void visitIfElseLexical(IfStatement ifElse, GuardFacts facts) {
         withGuards(facts.whenTrue) {
             withNonEmptyGuards(facts.nonEmptyTrue) {
                 withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
@@ -448,6 +475,23 @@ class NullCheckVisitor extends CheckingVisitor {
     @Override
     void visitWhileLoop(WhileStatement loop) {
         GuardFacts facts = visitCondition(loop.booleanExpression.expression)
+        if (!flowSensitive) {
+            visitWhileLoopLexical(loop, facts)
+            return
+        }
+        FlowState before = captureState()
+        restoreState(before)
+        applyFacts(facts.whenTrue)
+        applyNonEmptyFacts(facts.nonEmptyTrue)
+        applyLookupFacts(facts.lookupsTrue)
+        loop.loopBlock.visit(this)
+        FlowState body = captureState()
+        restoreState(before)
+        FlowState merged = FlowState.join(before, body)
+        restoreState(merged ?: before)
+    }
+
+    private void visitWhileLoopLexical(WhileStatement loop, GuardFacts facts) {
         withGuards(facts.whenTrue) {
             withNonEmptyGuards(facts.nonEmptyTrue) {
                 withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
@@ -459,6 +503,34 @@ class NullCheckVisitor extends CheckingVisitor {
     void visitTernaryExpression(TernaryExpression expression) {
         Expression condition = expression.booleanExpression.expression
         GuardFacts facts = visitCondition(condition)
+        if (!flowSensitive) {
+            visitTernaryLexical(expression, condition, facts)
+            return
+        }
+        FlowState before = captureState()
+        boolean elvis = condition.is(expression.trueExpression) || expression.booleanExpression.is(expression.trueExpression)
+
+        restoreState(before)
+        applyFacts(facts.whenTrue)
+        applyNonEmptyFacts(facts.nonEmptyTrue)
+        applyLookupFacts(facts.lookupsTrue)
+        if (!elvis) {
+            expression.trueExpression.visit(this)
+        }
+        FlowState afterTrue = captureState()
+
+        restoreState(before)
+        applyFacts(facts.whenFalse)
+        applyNonEmptyFacts(facts.nonEmptyFalse)
+        applyLookupFacts(facts.lookupsFalse)
+        expression.falseExpression.visit(this)
+        FlowState afterFalse = captureState()
+
+        FlowState merged = FlowState.join(afterTrue, afterFalse)
+        restoreState(merged ?: before)
+    }
+
+    private void visitTernaryLexical(TernaryExpression expression, Expression condition, GuardFacts facts) {
         // for elvis, the true expression is the (already visited) condition
         if (!condition.is(expression.trueExpression) && !expression.booleanExpression.is(expression.trueExpression)) {
             withGuards(facts.whenTrue) {
@@ -811,6 +883,33 @@ class NullCheckVisitor extends CheckingVisitor {
         for (Variable current : vars) {
             nullableVars.remove(current)
             guardedVars.add(current)
+        }
+    }
+
+    private FlowState captureState() {
+        Set<String> lookups = new LinkedHashSet<String>()
+        for (Set<String> frame : lookupGuards) {
+            lookups.addAll(frame)
+        }
+        return new FlowState(nullableVars, guardedVars, nonEmptyVars, lookups)
+    }
+
+    private void restoreState(FlowState state) {
+        nullableVars.clear()
+        nullableVars.addAll(state.nullableVars)
+        guardedVars.clear()
+        guardedVars.addAll(state.guardedVars)
+        nonEmptyVars.clear()
+        nonEmptyVars.addAll(state.nonEmptyVars)
+        lookupGuards.clear()
+        if (state.lookupGuards) {
+            lookupGuards.push(new LinkedHashSet<String>(state.lookupGuards))
+        }
+    }
+
+    private void applyLookupFacts(Set<String> keys) {
+        if (keys) {
+            lookupGuards.push(new LinkedHashSet<String>(keys))
         }
     }
 
