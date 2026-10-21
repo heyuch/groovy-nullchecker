@@ -4,55 +4,76 @@ import org.codehaus.groovy.ast.Variable
 import org.codehaus.groovy.ast.expr.VariableExpression
 import spock.lang.Specification
 
-/** Phase 0: may facts union, must facts intersect, unreachable branches are excluded by the caller. */
+/** F1: per-variable nullness, unknown-suppressing join and must-fact intersection. */
 class FlowStateSpec extends Specification {
 
-    def 'nullness joins by union and must facts join by intersection'() {
+    def 'locals join by the nullness table and must facts intersect'() {
         given:
         Variable a = new VariableExpression('a')
         Variable b = new VariableExpression('b')
         Variable c = new VariableExpression('c')
-        FlowState left = new FlowState([a] as Set, [a, b] as Set, [a] as Set, ['map|left'] as Set)
-        FlowState right = new FlowState([c] as Set, [b] as Set, [] as Set, ['map|right'] as Set)
+        FlowState left = new FlowState(
+                [(a): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL],
+                [a] as Set, ['map|left'] as Set)
+        FlowState right = new FlowState(
+                [(c): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL],
+                [] as Set, ['map|right'] as Set)
 
         when:
         FlowState joined = FlowState.join(left, right)
 
         then:
-        joined.nullableVars == [a, c] as Set
-        joined.guardedVars == [b] as Set
+        joined.locals[a] == Nullness.MAYBE_NULL
+        joined.locals[b] == Nullness.NON_NULL
+        joined.locals[c] == Nullness.MAYBE_NULL
         joined.nonEmptyVars.isEmpty()
         joined.lookupGuards.isEmpty()
+    }
+
+    def 'unknown plus null becomes maybe-null; unknown plus non-null stays unknown'() {
+        expect:
+        FlowState.joinValue(left, right) == expected
+
+        where:
+        left                  | right                 || expected
+        Nullness.NULL         | Nullness.UNKNOWN      || Nullness.MAYBE_NULL
+        Nullness.UNKNOWN      | Nullness.NULL         || Nullness.MAYBE_NULL
+        Nullness.NON_NULL     | Nullness.UNKNOWN      || Nullness.UNKNOWN
+        Nullness.UNKNOWN      | Nullness.NON_NULL     || Nullness.UNKNOWN
+        Nullness.NULL         | Nullness.NON_NULL     || Nullness.MAYBE_NULL
+        Nullness.MAYBE_NULL   | Nullness.NON_NULL     || Nullness.MAYBE_NULL
+        Nullness.UNKNOWN      | Nullness.UNKNOWN      || Nullness.UNKNOWN
     }
 
     def 'joining with an unreachable side returns a copy of the other side'() {
         given:
         Variable a = new VariableExpression('a')
-        FlowState state = new FlowState([a] as Set, [a] as Set, [a] as Set, ['map|key'] as Set)
+        FlowState state = new FlowState(
+                [(a): Nullness.NON_NULL], [a] as Set, ['map|key'] as Set)
 
         when:
         FlowState joined = FlowState.join(null, state)
 
         then:
         joined != null
-        joined.nullableVars == [a] as Set
-        joined.guardedVars == [a] as Set
+        joined.locals[a] == Nullness.NON_NULL
         joined.nonEmptyVars == [a] as Set
         joined.lookupGuards == ['map|key'] as Set
     }
 
-    def 'join and copy do not alias the source sets'() {
+    def 'join and copy do not alias the source state'() {
         given:
         Variable a = new VariableExpression('a')
-        FlowState state = new FlowState([a] as Set, [a] as Set, [a] as Set, ['map|key'] as Set)
+        FlowState state = new FlowState(
+                [(a): Nullness.MAYBE_NULL], [a] as Set, ['map|key'] as Set)
 
         when:
         FlowState copy = state.copy()
-        copy.nullableVars.clear()
-        copy.guardedVars.clear()
+        copy.locals.clear()
+        copy.nonEmptyVars.clear()
 
         then:
-        state.nullableVars == [a] as Set
-        state.guardedVars == [a] as Set
+        state.locals[a] == Nullness.MAYBE_NULL
+        state.nonEmptyVars == [a] as Set
     }
 }

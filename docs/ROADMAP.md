@@ -36,21 +36,22 @@ is only reconsidered after the method-local work is complete and a real project 
 
 #### F1. `FlowState` v2: per-variable nullness
 
-Status: next.
+Status: done.
 
-- Replace the four-set snapshot with `Map<Variable, Nullness>` plus `nonEmpty` and
-  `presentLookups` must-facts.
-- Implement the join policy, including variables present on only one branch and the
-  `UNKNOWN` policy documented in NULLNESS-FLOW §5.3.
-- Keep the analysis strict-only; the annotation path remains the current lexical visitor.
-- Unit tests: every join pair, absent variables, unreachable branches, copy independence.
+- The branch snapshot is now `Map<Variable, Nullness>` plus `nonEmpty` and `presentLookups`
+  must-facts.
+- Join implements the unknown-suppressing policy, including variables present on only one
+  branch.
+- The visitor still projects the map to the legacy sets at branch boundaries; making the map
+  the native visitor state is folded into F2, where the CFG needs it directly.
+- Unit tests cover each join pair, absent variables, copy independence and Phase 0 corpus.
 
 Acceptance: `FlowStateSpec` covers the table; Phase 0 corpus stays green; no annotation-mode
 corpus change.
 
 #### F2. Statement-level CFG and worklist
 
-Status: pending F1.
+Status: next (F1 map is ready; native visitor migration happens here).
 
 - Build a statement-level CFG: block, if, while/do/for, break/continue, return/throw.
 - Condition refinement reuses `GuardFacts`, applied to CFG edge states.

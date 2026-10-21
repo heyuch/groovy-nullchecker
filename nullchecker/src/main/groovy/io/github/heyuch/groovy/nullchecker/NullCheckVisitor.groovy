@@ -887,18 +887,30 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     private FlowState captureState() {
+        Map<Variable, Nullness> locals = new LinkedHashMap<Variable, Nullness>()
+        for (Variable variable : nullableVars) {
+            locals.put(variable, Nullness.MAYBE_NULL)
+        }
+        for (Variable variable : guardedVars) {
+            locals.put(variable, Nullness.NON_NULL)
+        }
         Set<String> lookups = new LinkedHashSet<String>()
         for (Set<String> frame : lookupGuards) {
             lookups.addAll(frame)
         }
-        return new FlowState(nullableVars, guardedVars, nonEmptyVars, lookups)
+        return new FlowState(locals, nonEmptyVars, lookups)
     }
 
     private void restoreState(FlowState state) {
         nullableVars.clear()
-        nullableVars.addAll(state.nullableVars)
         guardedVars.clear()
-        guardedVars.addAll(state.guardedVars)
+        for (Map.Entry<Variable, Nullness> entry : state.locals.entrySet()) {
+            if (entry.value == Nullness.NON_NULL) {
+                guardedVars.add(entry.key)
+            } else if (entry.value == Nullness.NULL || entry.value == Nullness.MAYBE_NULL) {
+                nullableVars.add(entry.key)
+            }
+        }
         nonEmptyVars.clear()
         nonEmptyVars.addAll(state.nonEmptyVars)
         lookupGuards.clear()

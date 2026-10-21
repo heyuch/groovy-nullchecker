@@ -1,6 +1,6 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 implemented (strict-only branch join); Phase 1/2 tracked in [ROADMAP.md](ROADMAP.md)
+- Status: Phase 0 + F1 implemented (strict-only branch map/join); F2-F7 tracked in [ROADMAP.md](ROADMAP.md)
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
 - Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
 
@@ -524,10 +524,10 @@ corpus 验收仍然保留。
 
 ### 8.1.1 实现说明（Phase 0）
 
-为了降低一次重写 1200 多行 visitor 的风险，Phase 0 的 `FlowState` 先只快照现有的
-`nullableVars` / `guardedVars` / `nonEmptyVars` / `lookupGuards`，在 `if` / 三元 / `while`
-的分支边界做 union/intersection；§5.2 的 per-variable `Nullness` map 和 §5.3 的完整
-`UNKNOWN` 格是 Phase 1 的目标模型，不是本次已落地的内容。§4 的 5 个用例已经覆盖。
+Phase 0 先用快照修分支顺序问题；F1 已把分支快照升级为 per-variable `Nullness` map
+（`FlowState` / `Nullness` / `FlowStateSpec`），visitor 在分支边界仍将其投影到旧的
+`nullableVars` / `guardedVars` 集合。把 map 变成 visitor 的原生状态与完整 CFG 一起在 F2
+落地；§4 的 5 个用例已经覆盖。
 
 ### 8.2 corpus
 
