@@ -754,7 +754,7 @@ docs/                        发布说明
 
 ```bash
 ./gradlew check                # 语料门禁：每条规则被覆盖，每种守卫静默
-./gradlew dualRun              # 在本移植和 Groovy 6 下各跑一遍语料，然后 diff
+./gradlew dualRun              # 信息性对照：在本移植和 Groovy 6 下各跑一遍语料并 diff
 ./gradlew publishToMavenLocal  # 把两个模块安装到 ~/.m2
 ```
 

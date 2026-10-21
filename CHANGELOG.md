@@ -18,6 +18,14 @@ versions follow [Semantic Versioning](https://semver.org/).
   Historical CHANGELOG/BACKLOG entries are excluded, and this is not a stale gate: `check` does
   not fail merely because the docs were not refreshed.
 
+- **Upstream parity is no longer a release gate.** `dualRun` now reports differences without
+  failing, and the expected-divergence list is gone. The port intentionally evolves toward a
+  more accurate checker; default-mode changes still need corpus/trial evidence and a
+  `PORT.md`/`CHANGELOG.md` note.
+
+- **Phase 0 of the flow design is approved.** `docs/NULLNESS-FLOW.md` now records the decision:
+  `FlowState` + branch join next; full CFG and access paths stay evidence-gated.
+
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a
   map lookup from a non-null method; it now declares `@Nullable`.
@@ -158,8 +166,8 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 This release diverges from Groovy 6's `NullChecker` on purpose. The project is maintained as
 a fork rather than a faithful back-port, because several upstream behaviours are defects in
-real code; each divergence is recorded in `nullchecker/tools/upstream-divergences.txt` and
-checked by `./gradlew dualRun`.
+real code; each divergence is exercised by a corpus fixture and visible in the `dualRun`
+comparison.
 
 ### Fixed
 

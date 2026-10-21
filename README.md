@@ -812,7 +812,7 @@ time, so the two modules compile independently.
 
 ```bash
 ./gradlew check                # corpus gate: every rule covered, every guard silent
-./gradlew dualRun              # run the corpus under this port and under Groovy 6, then diff
+./gradlew dualRun              # informational: run the corpus under both checkers and diff
 ./gradlew publishToMavenLocal  # install both modules into ~/.m2
 ```
 

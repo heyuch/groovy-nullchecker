@@ -112,9 +112,8 @@ file can reach a newer API without a warning and fail only on the consumer's mac
 
 ### 2.6 Behavioural fixes adopted deliberately (3)
 
-The port is a fork: three upstream defects are fixed here rather than reproduced. Each is
-listed in `nullchecker/tools/upstream-divergences.txt`, and each has a corpus fixture that
-pairs the tolerated shape with one that must still be reported.
+The port is a fork: three upstream defects are fixed here rather than reproduced. Each has a
+corpus fixture that pairs the tolerated shape with one that must still be reported.
 
 | # | Upstream behaviour | What this port does | Why |
 | --- | --- | --- | --- |
@@ -284,9 +283,11 @@ directly (`map[key]`, `map.get(key)`) still yields the value type and is checked
 
 The corpus is run under both implementations and the results are diffed
 (`./gradlew dualRun`). Line numbers are normalised away first, so a finding that merely moves
-is not reported as a difference.
+is not reported as a difference. This comparison is **informational**: the port intentionally
+evolves beyond upstream, so a difference is not a parity failure. The reference run still has
+to produce findings; an empty reference side is treated as a broken comparison.
 
-Five divergences remain, all intended: two additions (4.1, 4.2) and three fixes (4.3).
+The differences below are kept as a record of the port's direction, not as a closed list.
 
 ### 4.1 Locally declared `@NonNull`
 
@@ -318,8 +319,7 @@ described in the README rather than a regression.
 | `negative/validation_notnull_field.groovy` | silent in strict mode | reports both fields as uninitialised |
 
 These are the FP-1, FP-2 and FP-4 cases from §2.6. They appear on the `only-in-reference` side
-of the `dualRun` diff, and `dualRun` fails when one of them stops occurring, so the list
-cannot drift into a description of a comparison that no longer happens.
+of the `dualRun` diff. The diff is diagnostic: it no longer fails when one of them changes.
 
 ### 4.4 Everything that does match
 

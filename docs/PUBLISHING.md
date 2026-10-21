@@ -36,8 +36,8 @@ that does not exist. There is nothing to keep in sync by hand any more.
 # checkout runs this in one go.
 ./gradlew clean check
 
-# Compare against Apache Groovy 6's NullChecker over the same corpus, and diff the results.
-# One divergence is expected and documented in PORT.md §4.1; anything else is a regression.
+# Informational: compare against Apache Groovy 6's NullChecker and diff the results.
+# Differences are expected as this checker evolves; they do not fail the build.
 ./gradlew dualRun
 ```
 
