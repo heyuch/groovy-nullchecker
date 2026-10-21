@@ -130,17 +130,19 @@ and a closure return.
 
 #### F7. Flow validation and documentation
 
-Status: next.
+Status: done.
 
-- Run the external trial again; triage FP/FN and record the numbers.
-- Update NULLNESS-FLOW, PORT, README and CHANGELOG with the new behavior and limits.
-- Confirm dualRun remains informational and the report is explainable.
+- The external trial was re-run without changing its sources: six modules with sources, 251
+  Groovy files, 397 classes; strict mode reported 12 findings (10 null, 2 resolution).
+- Triage found the same shape families (partial lookups, nullable locals, dynamic resolution)
+  and no new flow-only false-positive shape. The two earlier flow false positives stay fixed.
+- NULLNESS-FLOW, BACKLOG and CHANGELOG record the result; dualRun remains informational.
 
 ### 2. Gradle plugin
 
 #### P1. Static-only compile mode (#3)
 
-Status: pending flow work.
+Status: next.
 
 - Apply the extension only to `@CompileStatic` / `@TypeChecked` classes, or to an explicit
   opt-in list.

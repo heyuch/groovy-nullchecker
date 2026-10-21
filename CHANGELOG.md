@@ -36,8 +36,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   Findings are deduplicated and sorted at the report boundary; `docs/PERF.md` records the
   current flow-analysis baseline. F5 adds finite access paths (`this.f`, `a.b.c`, depth <= 2)
   with guard narrowing and call invalidation; alias handling is explicitly not sound. F6
-  analyzes each closure body through its own CFG and joins the zero-execution path. Strict
-  corpus fixtures and `FlowStateSpec` pin the behavior.
+  analyzes each closure body through its own CFG and joins the zero-execution path. F7 re-ran
+  the external trial (251 files, 397 classes, 12 findings) with no new flow-only false-positive
+  shape. Strict corpus fixtures and `FlowStateSpec` pin the behavior.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

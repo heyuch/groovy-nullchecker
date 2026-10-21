@@ -138,3 +138,14 @@ Triage of the remaining findings:
 | resolution (report-only) | dynamic helper call; GString where `String` is expected | clean up in the project or keep `failOn` excluding `resolution` |
 
 The trial did not change the external project's sources.
+
+### Post-flow re-run
+
+After F1-F6, the same external service was checked again in strict mode without changing its
+sources: six modules with sources, 251 Groovy files, 397 classes. It reported 12 findings
+(10 null, 2 resolution). Triage found the same shape families as before: map/collection
+lookups that can miss, nullable locals, and dynamic resolution. No new false-positive shape
+attributable to the CFG work was identified; the two previous flow false positives remain
+fixed.
+
+
