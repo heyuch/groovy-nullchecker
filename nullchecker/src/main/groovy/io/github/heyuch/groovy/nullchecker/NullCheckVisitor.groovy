@@ -67,6 +67,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.nullableProperty
 import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
 import static org.codehaus.groovy.syntax.Types.isAssignment
+
 /**
  * Applies the nullness rules to one method body.
  *
@@ -460,8 +461,6 @@ class NullCheckVisitor extends CheckingVisitor {
         // assert x/assert x != null → x is non-null for the rest of the block
         applyFacts(facts.whenTrue)
     }
-
-    //------------------------------------------------------------------
 
     /**
      * Visits a condition applying short-circuit guard semantics: in
@@ -870,7 +869,6 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
-
     private void checkDereference(Expression receiver, Expression context) {
         if (isNullExpr(receiver)) {
             reporter.report('Cannot dereference null', context)
@@ -1002,7 +1000,6 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         return false
     }
-
 
     private boolean isEarlyExit(Statement stmt) {
         return cannotCompleteNormally(stmt)

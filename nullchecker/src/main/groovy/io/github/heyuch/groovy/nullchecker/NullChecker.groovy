@@ -32,7 +32,6 @@ import org.jspecify.annotations.Nullable
 
 import groovy.transform.CompileStatic
 
-
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode

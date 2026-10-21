@@ -20,6 +20,32 @@
          DSL's dynamic seam is wrapped in NullChecker (see onClass/onMethod/reportTypeError). -->
     <rule class='org.codenarc.rule.convention.CompileStaticRule'/>
 
+    <!-- Formatting and hygiene: mechanical rules from the coding baseline. -->
+    <rule class='org.codenarc.rule.formatting.FileEndsWithoutNewlineRule'/>
+    <rule class='org.codenarc.rule.formatting.TrailingWhitespaceRule'/>
+    <rule class='org.codenarc.rule.convention.NoTabCharacterRule'/>
+    <rule class='org.codenarc.rule.formatting.ConsecutiveBlankLinesRule'/>
+    <rule class='org.codenarc.rule.formatting.MissingBlankLineAfterPackageRule'/>
+    <rule class='org.codenarc.rule.formatting.MissingBlankLineAfterImportsRule'/>
+    <rule class='org.codenarc.rule.unnecessary.UnnecessarySemicolonRule'/>
+    <rule class='org.codenarc.rule.imports.UnusedImportRule'/>
+    <rule class='org.codenarc.rule.unused.UnusedVariableRule'/>
+    <rule class='org.codenarc.rule.unused.UnusedPrivateFieldRule'/>
+    <rule class='org.codenarc.rule.unused.UnusedPrivateMethodRule'/>
+
+    <!-- Names carry no type suffix (orderList, orderMap, orderStr, iCount). -->
+    <rule class='org.codenarc.rule.naming.FieldNameRule'>
+        <property name='regex' value='^(?!.*(?:List|Map|Arr|Str|Count)$)[a-z][a-zA-Z0-9]*$'/>
+    </rule>
+    <rule class='org.codenarc.rule.naming.VariableNameRule'>
+        <property name='regex' value='^(?!.*(?:List|Map|Arr|Str|Count)$)[a-z][a-zA-Z0-9]*$'/>
+    </rule>
+
+    <!-- Separator comment banners are forbidden; blank lines separate blocks. -->
+    <rule class='org.codenarc.rule.generic.IllegalRegexRule'>
+        <property name='regex' value='^\s*//\s*[-=]{3,}'/>
+    </rule>
+
     <!-- Deliberately not enabled:
          PublicMethodsBeforeNonPublicMethods, StaticMethodsBeforeInstanceMethods,
          StaticFieldsBeforeInstanceFields
@@ -28,5 +54,8 @@
              Explicit if is preferred; only simple ternaries are allowed.
          ImplicitClosureParameter
              Idiomatic Groovy; enable with the explicit-closure-parameter pass if wanted.
+         MethodSize / ClassSize / CyclomaticComplexity / NestedBlockDepth
+             Useful AGENTS heuristics, but the visitor is deliberately large and the thresholds
+             need a separate decision; they are not enabled yet.
     -->
 </ruleset>
