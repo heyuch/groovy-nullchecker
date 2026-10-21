@@ -57,4 +57,36 @@ class Contract {
         contract.nonNullAfterReturn.add(index)
         contract
     }
+
+    static Contract nullableResult() {
+        Contract contract = new Contract()
+        contract.result = ResultNullness.NULLABLE
+        contract
+    }
+
+    /** A nullable lookup: non-null only when the same key is known present. */
+    static Contract lookupResult(int keyArgument) {
+        Contract contract = nullableResult()
+        contract.presence = new PresenceRule(argument: keyArgument)
+        contract
+    }
+
+    static Contract nullableIfArgNullable(int argument) {
+        Contract contract = new Contract()
+        contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
+        contract.resultArgument = argument
+        contract
+    }
+
+    static Contract whenTrue(int argument) {
+        Contract contract = new Contract()
+        contract.nonNullWhenTrue.add(argument)
+        contract
+    }
+
+    static Contract whenFalse(int argument) {
+        Contract contract = new Contract()
+        contract.nonNullWhenFalse.add(argument)
+        contract
+    }
 }

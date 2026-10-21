@@ -43,16 +43,6 @@ class ContractRegistry {
     private static final Set<String> NO_RETURN_ANNOS = Collections.unmodifiableSet(
             ['NoReturn', 'NeverReturns', 'DoesNotReturn'] as Set<String>)
 
-    private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(
-            ['requireNonNull', 'checkNotNull'] as Set<String>)
-
-    private static final Set<String> MAP_LOOKUP_METHODS = Collections.unmodifiableSet(
-            ['get', 'getAt', 'remove', 'put', 'putIfAbsent', 'replace',
-             'compute', 'computeIfAbsent', 'computeIfPresent', 'merge'] as Set<String>)
-
-    private static final Set<String> PARTIAL_COLLECTION_METHODS = Collections.unmodifiableSet(
-            ['find', 'findResult', 'max', 'min'] as Set<String>)
-
     private final Set<String> guardsTrue
 
     private final Set<String> guardsFalse
@@ -61,6 +51,8 @@ class ContractRegistry {
 
     private final Map<String, Contract> configured
 
+    private final Map<String, Contract> builtIns = new LinkedHashMap<String, Contract>()
+
     private final Map<MethodNode, Contract> cache = new IdentityHashMap<>()
 
     /** Reads the project's declarations; one instance per compilation. */
@@ -68,7 +60,48 @@ class ContractRegistry {
         guardsTrue = readGuardEntries(GUARD_TRUE_PROPERTY)
         guardsFalse = readGuardEntries(GUARD_FALSE_PROPERTY)
         neverReturns = readGuardEntries(NEVER_RETURNS_PROPERTY)
+        installBuiltIns()
         configured = buildConfigContracts()
+    }
+
+    /**
+     * The built-in table, as data rather than a branch per method.
+     *
+     * <p>Entries are keyed by {@code declaringClass#method}, matched through the declaring
+     * class's supertypes, or by {@code #method} when the guarantee holds for any owner (the
+     * throwing validators). Configuration is registered separately and wins over annotations,
+     * which in turn win over this table.
+     */
+    private void installBuiltIns() {
+        for (String name : ['get', 'getAt', 'remove']) {
+            registerBuiltIn('java.util.Map#' + name, Contract.lookupResult(0))
+        }
+        for (String name : ['put', 'putIfAbsent', 'replace', 'compute',
+                            'computeIfAbsent', 'computeIfPresent', 'merge']) {
+            registerBuiltIn('java.util.Map#' + name, Contract.nullableResult())
+        }
+        registerBuiltIn('java.util.Map#getOrDefault', Contract.nullableIfArgNullable(1))
+        registerBuiltIn('java.util.Objects#nonNull', Contract.whenTrue(0))
+        registerBuiltIn('java.util.Objects#isNull', Contract.whenFalse(0))
+        // Name-only: these throw for a null argument whichever library declares them.
+        registerBuiltIn('#requireNonNull', Contract.afterReturn(0))
+        registerBuiltIn('#checkNotNull', Contract.afterReturn(0))
+        // The extension methods resolve against the receiver: Iterable/Collection for
+        // collections, and the array class for arrays (DGM's Object[] overload covers every
+        // reference array; the primitive descriptors cover the rest).
+        List<String> partialOwners = ['java.lang.Iterable', 'java.util.Collection',
+                                      '[Ljava.lang.Object;', '[I', '[J', '[D', '[F', '[Z',
+                                      '[B', '[C', '[S']
+        for (String owner : partialOwners) {
+            for (String name : ['find', 'findResult', 'max', 'min']) {
+                registerBuiltIn(owner + '#' + name, Contract.nullableResult())
+            }
+        }
+    }
+
+    private void registerBuiltIn(String key, Contract contract) {
+        contract.builtIn = true
+        builtIns.put(key, contract)
     }
     /**
      * Parses a JetBrains contract string into the model.
@@ -159,86 +192,44 @@ class ContractRegistry {
         null
     }
 
-    /**
-     * Built-in contracts for library methods whose result nullness is not in their signature.
-     *
-     * <p>These describe the operation, not the element type: {@code Map.get} misses, {@code
-     * find} may find nothing, {@code max} cannot answer an empty collection. The table is the
-     * last source, so a project can override any entry through {@code contracts}.
-     */
-    private Contract builtInContract(Expression callExpression, MethodNode target) {
-        String owner = target.declaringClass?.name
-        String name = target.name
-        if (owner == 'java.util.Objects') {
-            if (name == 'nonNull') return Contract.fact(true)
-            if (name == 'isNull') return Contract.fact(false)
-        }
-        if (name in NONNULL_VALIDATOR_METHODS) {
-            return Contract.afterReturn(0)
-        }
-        if (!(callExpression instanceof MethodCallExpression)) return null
-        MethodCallExpression call = (MethodCallExpression) callExpression
-        ClassNode receiver = typeOfExpression(call.objectExpression)
-        if (isMapLike(receiver)) {
-            if (name == 'getOrDefault') {
-                Contract contract = new Contract()
-                contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
-                contract.resultArgument = 1
-                contract.builtIn = true
-                return contract
-            }
-            if (name in MAP_LOOKUP_METHODS) {
-                Contract contract = new Contract()
-                contract.result = ResultNullness.NULLABLE
-                contract.builtIn = true
-                if (name in ['get', 'getAt', 'remove']) {
-                    contract.presence = new PresenceRule(argument: 0)
-                }
-                return contract
-            }
-        }
-        if (name in PARTIAL_COLLECTION_METHODS && isCollectionLike(receiver)) {
-            Contract contract = new Contract()
-            contract.result = ResultNullness.NULLABLE
-            contract.builtIn = true
-            return contract
-        }
-        null
-    }
-
     Contract contractFor(Expression callExpression, MethodNode target) {
         if (target == null) return null
         Contract cached = cache.get(target)
         if (cached != null) {
             return cached.unresolved ? null : cached
         }
-        Contract resolved = configuredContract(target)
+        Contract resolved = lookup(configured, target)
         if (resolved == null) resolved = annotationContract(target)
-        if (resolved == null) resolved = builtInContract(callExpression, target)
+        if (resolved == null) resolved = lookup(builtIns, target)
         cache.put(target, resolved ?: Contract.absent())
         resolved
     }
 
     /**
-     * Contracts declared by the project, matched by {@code declaringClass#method} and by the
-     * same key on any superclass or interface.
+     * Looks a method up in one source.
+     *
+     * <p>{@code declaringClass#method} is matched through the declaring class's supertypes, so
+     * a registration on {@code java.util.Map} covers {@code HashMap.get}. A {@code #method}
+     * entry matches any owner and is consulted after the exact walk, so a more specific entry
+     * always wins.
      */
-    private Contract configuredContract(MethodNode target) {
-        if (configured.isEmpty()) return null
+    private static Contract lookup(Map<String, Contract> table, MethodNode target) {
+        if (table == null || table.isEmpty()) return null
         ClassNode owner = target.declaringClass
-        if (owner == null) return null
-        Set<String> seen = new HashSet<String>()
-        Deque<ClassNode> pending = new ArrayDeque<ClassNode>()
-        pending.add(owner)
-        while (!pending.isEmpty()) {
-            ClassNode current = pending.poll()
-            if (current == null || !seen.add(current.name)) continue
-            Contract contract = configured.get(current.name + '#' + target.name)
-            if (contract != null) return contract
-            if (current.superClass != null) pending.add(current.superClass)
-            current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
+        if (owner != null) {
+            Set<String> seen = new HashSet<String>()
+            Deque<ClassNode> pending = new ArrayDeque<ClassNode>()
+            pending.add(owner)
+            while (!pending.isEmpty()) {
+                ClassNode current = pending.poll()
+                if (current == null || !seen.add(current.name)) continue
+                Contract contract = table.get(current.name + '#' + target.name)
+                if (contract != null) return contract
+                if (current.superClass != null) pending.add(current.superClass)
+                current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
+            }
         }
-        null
+        table.get('#' + target.name)
     }
 
     private Map<String, Contract> buildConfigContracts() {
