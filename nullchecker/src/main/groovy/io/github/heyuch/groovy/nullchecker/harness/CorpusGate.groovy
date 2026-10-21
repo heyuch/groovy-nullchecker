@@ -132,7 +132,11 @@ class CorpusGate {
         }
 
         List<File> support = []
-        supportDir.eachFileRecurse { File f -> if (NullCheckHarness.isCheckable(f)) support << f }
+        supportDir.eachFileRecurse { File f ->
+            if (NullCheckHarness.isCheckable(f)) {
+                support << f
+            }
+        }
 
         fixtures.each { Fixture fixture ->
             File fixtureFile = new File(corpusDir, fixture.relativePath)

@@ -109,7 +109,9 @@ class ContractRegistry {
      * or the built-in table -- can answer instead of an empty contract masking it.
      */
     private static Contract contractFromJetBrains(String specification) {
-        if (specification == null) return null
+        if (specification == null) {
+            return null
+        }
         Contract contract = new Contract()
         boolean recognised = false
         for (ContractClause clause : parseContract(specification)) {
@@ -128,14 +130,18 @@ class ContractRegistry {
             } else if (clause.result == 'true' || clause.result == 'false') {
                 boolean whenTrue = clause.result == 'false'
                 for (int i = 0; i < clause.arguments.size(); i++) {
-                    if (clause.arguments[i] != 'null') continue
+                    if (clause.arguments[i] != 'null') {
+                        continue
+                    }
                     (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(i)
                     recognised = true
                 }
             } else if (clause.result == '!null') {
                 List<Integer> nonNullArguments = new ArrayList<Integer>()
                 for (int i = 0; i < clause.arguments.size(); i++) {
-                    if (clause.arguments[i] == '!null') nonNullArguments.add(i)
+                    if (clause.arguments[i] == '!null') {
+                        nonNullArguments.add(i)
+                    }
                 }
                 if (nonNullArguments.size() == 1) {
                     contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
@@ -159,7 +165,9 @@ class ContractRegistry {
         AnnotationNode jetbrains = findAnnotation(target, 'Contract')
         if (jetbrains != null) {
             Contract parsed = contractFromJetBrains(stringMember(jetbrains, 'value'))
-            if (parsed != null) return parsed
+            if (parsed != null) {
+                return parsed
+            }
         }
         AnnotationNode ensuresIf = findAnnotation(target, 'EnsuresNonNullIf')
         if (ensuresIf != null) {
@@ -168,10 +176,14 @@ class ContractRegistry {
                 Contract contract = new Contract()
                 for (String reference : stringMembers(ensuresIf, 'expression')) {
                     int index = argumentIndex(reference)
-                    if (index < 0) continue
+                    if (index < 0) {
+                        continue
+                    }
                     (expected ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(index)
                 }
-                if (!contract.nonNullWhenTrue.isEmpty() || !contract.nonNullWhenFalse.isEmpty()) return contract
+                if (!contract.nonNullWhenTrue.isEmpty() || !contract.nonNullWhenFalse.isEmpty()) {
+                    return contract
+                }
             }
         }
         AnnotationNode ensures = findAnnotation(target, 'EnsuresNonNull')
@@ -179,25 +191,37 @@ class ContractRegistry {
             Contract contract = new Contract()
             for (String reference : stringMembers(ensures, 'expression')) {
                 int index = argumentIndex(reference)
-                if (index >= 0) contract.nonNullAfterReturn.add(index)
+                if (index >= 0) {
+                    contract.nonNullAfterReturn.add(index)
+                }
             }
-            if (!contract.nonNullAfterReturn.isEmpty()) return contract
+            if (!contract.nonNullAfterReturn.isEmpty()) {
+                return contract
+            }
         }
         for (String annotation : NO_RETURN_ANNOS) {
-            if (findAnnotation(target, annotation) != null) return Contract.never()
+            if (findAnnotation(target, annotation) != null) {
+                return Contract.never()
+            }
         }
         return null
     }
 
     Contract contractFor(Expression callExpression, MethodNode target) {
-        if (target == null) return null
+        if (target == null) {
+            return null
+        }
         Contract cached = cache.get(target)
         if (cached != null) {
             return cached.unresolved ? null : cached
         }
         Contract resolved = lookup(configured, target)
-        if (resolved == null) resolved = annotationContract(target)
-        if (resolved == null) resolved = lookup(builtIns, target)
+        if (resolved == null) {
+            resolved = annotationContract(target)
+        }
+        if (resolved == null) {
+            resolved = lookup(builtIns, target)
+        }
         cache.put(target, resolved ?: Contract.absent())
         return resolved
     }
@@ -211,7 +235,9 @@ class ContractRegistry {
      * always wins.
      */
     private static Contract lookup(Map<String, Contract> table, MethodNode target) {
-        if (table == null || table.isEmpty()) return null
+        if (table == null || table.isEmpty()) {
+            return null
+        }
         ClassNode owner = target.declaringClass
         if (owner != null) {
             Set<String> seen = new HashSet<String>()
@@ -219,10 +245,16 @@ class ContractRegistry {
             pending.add(owner)
             while (!pending.isEmpty()) {
                 ClassNode current = pending.poll()
-                if (current == null || !seen.add(current.name)) continue
+                if (current == null || !seen.add(current.name)) {
+                    continue
+                }
                 Contract contract = table.get(current.name + '#' + target.name)
-                if (contract != null) return contract
-                if (current.superClass != null) pending.add(current.superClass)
+                if (contract != null) {
+                    return contract
+                }
+                if (current.superClass != null) {
+                    pending.add(current.superClass)
+                }
                 current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
             }
         }
@@ -252,12 +284,18 @@ class ContractRegistry {
     private static Map<String, String> readContractEntries() {
         Map<String, String> entries = new LinkedHashMap<String, String>()
         String raw = System.getProperty(CONTRACTS_PROPERTY)
-        if (raw == null) return entries
+        if (raw == null) {
+            return entries
+        }
         for (String part : raw.split(';')) {
             String entry = part.trim()
-            if (entry.isEmpty()) continue
+            if (entry.isEmpty()) {
+                continue
+            }
             int separator = entry.indexOf('=')
-            if (separator <= 0) continue
+            if (separator <= 0) {
+                continue
+            }
             entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
         }
         return entries
@@ -273,9 +311,13 @@ class ContractRegistry {
      * {@code "null -> fail"} is not enough: the call still returns for other arguments.
      */
     boolean isNoReturnCall(Expression expression) {
-        if (expression == null) return false
+        if (expression == null) {
+            return false
+        }
         Object target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-        if (!(target instanceof MethodNode)) return false
+        if (!(target instanceof MethodNode)) {
+            return false
+        }
         Contract contract = contractFor(expression, (MethodNode) target)
         return contract != null && contract.neverReturns
     }
@@ -291,14 +333,22 @@ class ContractRegistry {
      */
     private static List<ContractClause> parseContract(String specification) {
         List<ContractClause> clauses = new ArrayList<ContractClause>()
-        if (specification == null) return clauses
+        if (specification == null) {
+            return clauses
+        }
         for (String rawClause : specification.split(';')) {
             String clause = rawClause.trim()
-            if (clause.isEmpty()) continue
+            if (clause.isEmpty()) {
+                continue
+            }
             int arrow = clause.indexOf('->')
-            if (arrow < 0) continue
+            if (arrow < 0) {
+                continue
+            }
             String result = clause.substring(arrow + 2).trim()
-            if (result.isEmpty()) continue
+            if (result.isEmpty()) {
+                continue
+            }
             List<String> arguments = new ArrayList<String>()
             for (String rawArgument : clause.substring(0, arrow).split(',')) {
                 arguments.add(rawArgument.trim())

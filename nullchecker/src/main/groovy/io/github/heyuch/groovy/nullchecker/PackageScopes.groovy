@@ -172,11 +172,17 @@ class PackageScopes {
         Set<String> accepted = new HashSet<String>(NONNULL_BY_DEFAULT_ANNOS)
         accepted.addAll(scopeAnnos)
         for (ClassNode c = cn; c != null; c = c.outerClass) {
-            if (hasNullUnmarkedAnno(c)) return false
-            if (declaresAny(c, accepted)) return true
+            if (hasNullUnmarkedAnno(c)) {
+                return false
+            }
+            if (declaresAny(c, accepted)) {
+                return true
+            }
         }
         List<String> pkgAnnos = packageAnnotationNames(cn)
-        if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
+        if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) {
+            return false
+        }
         return pkgAnnos.any { String n -> accepted.contains(n) }
     }
 
@@ -189,7 +195,9 @@ class PackageScopes {
         String cacheKey = cn?.name
         if (cacheKey != null) {
             List<String> cached = byClass.get(cacheKey)
-            if (cached != null) return cached
+            if (cached != null) {
+                return cached
+            }
         }
         List<String> names = new ArrayList<String>()
         String pkgName = normalisePackageName(cn?.package?.name)

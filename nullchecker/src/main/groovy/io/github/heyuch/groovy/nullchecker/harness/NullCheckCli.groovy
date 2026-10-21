@@ -109,19 +109,27 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     break
                 case '--support':
                     support = value(argv, ++i, arg, err)
-                    if (support == null) return 2
+                    if (support == null) {
+                        return 2
+                    }
                     break
                 case '--extension':
                     extension = value(argv, ++i, arg, err)
-                    if (extension == null) return 2
+                    if (extension == null) {
+                        return 2
+                    }
                     break
                 case '--report':
                     report = value(argv, ++i, arg, err)
-                    if (report == null) return 2
+                    if (report == null) {
+                        return 2
+                    }
                     break
                 case '--checks':
                     String checkSpec = value(argv, ++i, arg, err)
-                    if (checkSpec == null) return 2
+                    if (checkSpec == null) {
+                        return 2
+                    }
                     List<String> parsed = parseChecks(checkSpec)
                     if (parsed == null || parsed.isEmpty()) {
                         err.println("nullcheck: --checks needs at least one of: " +
@@ -132,17 +140,23 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     break
                 case '--guard-when-true':
                     String guardTrue = value(argv, ++i, arg, err)
-                    if (guardTrue == null) return 2
+                    if (guardTrue == null) {
+                        return 2
+                    }
                     guardsTrue << guardTrue
                     break
                 case '--guard-when-false':
                     String guardFalse = value(argv, ++i, arg, err)
-                    if (guardFalse == null) return 2
+                    if (guardFalse == null) {
+                        return 2
+                    }
                     guardsFalse << guardFalse
                     break
                 case '--never-returns':
                     String neverReturn = value(argv, ++i, arg, err)
-                    if (neverReturn == null) return 2
+                    if (neverReturn == null) {
+                        return 2
+                    }
                     neverReturns << neverReturn
                     break
                 case '--no-container-lookups':
@@ -150,12 +164,16 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     break
                 case '--contract':
                     String declaredContract = value(argv, ++i, arg, err)
-                    if (declaredContract == null) return 2
+                    if (declaredContract == null) {
+                        return 2
+                    }
                     contracts << declaredContract
                     break
                 case '--fail-on':
                     String spec = value(argv, ++i, arg, err)
-                    if (spec == null) return 2
+                    if (spec == null) {
+                        return 2
+                    }
                     List<String> parsed = parseFailOn(spec)
                     if (parsed == null) {
                         err.println("nullcheck: unknown category in --fail-on: ${spec}")

@@ -3,6 +3,8 @@
     <!-- Correctness rules from CodeNarc's default set (empty blocks, broken null checks,
          Class.forName, Boolean.getBoolean, ...). -->
     <ruleset-ref path="rulesets/basic.xml"/>
+    <!-- Control statements always use braces. -->
+    <ruleset-ref path="rulesets/braces.xml"/>
 
     <!-- Explicit types everywhere: the project does not use def. -->
     <rule class='org.codenarc.rule.convention.NoDefRule'/>

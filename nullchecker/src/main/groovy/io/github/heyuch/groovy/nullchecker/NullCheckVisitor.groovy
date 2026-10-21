@@ -102,7 +102,9 @@ class NullCheckVisitor extends CheckingVisitor {
     void visitDeclarationExpression(DeclarationExpression decl) {
         super.visitDeclarationExpression(decl)
         VariableExpression ve = decl.variableExpression
-        if (ve == null) return
+        if (ve == null) {
+            return
+        }
         if (decl.rightExpression instanceof ConstantExpression) {
             localConstVars.put(ve, decl.rightExpression)
         }
@@ -294,7 +296,9 @@ class NullCheckVisitor extends CheckingVisitor {
 
     /** Whether a variable is an element of a collection whose element type is nullable. */
     private boolean isNullableElement(VariableExpression receiver, Variable target) {
-        if (nullableElements.contains(target)) return true
+        if (nullableElements.contains(target)) {
+            return true
+        }
         ClosureHint hint = currentHint(closureContexts)
         return receiver.name == 'it' && hint != null && hint.elementNullable
     }
@@ -313,9 +317,15 @@ class NullCheckVisitor extends CheckingVisitor {
                 types = entryVariables.get(findTargetVariable(variable))
             }
         }
-        if (types == null) return null
-        if (member == 'key') return types.keyType
-        if (member == 'value') return types.valueType
+        if (types == null) {
+            return null
+        }
+        if (member == 'key') {
+            return types.keyType
+        }
+        if (member == 'value') {
+            return types.valueType
+        }
         return null
     }
 
@@ -325,7 +335,9 @@ class NullCheckVisitor extends CheckingVisitor {
 
     /** Whether a call is {@code entry.getKey()} / {@code entry.getValue()} on a nullable half. */
     private boolean isNullableEntryCall(Expression call) {
-        if (!(call instanceof MethodCallExpression)) return false
+        if (!(call instanceof MethodCallExpression)) {
+            return false
+        }
         MethodCallExpression entryCall = (MethodCallExpression) call
         if (entryCall.methodAsString == 'getKey') {
             return hasNullableTypeUse(entryMemberType(entryCall.objectExpression, 'key'))
@@ -360,7 +372,9 @@ class NullCheckVisitor extends CheckingVisitor {
     void visitBlockStatement(BlockStatement block) {
         for (Statement statement : block.statements) {
             statement.visit(this)
-            if (cannotCompleteNormally(statement)) return
+            if (cannotCompleteNormally(statement)) {
+                return
+            }
         }
     }
 
@@ -495,10 +509,14 @@ class NullCheckVisitor extends CheckingVisitor {
             int op = condition.operation.type
             if (op == Types.KEYWORD_INSTANCEOF) {
                 Variable var = guardableVariable(condition.leftExpression)
-                if (var != null) facts.whenTrue.add(var)
+                if (var != null) {
+                    facts.whenTrue.add(var)
+                }
             } else if (op == Types.COMPARE_NOT_INSTANCEOF) {
                 Variable var = guardableVariable(condition.leftExpression)
-                if (var != null) facts.whenFalse.add(var)
+                if (var != null) {
+                    facts.whenFalse.add(var)
+                }
             } else {
                 boolean isNotEqual = (op == Types.COMPARE_NOT_EQUAL || op == Types.COMPARE_NOT_IDENTICAL)
                 boolean isEqual = (op == Types.COMPARE_EQUAL || op == Types.COMPARE_IDENTICAL)
@@ -509,13 +527,17 @@ class NullCheckVisitor extends CheckingVisitor {
                     } else if (isNullExpr(condition.leftExpression)) {
                         var = guardableVariable(condition.rightExpression)
                     }
-                    if (var != null) (isNotEqual ? facts.whenTrue : facts.whenFalse).add(var)
+                    if (var != null) {
+                        (isNotEqual ? facts.whenTrue : facts.whenFalse).add(var)
+                    }
                 }
             }
         } else if (condition instanceof VariableExpression) {
             // Groovy truth: a truthy reference is non-null
             Variable var = guardableVariable(condition)
-            if (var != null) facts.whenTrue.add(var)
+            if (var != null) {
+                facts.whenTrue.add(var)
+            }
         } else if (condition instanceof MethodCallExpression || condition instanceof StaticMethodCallExpression) {
             Object target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
             if (target instanceof MethodNode) {
@@ -538,24 +560,36 @@ class NullCheckVisitor extends CheckingVisitor {
      */
     private void applyContractGuard(MethodNode target, MethodCall condition, GuardFacts facts) {
         Expression callArgs = condition.arguments
-        if (!(callArgs instanceof TupleExpression)) return
+        if (!(callArgs instanceof TupleExpression)) {
+            return
+        }
         TupleExpression args = (TupleExpression) callArgs
-        if (!args.expressions) return
+        if (!args.expressions) {
+            return
+        }
         Contract contract = contracts.contractFor((Expression) condition, target)
-        if (contract == null) return
+        if (contract == null) {
+            return
+        }
         for (int index : contract.nonNullWhenTrue) {
-            if (index >= args.expressions.size()) continue
+            if (index >= args.expressions.size()) {
+                continue
+            }
             addArgumentFact(args.getExpression(index), true, facts)
         }
         for (int index : contract.nonNullWhenFalse) {
-            if (index >= args.expressions.size()) continue
+            if (index >= args.expressions.size()) {
+                continue
+            }
             addArgumentFact(args.getExpression(index), false, facts)
         }
     }
 
     private void addArgumentFact(Expression argument, boolean whenTrue, GuardFacts facts) {
         Variable var = guardableVariable(argument)
-        if (var == null) return
+        if (var == null) {
+            return
+        }
         if (whenTrue) {
             facts.whenTrue.add(var)
         } else {
@@ -605,11 +639,17 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     private boolean isLookupGuarded(Expression container, Expression key) {
-        if (lookupGuards.isEmpty()) return false
+        if (lookupGuards.isEmpty()) {
+            return false
+        }
         String expected = lookupKey(container, key)
-        if (expected == null) return false
+        if (expected == null) {
+            return false
+        }
         for (Set<String> frame : lookupGuards) {
-            if (frame.contains(expected)) return true
+            if (frame.contains(expected)) {
+                return true
+            }
         }
         return false
     }
@@ -621,13 +661,23 @@ class NullCheckVisitor extends CheckingVisitor {
      * may still hold an explicit null.
      */
     private void applyContainsKeyGuard(MethodCallExpression condition, GuardFacts facts) {
-        if (!(condition instanceof MethodCallExpression)) return
-        if (condition.methodAsString != 'containsKey') return
-        if (!isMapLike(typeOfExpression(condition.objectExpression))) return
+        if (!(condition instanceof MethodCallExpression)) {
+            return
+        }
+        if (condition.methodAsString != 'containsKey') {
+            return
+        }
+        if (!isMapLike(typeOfExpression(condition.objectExpression))) {
+            return
+        }
         Expression callArgs = condition.arguments
-        if (!(callArgs instanceof TupleExpression)) return
+        if (!(callArgs instanceof TupleExpression)) {
+            return
+        }
         TupleExpression args = (TupleExpression) callArgs
-        if (args.expressions.size() != 1) return
+        if (args.expressions.size() != 1) {
+            return
+        }
         String key = lookupKey(condition.objectExpression, args.getExpression(0))
         if (key != null) {
             facts.lookupsTrue.add(key)
@@ -644,15 +694,25 @@ class NullCheckVisitor extends CheckingVisitor {
      * than being folded into the type argument's default.
      */
     private boolean isNullableContainerLookup(Expression expression) {
-        if (!(expression instanceof MethodCallExpression)) return false
+        if (!(expression instanceof MethodCallExpression)) {
+            return false
+        }
         MethodCallExpression call = (MethodCallExpression) expression
         Object target = ((Expression) call).getNodeMetaData((Object) StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-        if (!(target instanceof MethodNode)) return false
+        if (!(target instanceof MethodNode)) {
+            return false
+        }
         Contract contract = contracts.contractFor((Expression) call, (MethodNode) target)
-        if (contract == null) return false
+        if (contract == null) {
+            return false
+        }
         // The switch turns off the built-in family; an explicit contract still applies.
-        if (contract.builtIn && !containerLookups) return false
-        if (contract.result == ResultNullness.NON_NULL) return false
+        if (contract.builtIn && !containerLookups) {
+            return false
+        }
+        if (contract.result == ResultNullness.NON_NULL) {
+            return false
+        }
         List<Expression> args = call.arguments instanceof TupleExpression
                 ? ((TupleExpression) call.arguments).expressions
                 : Collections.emptyList()
@@ -672,12 +732,20 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     private boolean isNullableMapSubscript(Expression expression) {
-        if (!containerLookups) return false
-        if (!isSubscript(expression)) return false
+        if (!containerLookups) {
+            return false
+        }
+        if (!isSubscript(expression)) {
+            return false
+        }
         BinaryExpression subscript = (BinaryExpression) expression
         ClassNode receiver = typeOfExpression(subscript.leftExpression)
-        if (!isMapLike(receiver)) return false
-        if (!hasNonNullMapValue(receiver)) return true
+        if (!isMapLike(receiver)) {
+            return false
+        }
+        if (!hasNonNullMapValue(receiver)) {
+            return true
+        }
         return !isLookupGuarded(subscript.leftExpression, subscript.rightExpression)
     }
 
@@ -717,9 +785,13 @@ class NullCheckVisitor extends CheckingVisitor {
             return
         }
         Contract contract = contracts.contractFor((Expression) call, (MethodNode) target)
-        if (contract == null) return
+        if (contract == null) {
+            return
+        }
         for (int index : contract.nonNullAfterReturn) {
-            if (index >= args.expressions.size()) continue
+            if (index >= args.expressions.size()) {
+                continue
+            }
             narrowToNonNull(args.getExpression(index))
         }
     }
@@ -738,7 +810,9 @@ class NullCheckVisitor extends CheckingVisitor {
                 && ((MethodCallExpression) receiver).methodAsString == 'assertThat')
                 || (receiver instanceof StaticMethodCallExpression
                 && ((StaticMethodCallExpression) receiver).method == 'assertThat')
-        if (!assertThat) return
+        if (!assertThat) {
+            return
+        }
         Expression callArgs = ((MethodCall) receiver).arguments
         if (callArgs instanceof TupleExpression) {
             TupleExpression args = (TupleExpression) callArgs
@@ -765,7 +839,9 @@ class NullCheckVisitor extends CheckingVisitor {
             return
         }
         if (receiver instanceof VariableExpression) {
-            if (receiver.isThisExpression() || receiver.isSuperExpression()) return
+            if (receiver.isThisExpression() || receiver.isSuperExpression()) {
+                return
+            }
             Variable target = findTargetVariable(receiver)
             boolean isMonotonicAndInitialized = target instanceof AnnotatedNode && hasMonotonicAnno(target) && monotonicInitialized.contains(target)
             if (target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
@@ -801,10 +877,14 @@ class NullCheckVisitor extends CheckingVisitor {
 
     private void checkMethodArguments(MethodCall call) {
         Object target = ((Expression) call).getNodeMetaData((Object) StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-        if (!(target instanceof MethodNode)) return
+        if (!(target instanceof MethodNode)) {
+            return
+        }
         MethodNode targetMethod = (MethodNode) target
         Expression callArgs = call.arguments
-        if (!(callArgs instanceof TupleExpression)) return
+        if (!(callArgs instanceof TupleExpression)) {
+            return
+        }
         TupleExpression args = (TupleExpression) callArgs
         Parameter[] params = targetMethod.parameters
         // @NullCheck/@ParametersAreNonnullByDefault/@NonNullByDefault on method or class makes non-primitive params effectively @NonNull
@@ -835,20 +915,34 @@ class NullCheckVisitor extends CheckingVisitor {
     private boolean isKnownNullable(Expression expr) {
         if (expr instanceof VariableExpression) {
             Variable target = findTargetVariable(expr)
-            if (guardedVars.contains(target)) return false
-            if (isNullableElement(expr, target)) return true
-            if (target instanceof AnnotatedNode && hasNullableAnno(target)) return true
+            if (guardedVars.contains(target)) {
+                return false
+            }
+            if (isNullableElement(expr, target)) {
+                return true
+            }
+            if (target instanceof AnnotatedNode && hasNullableAnno(target)) {
+                return true
+            }
             return nullableVars.contains(target)
         }
         if (expr instanceof CastExpression) {
             return isKnownNullable(expr.expression)
         }
-        if (isSafeNavResult(expr)) return true
+        if (isSafeNavResult(expr)) {
+            return true
+        }
         if (expr instanceof MethodCallExpression || expr instanceof StaticMethodCallExpression) {
-            if (isNullableEntryCall(expr)) return true
-            if (expr instanceof MethodCallExpression && isNullableContainerLookup(expr)) return true
+            if (isNullableEntryCall(expr)) {
+                return true
+            }
+            if (expr instanceof MethodCallExpression && isNullableContainerLookup(expr)) {
+                return true
+            }
             Object target = expr.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-            if (!(target instanceof MethodNode)) return false
+            if (!(target instanceof MethodNode)) {
+                return false
+            }
             return hasNullableAnno((MethodNode) target) || inferredNullableTypeUse(expr)
         }
         if (isSubscript(expr)) {
@@ -887,13 +981,23 @@ class NullCheckVisitor extends CheckingVisitor {
      * as early exits in guard analysis: control leaves the current statement sequence.
      */
     private boolean cannotCompleteNormally(Statement statement) {
-        if (statement == null) return false
-        if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) return true
-        if (statement instanceof BreakStatement || statement instanceof ContinueStatement) return true
-        if (statement instanceof ExpressionStatement) return contracts.isNoReturnCall(statement.expression)
+        if (statement == null) {
+            return false
+        }
+        if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) {
+            return true
+        }
+        if (statement instanceof BreakStatement || statement instanceof ContinueStatement) {
+            return true
+        }
+        if (statement instanceof ExpressionStatement) {
+            return contracts.isNoReturnCall(statement.expression)
+        }
         if (statement instanceof BlockStatement) {
             for (Statement child : statement.statements) {
-                if (cannotCompleteNormally(child)) return true
+                if (cannotCompleteNormally(child)) {
+                    return true
+                }
             }
             return false
         }
@@ -903,9 +1007,13 @@ class NullCheckVisitor extends CheckingVisitor {
                     && cannotCompleteNormally(statement.elseBlock)
         }
         if (statement instanceof TryCatchStatement) {
-            if (!cannotCompleteNormally(statement.tryStatement)) return false
+            if (!cannotCompleteNormally(statement.tryStatement)) {
+                return false
+            }
             for (CatchStatement clause : statement.catchStatements) {
-                if (!cannotCompleteNormally(clause.code)) return false
+                if (!cannotCompleteNormally(clause.code)) {
+                    return false
+                }
             }
             if (statement.finallyStatement != null && cannotCompleteNormally(statement.finallyStatement)) {
                 return true
