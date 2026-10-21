@@ -19,6 +19,12 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### Compile mode is static-only
+
+`compileCheck` now injects the extension only into `@CompileStatic` / `@TypeChecked` / `@NullCheck`
+classes or methods. Dynamic classes keep compiling untouched, so their resolution findings no
+longer become compiler errors; mixed static/dynamic projects can use compile mode.
+
 ### Dogfood runs the current release
 
 The self-check now uses the published plugin and checker `0.5.0`. It immediately found one real
@@ -41,27 +47,6 @@ nullable). `any`/`every` are boolean, and `find`/`findResult` stay nullable beca
 can still miss. N24 pins those semantics.
 
 ## Gradle plugin: compile mode
-
-### 3. Compile mode injects `@TypeChecked` into dynamic code
-
-```groovy
-class Renderer {
-    static String render(String input) {
-        return DynamicTemplates.render(input)   // unresolved by the static checker
-    }
-}
-```
-
-`NullCheckCustomizer` registers the extension for the whole compilation. A `resolution`
-finding that the standalone mode reports without failing becomes a core compiler error, so
-`failOnError = false` cannot keep the build green. This is recorded in the plugin README.
-
-Direction: add a static-only mode to the customizer for compile mode, applying the extension
-only to classes already annotated `@CompileStatic`/`@TypeChecked` (or explicitly opted in).
-Dynamic classes then stay with the standalone mode, where their resolution findings are
-report-only.
-
-Priority: high for making `compileCheck` usable on mixed codebases.
 
 ### 4. Compile mode has no canary
 

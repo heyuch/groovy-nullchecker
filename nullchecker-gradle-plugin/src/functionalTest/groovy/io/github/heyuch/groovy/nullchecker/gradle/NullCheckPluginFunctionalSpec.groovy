@@ -127,6 +127,20 @@ ${extraConfig}
 """
     }
 
+    /** A dynamic class whose call only the standalone checker can see. */
+    private void writeDynamic() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'Dynamic.groovy').text = '''package demo
+
+class Dynamic {
+    String render(String input) {
+        return MissingTemplates.render(input)
+    }
+}
+'''
+    }
+
     /** A @CompileStatic class that dereferences a @Nullable field with no guard. */
     private void writeViolation() {
         File dir = new File(testProjectDir, 'src/main/groovy/demo')
@@ -213,6 +227,23 @@ class Clean {
         then: 'one compile ran, and the report came from the collected findings'
         result.task(':compileGroovy').outcome == TaskOutcome.SUCCESS
         result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        result.output.contains('Violation.groovy')
+        result.output.contains('findings=1')
+    }
+
+    def 'compile mode only injects static checking into static classes'() {
+        given: 'a static violation and a dynamic class with an unresolved call'
+        writeSettings()
+        writeBuild('nullcheck { compileCheck = true }')
+        writeAnnotation()
+        writeViolation()
+        writeDynamic()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then: 'the dynamic class compiles untouched; the static violation is still reported'
+        result.task(':compileGroovy').outcome == TaskOutcome.SUCCESS
         result.output.contains('Violation.groovy')
         result.output.contains('findings=1')
     }

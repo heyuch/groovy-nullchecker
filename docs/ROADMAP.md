@@ -142,18 +142,19 @@ Status: done.
 
 #### P1. Static-only compile mode (#3)
 
-Status: next.
+Status: done.
 
-- Apply the extension only to `@CompileStatic` / `@TypeChecked` classes, or to an explicit
-  opt-in list.
-- Dynamic classes keep using standalone mode; resolution findings stay report-only.
+- `NullCheckCustomizer` has a static-only mode; compile mode passes it to the customizer.
+- Only `@CompileStatic` / `@TypeChecked` / `@NullCheck` classes or methods are injected.
+- Dynamic classes compile untouched; resolution findings stay report-only in standalone mode.
+- The functional suite has a mixed static/dynamic fixture; the static violation is still
+  reported and the dynamic unresolved call does not break compilation.
 
-Acceptance: a mixed static/dynamic fixture builds green with `compileCheck = true` and
-`failOnError = false`, while a real nullness finding still fails under `failOnError = true`.
+Acceptance: met by the mixed fixture and the existing failOnError gate test.
 
 #### P2. Compile-mode canary (#4)
 
-Status: pending P1.
+Status: next.
 
 - Add a small standalone canary task that `nullcheck` depends on, or an equally strong coverage
   invariant.

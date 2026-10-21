@@ -142,9 +142,10 @@ class NullCheckExtension {
      *
      * <p>Compile mode analyses Groovy sources only (Java sources are not compiled by
      * {@code compileGroovy}), does not run the canary, and requires the project's Groovy to be
-     * 4.0.x. It also injects {@code @TypeChecked} into the whole compilation, so an unresolved
-     * dynamic call becomes a compile error even with {@code failOnError = false}; projects with
-     * such calls should use the default mode. See the README for the trade-offs.
+     * 4.0.x. It injects static checking only into classes/methods already marked
+     * {@code @CompileStatic}, {@code @TypeChecked} or {@code @NullCheck}; dynamic classes compile
+     * untouched, so their unresolved calls are not turned into compiler errors. See the README
+     * for the trade-offs.
      */
     final Property<Boolean> compileCheck
 

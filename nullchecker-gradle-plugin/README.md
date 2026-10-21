@@ -134,9 +134,9 @@ nullcheck {
 - **不跑 canary**：默认模式的 canary 会编译一个必然违规的样本，证明检查器真能看见问题；
   编译内模式没有这一步，默认仍会打印一条警告。若需要这层保护，保持默认模式或把它作为单独的 CI 步骤；
 - **要求项目 Groovy 是 4.0.x**：检查器运行在项目自己的编译器里，不再固定 4.0.30；
-- **会把 `@TypeChecked` 注入整个编译**：动态代码里解析不了的调用（默认模式下是 `resolution`
-  发现、本来只报告不失败）会变成编译错误，`failOnError = false` 也挡不住。带动态调用的项目
-  请用默认模式，或先把 `resolution` 发现清掉；
+- **只注入静态类**：compile mode 只对 `@CompileStatic` / `@TypeChecked` / `@NullCheck` 的类
+  （或其中带这些注解的方法）注入扩展；动态类不被注入，因此动态代码里解析不了的调用不会再被
+  变成编译器错误。动态类的 resolution 仍由默认 standalone 模式报告；
 - 不覆盖项目已有的 `groovyOptions.configurationScript`：插件生成的是包装脚本，先 `evaluate` 用户脚本，
   再注册检查器。若脚本是在插件的 `afterEvaluate` 之后才设置，插件看不到，仍可能被替换；
 - 检查器会出现在该任务**编译 classpath**上（不是 runtime，也不是发布依赖），以便类型检查扩展能被加载。

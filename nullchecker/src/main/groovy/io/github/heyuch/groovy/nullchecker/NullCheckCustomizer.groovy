@@ -4,6 +4,7 @@ import groovy.transform.CompilationUnitAware
 import groovy.transform.CompileStatic
 import java.lang.annotation.Annotation
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.classgen.GeneratorContext
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilePhase
@@ -51,10 +52,14 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
      */
     static final CompilePhase PHASE = CompilePhase.CANONICALIZATION
 
+    private static final Set<String> STATIC_ANNOS = ['CompileStatic', 'TypeChecked'] as Set<String>
+
     /** Type-checking extension to register. */
     private final String extension
 
     private final ASTTransformationCustomizer inner
+
+    private final boolean staticOnly
 
     NullCheckCustomizer() {
         this('io.github.heyuch.groovy.nullchecker.NullChecker')
@@ -65,7 +70,12 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
     }
 
     NullCheckCustomizer(String extension, String annotationClassName) {
+        this(extension, annotationClassName, false)
+    }
+
+    NullCheckCustomizer(String extension, String annotationClassName, boolean staticOnly) {
         super(PHASE)
+        this.staticOnly = staticOnly
         this.extension = extension
         Class<?> annotation
         try {
@@ -94,7 +104,23 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     @Override
     void call(SourceUnit source, GeneratorContext context, ClassNode classNode) {
+        if (staticOnly && !isStaticClass(classNode)) {
+            return
+        }
         inner.call(source, context, classNode)
+    }
+
+    /** The compile-mode gate: only classes that opted into static checking are analysed. */
+    private static boolean isStaticClass(ClassNode classNode) {
+        if (io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno(classNode, STATIC_ANNOS) || io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno(classNode)) {
+            return true
+        }
+        for (MethodNode method : classNode.methods) {
+            if (io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno(method, STATIC_ANNOS) || io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno(method)) {
+                return true
+            }
+        }
+        return false
     }
 
     /** The extension class name this customizer registers. */

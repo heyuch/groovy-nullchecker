@@ -1,6 +1,6 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 + F1-F7 implemented; method-local flow work is complete. Next: P1 static-only compile mode in [ROADMAP.md](ROADMAP.md)
+- Status: Phase 0 + F1-F7 implemented; method-local flow work is complete. Next: P2 compile-mode canary in [ROADMAP.md](ROADMAP.md)
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
 - Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
 

@@ -220,7 +220,7 @@ System.setProperty('groovy.nullchecker.guards.true', '${escape(extension.guardNo
 System.setProperty('groovy.nullchecker.guards.false', '${escape(extension.guardNotNullWhenFalse.get().join(','))}')
 System.setProperty('groovy.nullchecker.neverreturns', '${escape(extension.neverReturns.get().join(','))}')
 System.setProperty('groovy.nullchecker.contracts', '${escape(contracts)}')
-configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extension.extension.get())}'))
+configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extension.extension.get())}', 'groovy.transform.TypeChecked', true))
 """
     }
 
