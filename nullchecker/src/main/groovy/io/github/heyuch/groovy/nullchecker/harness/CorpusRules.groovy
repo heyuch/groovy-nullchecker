@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import org.jspecify.annotations.Nullable
 
 /**
  * The complete set of rules the checker can report, keyed by a stable id.
@@ -79,7 +80,7 @@ class CorpusRules {
         return STRICT_ONLY_RULES.contains(rule)
     }
 
-    static String fragmentFor(String rule) {
+    static @Nullable String fragmentFor(String rule) {
         return RULES[rule]
     }
 

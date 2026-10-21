@@ -16,6 +16,12 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### Dogfood runs the current release
+
+The self-check now uses the published plugin and checker `0.5.0`. It immediately found one real
+issue in `CorpusRules.fragmentFor`: the map lookup was nullable under `@NullMarked`. The method
+now declares `@Nullable`, which is what its callers already handle.
+
 ### `max` / `min` are non-null after a non-empty guard
 
 A branch guarded by `isNotNullOrEmpty(collection)` / `isNotNullOrEmptyDeeply(collection)` now
@@ -73,16 +79,6 @@ same message differently.
 Direction: move classification to the core (one owner), have the harness delegate.
 
 Priority: low.
-
-### 6. Dogfood is pinned to 0.3.1
-
-The self-check deliberately uses the last published artifact (`nullcheck.toolVersion = '0.3.1'`)
-while the working tree is 0.5.0, so it can lag behind checker fixes.
-
-Direction: bump on each release; consider a second, non-gating run against the local build to
-catch regressions before publishing.
-
-Priority: low (process).
 
 ### 7. SpotBugs does not analyse test bytecode
 

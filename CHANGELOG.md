@@ -3,6 +3,14 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
+  `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a
+  map lookup from a non-null method; it now declares `@Nullable`.
+
 ## [0.5.0] - 2026-10-21
 
 ### Added
