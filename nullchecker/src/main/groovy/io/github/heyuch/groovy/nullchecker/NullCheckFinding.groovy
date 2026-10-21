@@ -36,13 +36,13 @@ class NullCheckFinding {
             'Cannot pass @Nullable value to @NonNull parameter',
     ] as List<String>
 
-    String file
+    String file = ''
 
     int line
 
-    String category
+    String category = RESOLUTION
 
-    String message
+    String message = ''
 
     static NullCheckFinding of(String file, int line, String message) {
         String text = message == null ? '' : message

@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ClassNode
@@ -8,6 +10,6 @@ import org.codehaus.groovy.ast.ClassNode
 @CompileStatic
 @PackageScope
 class MapEntryTypes {
-    ClassNode keyType
-    ClassNode valueType
+    @Nullable ClassNode keyType
+    @Nullable ClassNode valueType
 }

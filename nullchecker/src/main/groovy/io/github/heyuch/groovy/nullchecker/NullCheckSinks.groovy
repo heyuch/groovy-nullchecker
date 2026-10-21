@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
@@ -25,7 +27,7 @@ class NullCheckSinks {
         CURRENT.remove()
     }
 
-    static NullCheckSink current() {
+    static @Nullable NullCheckSink current() {
         NullCheckSink sink = CURRENT.get()
         if (sink != null) {
             return sink

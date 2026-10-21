@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
@@ -31,7 +33,7 @@ class Contract {
 
     Set<Integer> nonNullAfterReturn = new LinkedHashSet<Integer>()
 
-    PresenceRule presence
+    @Nullable PresenceRule presence
 
     /** True when the contract came from the built-in table, so the family switch applies. */
     boolean builtIn

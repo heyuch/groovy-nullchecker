@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import io.github.heyuch.groovy.nullchecker.NullChecker
 
@@ -337,7 +339,7 @@ ${result.raw}
      * @param spec comma-separated labels, or {@code all}
      * @return labels, or {@code null} when the spec names an unknown category
      */
-    private static List<String> parseFailOn(String spec) {
+    private static @Nullable List<String> parseFailOn(String spec) {
         List<String> labels = []
         for (NullCheckHarness.Category category : NullCheckHarness.Category.values()) {
             labels.add(category.label)
@@ -376,7 +378,7 @@ ${result.raw}
      * @param spec comma-separated family names, or {@code all}
      * @return names, or {@code null} when one is unknown
      */
-    private static List<String> parseChecks(String spec) {
+    private static @Nullable List<String> parseChecks(String spec) {
         List<String> known = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> selected = []
         for (String raw : spec.split(',')) {
@@ -395,7 +397,7 @@ ${result.raw}
         return selected
     }
 
-    private static String value(List<String> argv, int index, String option, PrintStream err) {
+    private static @Nullable String value(List<String> argv, int index, String option, PrintStream err) {
         if (index >= argv.size()) {
             err.println("nullcheck: option ${option} needs a value")
             return null

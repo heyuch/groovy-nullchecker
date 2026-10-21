@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ASTNode
@@ -255,18 +257,21 @@ class NullCheckVisitor extends CheckingVisitor {
         Map<Variable, MapEntryTypes> savedEntries = new LinkedHashMap<>(entryVariables)
         Parameter[] parameters = expression.parameters
         int count = parameters == null ? 0 : parameters.length
-        if (hint != null && hint.entryTypes != null) {
-            if (hint.pairwise) {
-                // each / eachWithIndex hand out (key, value[, index])
-                if (count > 0 && hasNullableTypeUse(hint.entryTypes.keyType)) {
-                    nullableElements.add(parameters[0])
+        if (hint != null) {
+            MapEntryTypes entryTypes = hint.entryTypes
+            if (entryTypes != null) {
+                if (hint.pairwise) {
+                    // each / eachWithIndex hand out (key, value[, index])
+                    if (count > 0 && hasNullableTypeUse(entryTypes.keyType)) {
+                        nullableElements.add(parameters[0])
+                    }
+                    if (count > 1 && hasNullableTypeUse(entryTypes.valueType)) {
+                        nullableElements.add(parameters[1])
+                    }
+                } else if (count > 0) {
+                    // collect / find / findAll hand out the entry itself
+                    entryVariables.put(parameters[0], entryTypes)
                 }
-                if (count > 1 && hasNullableTypeUse(hint.entryTypes.valueType)) {
-                    nullableElements.add(parameters[1])
-                }
-            } else if (count > 0) {
-                // collect / find / findAll hand out the entry itself
-                entryVariables.put(parameters[0], hint.entryTypes)
             }
         } else if (hint != null && hint.elementNullable && count > 0) {
             nullableElements.add(parameters[0])
@@ -308,7 +313,7 @@ class NullCheckVisitor extends CheckingVisitor {
         return hint
     }
 
-    private static ClosureHint currentHint(List<ClosureHint> stack) {
+    private static @Nullable ClosureHint currentHint(List<ClosureHint> stack) {
         return stack.isEmpty() ? null : stack.get(stack.size() - 1)
     }
 
@@ -322,7 +327,7 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     /** The declared type of {@code entry.key} / {@code entry.value}, when known. */
-    private ClassNode entryMemberType(Expression receiver, String member) {
+    private @Nullable ClassNode entryMemberType(Expression receiver, String member) {
         MapEntryTypes types = null
         if (receiver instanceof VariableExpression) {
             VariableExpression variable = (VariableExpression) receiver
@@ -627,7 +632,7 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
-    private Variable guardableVariable(Expression expr) {
+    private @Nullable Variable guardableVariable(Expression expr) {
         if (expr instanceof VariableExpression && !expr.isThisExpression() && !expr.isSuperExpression()) {
             return findTargetVariable(expr)
         }
@@ -750,8 +755,9 @@ class NullCheckVisitor extends CheckingVisitor {
             int index = contract.resultArgument
             return index >= 0 && index < args.size() && isKnownNullable(args.get(index))
         }
-        if (contract.result == ResultNullness.NULLABLE && contract.presence != null) {
-            int index = contract.presence.argument
+        PresenceRule presence = contract.presence
+        if (contract.result == ResultNullness.NULLABLE && presence != null) {
+            int index = presence.argument
             ClassNode receiver = typeOfExpression(call.objectExpression)
             if (index < args.size() && hasNonNullMapValue(receiver)
                     && isLookupGuarded(call.objectExpression, args.get(index))) {

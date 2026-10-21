@@ -102,9 +102,9 @@ class NullCheckHarness {
 
     /** One reported problem, normalised to a stable single line. */
     static class Finding {
-        String path
+        String path = ''
         int line
-        String message
+        String message = ''
         Category category = Category.RESOLUTION
 
         @Override

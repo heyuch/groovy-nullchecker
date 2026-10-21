@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.AnnotationNode
@@ -109,7 +111,7 @@ class ContractRegistry {
      * when that argument is). Anything else returns {@code null} so a lower-priority source --
      * or the built-in table -- can answer instead of an empty contract masking it.
      */
-    private static Contract contractFromJetBrains(String specification) {
+    private static @Nullable Contract contractFromJetBrains(@Nullable String specification) {
         if (specification == null) {
             return null
         }
@@ -162,7 +164,7 @@ class ContractRegistry {
     }
 
     /** Contracts declared by annotations on the method itself. */
-    private Contract annotationContract(MethodNode target) {
+    private @Nullable Contract annotationContract(MethodNode target) {
         AnnotationNode jetbrains = findAnnotation(target, 'Contract')
         if (jetbrains != null) {
             Contract parsed = contractFromJetBrains(stringMember(jetbrains, 'value'))
@@ -208,7 +210,7 @@ class ContractRegistry {
         return null
     }
 
-    Contract contractFor(MethodNode target) {
+    @Nullable Contract contractFor(@Nullable MethodNode target) {
         if (target == null) {
             return null
         }
@@ -235,7 +237,7 @@ class ContractRegistry {
      * entry matches any owner and is consulted after the exact walk, so a more specific entry
      * always wins.
      */
-    private static Contract lookup(Map<String, Contract> table, MethodNode target) {
+    private static @Nullable Contract lookup(@Nullable Map<String, Contract> table, MethodNode target) {
         if (table == null || table.isEmpty()) {
             return null
         }

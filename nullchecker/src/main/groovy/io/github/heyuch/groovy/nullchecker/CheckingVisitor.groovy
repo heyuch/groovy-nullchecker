@@ -32,6 +32,8 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.AutoFinal
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.ast.ClassCodeVisitorSupport
@@ -55,7 +57,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
      * type-checking extension rather than this visitor.
      */
     @Override
-    protected SourceUnit getSourceUnit() {
+    protected @Nullable SourceUnit getSourceUnit() {
         return null
     }
 
@@ -72,7 +74,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
      * @param type required runtime type for the constant value
      * @return the matching constant expression, or {@code null} when none can be resolved
      */
-    protected Expression findConstExp(Expression exp, Class type) {
+    protected @Nullable Expression findConstExp(Expression exp, Class type) {
         if (exp instanceof ConstantExpression && type.isAssignableFrom(exp.value.getClass())) {
             return exp
         }

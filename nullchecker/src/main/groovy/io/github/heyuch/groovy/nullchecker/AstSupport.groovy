@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.AnnotatedNode
@@ -163,7 +165,7 @@ class AstSupport {
         return !Collections.disjoint(typeAnnotations, annoNames)
     }
 
-    static ClassNode typeOf(AnnotatedNode node) {
+    static @Nullable ClassNode typeOf(AnnotatedNode node) {
         switch (node) {
             case MethodNode:
                 return ((MethodNode) node).returnType
@@ -178,7 +180,7 @@ class AstSupport {
 
     /** The resolved type of an expression, falling back to its declared type. */
     @PackageScope
-    static ClassNode typeOfExpression(Expression expression) {
+    static @Nullable ClassNode typeOfExpression(@Nullable Expression expression) {
         if (expression == null) {
             return null
         }
@@ -190,7 +192,7 @@ class AstSupport {
     }
 
     @PackageScope
-    static boolean hasNullableTypeUse(ClassNode type) {
+    static boolean hasNullableTypeUse(@Nullable ClassNode type) {
         if (type == null) {
             return false
         }
@@ -209,7 +211,7 @@ class AstSupport {
      * where JSpecify puts it and where Groovy keeps it; arrays carry it on the component type.
      */
     @PackageScope
-    static boolean hasNullableElementType(ClassNode type) {
+    static boolean hasNullableElementType(@Nullable ClassNode type) {
         if (type == null) {
             return false
         }
@@ -227,13 +229,13 @@ class AstSupport {
     }
 
     @PackageScope
-    static boolean isMapLike(ClassNode type) {
+    static boolean isMapLike(@Nullable ClassNode type) {
         return type != null && (type.name == 'java.util.Map' || type.isDerivedFrom(ClassHelper.MAP_TYPE))
     }
 
     /** Key and value types of a map type, or {@code null} when the type is not a map. */
     @PackageScope
-    static MapEntryTypes mapEntryTypes(ClassNode type) {
+    static @Nullable MapEntryTypes mapEntryTypes(@Nullable ClassNode type) {
         if (type == null || !isMapLike(type)) {
             return null
         }
@@ -246,7 +248,7 @@ class AstSupport {
 
     /** Whether a map's values are non-null, so {@code containsKey} can prove a lookup. */
     @PackageScope
-    static boolean hasNonNullMapValue(ClassNode mapType) {
+    static boolean hasNonNullMapValue(@Nullable ClassNode mapType) {
         MapEntryTypes types = mapEntryTypes(mapType)
         return types != null && !hasNullableTypeUse(types.valueType)
     }
@@ -360,7 +362,7 @@ class AstSupport {
     }
 
     @PackageScope
-    static String lookupKey(Expression container, Expression key) {
+    static @Nullable String lookupKey(@Nullable Expression container, @Nullable Expression key) {
         if (container == null || key == null) {
             return null
         }
@@ -371,7 +373,7 @@ class AstSupport {
     }
 
     /** A single string annotation member, or {@code null}. */
-    static String stringMember(AnnotationNode annotation, String name) {
+    static @Nullable String stringMember(AnnotationNode annotation, String name) {
         Expression member = annotation.getMember(name)
         if (member instanceof ConstantExpression) {
             Object value = ((ConstantExpression) member).value
@@ -383,7 +385,7 @@ class AstSupport {
     }
 
     /** A boolean annotation member, or {@code null} when absent or not a constant. */
-    static Boolean booleanMember(AnnotationNode annotation, String name) {
+    static @Nullable Boolean booleanMember(AnnotationNode annotation, String name) {
         Expression member = annotation.getMember(name)
         if (member instanceof ConstantExpression) {
             Object value = ((ConstantExpression) member).value
@@ -431,7 +433,7 @@ class AstSupport {
     }
 
     /** The annotation with the given simple name on a node, or {@code null}. */
-    static AnnotationNode findAnnotation(AnnotatedNode node, String simpleName) {
+    static @Nullable AnnotationNode findAnnotation(AnnotatedNode node, String simpleName) {
         if (node == null) {
             return null
         }
@@ -443,7 +445,7 @@ class AstSupport {
         return null
     }
 
-    static boolean isCollectionLike(ClassNode type) {
+    static boolean isCollectionLike(@Nullable ClassNode type) {
         if (type == null) {
             return false
         }

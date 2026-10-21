@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.AnnotationNode
@@ -30,9 +32,9 @@ class PackageScopes {
 
     private final Map<String, List<String>> byPackage = [:]
 
-    private List<ClassLoader> classLoaders
+    private @Nullable List<ClassLoader> classLoaders
 
-    PackageScopes(CompilationUnit unit, ClassLoader sourceLoader) {
+    PackageScopes(@Nullable CompilationUnit unit, @Nullable ClassLoader sourceLoader) {
         this.transformLoader = unit?.transformLoader
         this.sourceLoader = sourceLoader
         sourceAnnotations.putAll(collectSourceAnnotations(unit))
@@ -234,7 +236,7 @@ class PackageScopes {
      * @param packageName fully qualified package name
      * @return annotation simple names, or {@code null} when no package class is loadable
      */
-    List<String> lookupPackageAnnotations(String packageName) {
+    @Nullable List<String> lookupPackageAnnotations(String packageName) {
         if (byPackage.containsKey(packageName)) {
             return byPackage.get(packageName)
         }
@@ -291,7 +293,7 @@ class PackageScopes {
     }
 
     /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
-    static String normalisePackageName(String name) {
+    static @Nullable String normalisePackageName(@Nullable String name) {
         return name == null ? null : name.replaceAll(/\.$/, '')
     }
 }

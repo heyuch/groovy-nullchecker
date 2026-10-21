@@ -62,6 +62,7 @@ dependencies {
     // 所以运行期根本不需要它们 ⇒ compileOnly，不随发布传递。
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     compileOnly 'org.jetbrains:annotations:13.0'
+    compileOnly 'org.jspecify:jspecify:1.0.0'
 
     testImplementation "org.apache.groovy:groovy:${groovyVersion}"
     testImplementation "org.spockframework:spock-core:${spockVersion}"
@@ -407,6 +408,7 @@ tasks.named('spotbugsTest') {
 // Dogfood: check this project with the last published checker. Bump toolVersion on release.
 nullcheck {
     toolVersion = '0.3.1'
+    strict = true
     failOnError = true
 }
 

@@ -20,8 +20,8 @@ class CorpusGate {
 
     /** A fixture together with what the manifest demands of it. */
     static class Fixture {
-        String relativePath
-        String rule
+        String relativePath = ''
+        String rule = ''
         String strict = 'any'
         String expect = 'some'
         String note = ''
@@ -29,7 +29,7 @@ class CorpusGate {
 
     /** Outcome of checking one fixture in one mode. */
     static class ModeResult {
-        String mode
+        String mode = ''
         int findings
         List<String> messages = []
         /** Findings beyond the declared rule; informational, not a failure. */
@@ -40,7 +40,7 @@ class CorpusGate {
 
     /** Outcome of checking one fixture in every applicable mode. */
     static class FixtureResult {
-        Fixture fixture
+        Fixture fixture = new Fixture()
         List<ModeResult> modes = []
 
         List<String> failures() {
@@ -72,15 +72,15 @@ class CorpusGate {
         }
         List<Fixture> fixtures = []
         Fixture current = null
-        manifest.readLines().each { String rawLine ->
+        for (String rawLine : manifest.readLines()) {
             String line = rawLine.trim()
             if (!line || line.startsWith('#')) {
-                return
+                continue
             }
             if (!line.contains('=')) {
                 current = new Fixture(relativePath: line)
                 fixtures << current
-                return
+                continue
             }
             if (current == null) {
                 throw new IllegalStateException("manifest key before any fixture: ${line}")
@@ -138,10 +138,10 @@ class CorpusGate {
             }
         }
 
-        fixtures.each { Fixture fixture ->
+        for (Fixture fixture : fixtures) {
             File fixtureFile = new File(corpusDir, fixture.relativePath)
             if (!fixtureFile.isFile()) {
-                return // already reported as a ghost
+                continue // already reported as a ghost
             }
             if (!CorpusRules.isKnown(fixture.rule)) {
                 report.failures << ("corpus/${fixture.relativePath}: unknown rule id '${fixture.rule}'").toString()

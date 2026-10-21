@@ -1,5 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
@@ -10,5 +12,5 @@ class ClosureHint {
     boolean elementNullable
     /** True for each/eachWithIndex, which pass (key, value) rather than the entry. */
     boolean pairwise
-    MapEntryTypes entryTypes
+    @Nullable MapEntryTypes entryTypes
 }

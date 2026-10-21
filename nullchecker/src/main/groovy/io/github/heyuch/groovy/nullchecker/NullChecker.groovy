@@ -28,6 +28,8 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
+import org.jspecify.annotations.Nullable
+
 import groovy.transform.CompileStatic
 
 
@@ -207,7 +209,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * definite-initialization checks for {@code @NonNull} fields of each visited class.
      */
     @Override
-    Object run() {
+    @Nullable Object run() {
         NullCheckConfig config = NullCheckConfig.read(PORT_OPTIONS)
         CompilationUnit unit = context?.compilationUnit
         NullCheckSession session = sessionFor(unit, config, context?.source?.classLoader)
@@ -279,7 +281,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         invokeMethod('addStaticTypeError', [message.toString(), node] as Object[])
     }
 
-    private static NullCheckSession sessionFor(CompilationUnit unit, NullCheckConfig config, ClassLoader sourceLoader) {
+    private static NullCheckSession sessionFor(@Nullable CompilationUnit unit, NullCheckConfig config, @Nullable ClassLoader sourceLoader) {
         if (unit == null) {
             return new NullCheckSession(config, null, sourceLoader)
         }
