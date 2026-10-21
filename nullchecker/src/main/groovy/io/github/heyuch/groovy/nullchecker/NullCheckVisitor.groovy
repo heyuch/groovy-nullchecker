@@ -725,9 +725,12 @@ class NullCheckVisitor extends CheckingVisitor {
         if (contract.result == ResultNullness.NON_NULL) {
             return false
         }
-        List<Expression> args = call.arguments instanceof TupleExpression
-                ? ((TupleExpression) call.arguments).expressions
-                : Collections.emptyList()
+        List<Expression> args
+        if (call.arguments instanceof TupleExpression) {
+            args = ((TupleExpression) call.arguments).expressions
+        } else {
+            args = Collections.<Expression>emptyList()
+        }
         if (contract.result == ResultNullness.NULLABLE_IF_ARG_NULLABLE) {
             int index = contract.resultArgument
             return index >= 0 && index < args.size() && isKnownNullable(args.get(index))

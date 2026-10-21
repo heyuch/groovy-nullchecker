@@ -362,7 +362,7 @@ class ContractRegistry {
     private static Set<String> readGuardEntries(String property) {
         String raw = System.getProperty(property)
         if (raw == null || raw.trim().isEmpty()) {
-            return Collections.emptySet()
+            return Collections.<String>emptySet()
         }
         Set<String> entries = new HashSet<String>()
         for (String part : raw.split(',')) {

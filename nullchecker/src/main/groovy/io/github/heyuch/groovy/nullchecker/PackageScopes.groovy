@@ -124,7 +124,7 @@ class PackageScopes {
      * annotated element itself.
      */
     boolean isNonNullByDefault(ClassNode cn) {
-        return isNullDefaultInScope(cn, Collections.emptySet())
+        return isNullDefaultInScope(cn, Collections.<String>emptySet())
     }
 
     /** Parameter defaults: "@NullMarked"-style plus the parameter-scoped annotations. */
