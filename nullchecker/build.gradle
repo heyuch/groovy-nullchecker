@@ -19,6 +19,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'signing'
+    id 'codenarc'
 }
 
 // 模块目录名是 nullchecker，坐标要叫 groovy-nullchecker（见文件头），所以显式钉住。
@@ -67,6 +68,21 @@ dependencies {
 
     referenceChecker "org.apache.groovy:groovy:${referenceGroovyVersion}"
     referenceChecker "org.apache.groovy:groovy-typecheckers:${referenceGroovyVersion}"
+
+    codenarc 'org.codenarc:CodeNarc:3.5.0-groovy-4.0'
+}
+
+// Trial run: keep the report even when violations fail the task. The ruleset will be narrowed
+// after the first pass; ignoreFailures is removed once the baseline is clean.
+codenarc {
+    ignoreFailures = true
+}
+
+tasks.withType(org.gradle.api.plugins.quality.CodeNarc).configureEach {
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 // 参考实现的 classpath 必须【精确】到 groovy 6 及其配套模块：一旦混进本项目产物或

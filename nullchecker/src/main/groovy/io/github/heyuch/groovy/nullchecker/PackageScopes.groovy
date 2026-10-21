@@ -221,7 +221,7 @@ class PackageScopes {
         String resource = packageName + '.package-info'
         for (ClassLoader loader : candidateClassLoaders()) {
             try {
-                Class<?> pkgClass = Class.forName(resource, false, loader)
+                Class<?> pkgClass = loader.loadClass(resource)
                 List<String> names = pkgClass.getPackage()?.annotations*.annotationType()*.simpleName
                 if (names) {
                     byPackage.put(packageName, names)

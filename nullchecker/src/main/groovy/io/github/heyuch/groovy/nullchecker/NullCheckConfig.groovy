@@ -45,7 +45,7 @@ class NullCheckConfig {
 
     static NullCheckConfig read(Map<String, Object> options) {
         boolean strict = options?.strict == true
-                || Boolean.getBoolean(STRICT_PROPERTY)
+                || 'true'.equalsIgnoreCase(System.getProperty(STRICT_PROPERTY))
                 || 'true'.equalsIgnoreCase(System.getenv(STRICT_ENV))
         Set<String> checks = readChecks()
         boolean containerLookups = !'false'.equalsIgnoreCase(

@@ -267,7 +267,7 @@ class NullCheckHarness {
     static Result check(List<File> files, String extension, boolean strict) {
         // Probe for the class name eagerly: a typo must be loud, not an empty result.
         try {
-            Class.forName(extension, false, NullCheckHarness.classLoader)
+            NullCheckHarness.classLoader.loadClass(extension)
         } catch (Throwable t) {
             throw new IllegalStateException(
                     "type-checking extension not on the classpath: ${extension}", t)
@@ -350,7 +350,7 @@ class NullCheckHarness {
             System.clearProperty('groovy.nullchecker.strict')
         }
         try {
-            Class<?> checker = Class.forName(extension, false, NullCheckHarness.classLoader)
+            Class<?> checker = NullCheckHarness.classLoader.loadClass(extension)
             checker.getMethod('setOptions', Map).invoke(null, [strict: strict])
         } catch (NoSuchMethodException | ClassNotFoundException ignored) {
             // the Groovy 6 reference implementation: the property is all it can see

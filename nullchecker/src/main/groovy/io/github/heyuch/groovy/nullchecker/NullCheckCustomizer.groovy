@@ -66,7 +66,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         this.extension = extension
         Class<?> annotation
         try {
-            annotation = Class.forName(annotationClassName, false, getClass().classLoader)
+            annotation = getClass().classLoader.loadClass(annotationClassName)
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException(
                     "null checker: annotation class not found on the classpath: ${annotationClassName}", e)

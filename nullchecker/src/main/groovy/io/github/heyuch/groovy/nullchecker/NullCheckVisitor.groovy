@@ -22,6 +22,7 @@ import org.codehaus.groovy.ast.expr.ElvisOperatorExpression
 import org.codehaus.groovy.ast.expr.EmptyExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.ListExpression
+import org.codehaus.groovy.ast.expr.MethodCall
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.NotExpression
 import org.codehaus.groovy.ast.expr.PropertyExpression
@@ -680,7 +681,7 @@ class NullCheckVisitor extends CheckingVisitor {
      * fails when {@code x} is null. Like annotations, the methods are matched
      * by simple name, so any library following the conventions is recognized.
      */
-    private void applyCallNarrowing(call) {
+    private void applyCallNarrowing(MethodCall call) {
         if (call instanceof MethodCallExpression && call.methodAsString == 'isNotNull') {
             applyFluentNarrowing(call)
             return
@@ -779,7 +780,7 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
-    private void checkMethodArguments(call) {
+    private void checkMethodArguments(MethodCall call) {
         def target = call.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
         if (!(target instanceof MethodNode)) return
         def args = call.arguments
