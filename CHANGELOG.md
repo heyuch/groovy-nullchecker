@@ -31,8 +31,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   reporter deduplicates repeated findings. Strict methods now run through a statement-level
   CFG worklist (`ControlFlowGraph` + `FlowAnalysis` + `NullnessFlowTransfer`); annotation mode
   keeps the old visitor. F2 is complete: switch fall-through is modelled and for-each variables
-  receive the collection's nullable element facts. Strict corpus fixtures and `FlowStateSpec`
-  pin the behavior.
+  receive the collection's nullable element facts. F3 adds try/catch/finally edges, non-null
+  catch parameters and finally joins (abrupt exits through finally are still conservative).
+  Strict corpus fixtures and `FlowStateSpec` pin the behavior.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

@@ -5,6 +5,7 @@ import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.CatchStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
 import org.codehaus.groovy.ast.stmt.DoWhileStatement
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
@@ -36,6 +37,10 @@ class NullnessFlowTransfer extends FlowTransfer {
     @Override
     @Nullable FlowState transfer(CfgNode node, FlowState input) {
         visitor.restoreState(input)
+        CatchStatement catchStatement = node.catchStatement
+        if (catchStatement != null) {
+            visitor.markCatchParameter(catchStatement.variable)
+        }
         Statement statement = node.statement
         if (statement == null || statement instanceof BlockStatement ||
                 statement instanceof SynchronizedStatement || statement instanceof TryCatchStatement ||

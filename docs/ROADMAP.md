@@ -74,17 +74,22 @@ no duplicate findings; default annotation mode unchanged.
 
 #### F3. `try/catch/finally`
 
-Status: next.
+Status: done.
 
-- Define the exception-edge policy (do not silently insert an edge from every expression).
-- Catch parameter starts non-null; try normal/exception states join at catch.
-- `finally` runs on normal and abrupt exits; model `return`/`break`/`continue` through it.
+- The try node has a normal edge into the try body/finally and one exception edge into each
+  catch. Catching starts from the state before the try (conservative), and the catch parameter
+  is marked non-null.
+- Normal try and catch paths flow through `finally`; the fixture covers a normal try path, a
+  catch assignment and a finally overwrite.
+- Abrupt exits (`return`/`break`/`continue`) through `finally` are not yet special-cased; this
+  remains a documented limitation, not a silent claim.
 
-Acceptance: try assignment, catch return, finally overwrite and exception-path fixtures.
+Acceptance: `strict/flow_try_catch.groovy` covers try/catch/finally state joins.
 
 #### F4. Diagnostics, deduplication and budget
 
-Status: pending F2/F3.
+Status: next (deduplication is already in the reporter; collection from CFG nodes, sorting and
+the performance baseline remain).
 
 - Collect findings per CFG node, deduplicate by `(file, start, end, message)`, then sort.
 - Keep the `Potential null dereference` prefix and `null` category.

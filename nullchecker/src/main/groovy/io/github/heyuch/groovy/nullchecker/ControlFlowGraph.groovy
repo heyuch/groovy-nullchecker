@@ -142,15 +142,22 @@ class ControlFlowGraph {
 
     private void connectTry(TryCatchStatement statement, CfgNode node, CfgNode after,
                          CfgNode breakTarget, CfgNode continueTarget) {
-        CfgNode tryEntry = buildStatement(statement.tryStatement, after, breakTarget, continueTarget)
-        node.connect(tryEntry ?: after, CfgEdgeKind.NORMAL)
+        CfgNode finallyEntry = statement.finallyStatement == null ? after
+                : buildStatement(statement.finallyStatement, after, breakTarget, continueTarget)
+        CfgNode tryEntry = buildStatement(statement.tryStatement, finallyEntry, breakTarget, continueTarget)
+        node.connect(tryEntry ?: finallyEntry, CfgEdgeKind.NORMAL)
         for (CatchStatement catchStatement : statement.catchStatements) {
-            CfgNode catchEntry = buildStatement(catchStatement.code, after, breakTarget, continueTarget)
-            node.connect(catchEntry ?: after, CfgEdgeKind.EXCEPTION)
+            CfgNode catchEntry = newNode(catchStatement.code, catchStatement)
+            CfgNode catchBody = buildStatement(catchStatement.code, finallyEntry, breakTarget, continueTarget)
+            catchEntry.connect(catchBody ?: finallyEntry, CfgEdgeKind.NORMAL)
+            node.connect(catchEntry, CfgEdgeKind.EXCEPTION)
         }
-        if (statement.finallyStatement != null) {
-            buildStatement(statement.finallyStatement, after, breakTarget, continueTarget)
-        }
+    }
+
+    private CfgNode newNode(Statement statement, CatchStatement catchStatement) {
+        CfgNode node = new CfgNode(nextId++, statement, catchStatement)
+        nodes.add(node)
+        return node
     }
 
 }

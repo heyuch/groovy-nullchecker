@@ -115,6 +115,11 @@ class NullCheckVisitor extends CheckingVisitor {
         this.nullableVars = new HashSet<Variable>(initialNullable)
     }
 
+    void markCatchParameter(Parameter parameter) {
+        nullableVars.remove(parameter)
+        guardedVars.add(parameter)
+    }
+
     boolean isNoReturnCall(Expression expression) {
         return contracts.isNoReturnCall(expression)
     }
