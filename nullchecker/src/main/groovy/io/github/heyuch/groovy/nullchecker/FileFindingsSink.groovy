@@ -2,6 +2,7 @@ package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import java.nio.file.Files
 
 /**
  * Appends findings to a TSV file so another process or classloader can read them.
@@ -20,7 +21,7 @@ class FileFindingsSink implements NullCheckSink {
         this.file = file
         File parent = file.getParentFile()
         if (parent != null) {
-            parent.mkdirs()
+            Files.createDirectories(parent.toPath())
         }
     }
 

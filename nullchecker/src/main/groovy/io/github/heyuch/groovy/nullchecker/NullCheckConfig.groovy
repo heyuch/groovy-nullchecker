@@ -67,7 +67,7 @@ class NullCheckConfig {
         }
         Set<String> enabled = new HashSet<String>()
         for (String part : raw.split(',')) {
-            String name = part.trim().toLowerCase()
+            String name = part.trim().toLowerCase(Locale.ROOT)
             if (!name.isEmpty()) {
                 enabled.add(name)
             }

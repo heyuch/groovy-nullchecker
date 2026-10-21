@@ -90,9 +90,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
      */
     @Override
     void setCompilationUnit(CompilationUnit unit) {
-        if (inner instanceof CompilationUnitAware) {
-            ((CompilationUnitAware) inner).setCompilationUnit(unit)
-        }
+        inner.setCompilationUnit(unit)
     }
 
     @Override

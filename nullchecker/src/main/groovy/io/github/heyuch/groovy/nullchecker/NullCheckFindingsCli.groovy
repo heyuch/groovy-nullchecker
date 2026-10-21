@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
+import java.nio.file.Files
 
 /**
  * Reads the findings file written by the compile-time collection mode.
@@ -26,7 +27,7 @@ class NullCheckFindingsCli {
             if (argument == '--findings' && i + 1 < args.length) {
                 findingsPath = args[++i]
             } else if (argument == '--fail-on' && i + 1 < args.length) {
-                failOn = args[++i].split(',').collect { String part -> part.trim().toLowerCase() }
+                failOn = args[++i].split(',').collect { String part -> part.trim().toLowerCase(Locale.ROOT) }
             } else if (argument == '--report' && i + 1 < args.length) {
                 reportPath = args[++i]
             } else {
@@ -76,7 +77,7 @@ class NullCheckFindingsCli {
             File report = new File(reportPath)
             File parent = report.getParentFile()
             if (parent != null) {
-                parent.mkdirs()
+                Files.createDirectories(parent.toPath())
             }
             StringBuilder text = new StringBuilder()
             for (NullCheckFinding finding : findings) {

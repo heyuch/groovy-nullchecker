@@ -691,9 +691,6 @@ class NullCheckVisitor extends CheckingVisitor {
      * may still hold an explicit null.
      */
     private void applyContainsKeyGuard(MethodCallExpression condition, GuardFacts facts) {
-        if (!(condition instanceof MethodCallExpression)) {
-            return
-        }
         if (condition.methodAsString != 'containsKey') {
             return
         }

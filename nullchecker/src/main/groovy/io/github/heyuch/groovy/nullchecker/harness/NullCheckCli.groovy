@@ -344,7 +344,7 @@ ${result.raw}
         }
         List<String> selected = []
         for (String raw : spec.split(',')) {
-            String item = raw.trim().toLowerCase()
+            String item = raw.trim().toLowerCase(Locale.ROOT)
             if (item.isEmpty()) {
                 continue
             }
@@ -380,7 +380,7 @@ ${result.raw}
         List<String> known = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> selected = []
         for (String raw : spec.split(',')) {
-            String name = raw.trim().toLowerCase()
+            String name = raw.trim().toLowerCase(Locale.ROOT)
             if (name.isEmpty()) {
                 continue
             }

@@ -1,0 +1,38 @@
+<FindBugsFilter>
+
+    <!-- FileFindingsSink has no finalizer and is package-scoped; the finalizer-attack
+         warning for its throwing constructor does not describe a reachable risk. -->
+    <Match>
+        <Class name="io.github.heyuch.groovy.nullchecker.FileFindingsSink"/>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+
+    <!-- NullCheckPlugin is dynamic Groovy: calls are dispatched at runtime, so SpotBugs cannot
+         see that these private methods are used. The checker classes are @CompileStatic, so the
+         rule stays enabled for them. -->
+    <Match>
+        <Class name="~io\.github\.heyuch\.groovy\.nullchecker\.gradle\..*"/>
+        <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
+    </Match>
+
+    <!-- Groovy closures and inner classes are compiler-generated. Serialization and
+         representation rules describe hand-written Java objects, not these classes. -->
+    <Match><Bug pattern="SE_NO_SERIALVERSIONID"/></Match>
+    <Match><Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED"/></Match>
+    <Match><Bug pattern="MS_SHOULD_BE_FINAL"/></Match>
+    <Match><Bug pattern="EI_EXPOSE_REP"/></Match>
+    <Match><Bug pattern="EI_EXPOSE_REP2"/></Match>
+    <Match><Bug pattern="MC_OVERRIDABLE_METHOD_CALL_IN_CONSTRUCTOR"/></Match>
+
+    <!-- Groovy emits null checks and synthetic casts that SpotBugs reads as redundant or
+         unconfirmed. The reported sites were checked by hand; they are compiler artefacts. -->
+    <Match><Bug pattern="NP_LOAD_OF_KNOWN_NULL_VALUE"/></Match>
+    <Match><Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/></Match>
+    <Match><Bug pattern="RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE"/></Match>
+    <Match><Bug pattern="BC_UNCONFIRMED_CAST_OF_RETURN_VALUE"/></Match>
+
+    <!-- Deliberate static state: PORT_OPTIONS is the public options API, and the last
+         coverage is published for the harness. -->
+    <Match><Bug pattern="ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD"/></Match>
+
+</FindBugsFilter>

@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import java.nio.file.Files
 import io.github.heyuch.groovy.nullchecker.NullCheckCoverage
 import io.github.heyuch.groovy.nullchecker.NullCheckCustomizer
 import io.github.heyuch.groovy.nullchecker.NullChecker
@@ -80,7 +81,7 @@ class NullCheckHarness {
         RESOLUTION
 
         String getLabel() {
-            return name().toLowerCase()
+            return name().toLowerCase(Locale.ROOT)
         }
     }
 
@@ -210,7 +211,7 @@ class NullCheckHarness {
             List<File> samples = []
             NullCheckCanary.SAMPLES.each { String name, String source ->
                 File f = new File(dir, name)
-                f.parentFile.mkdirs()
+                Files.createDirectories(f.parentFile.toPath())
                 f.setText(source, 'UTF-8')
                 samples << f
             }

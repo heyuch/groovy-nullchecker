@@ -20,6 +20,7 @@ plugins {
     id 'maven-publish'
     id 'signing'
     id 'codenarc'
+    id 'com.github.spotbugs' version '6.5.13'
 }
 
 // 模块目录名是 nullchecker，坐标要叫 groovy-nullchecker（见文件头），所以显式钉住。
@@ -75,6 +76,25 @@ dependencies {
 // The baseline is clean; a new violation fails the build.
 codenarc {
     ignoreFailures = false
+}
+
+// Trial run: report every bug pattern first, then narrow the filter for Groovy bytecode.
+spotbugs {
+    toolVersion = '4.10.5'
+    effort = 'max'
+    reportLevel = 'low'
+    ignoreFailures = false
+    excludeFilter = rootProject.file('config/spotbugs/exclude.xml')
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+    // Groovy's bytecode references ASM, which is not on the project's compile classpath.
+    auxClassPaths.from(project.configurations.detachedConfiguration(
+            project.dependencies.create('org.ow2.asm:asm:9.7')))
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }
 
 tasks.withType(org.gradle.api.plugins.quality.CodeNarc).configureEach {
@@ -372,4 +392,12 @@ static Set<String> readAcceptedDivergences(File file) {
         accepted.add(reasonAt >= 0 ? line.substring(0, reasonAt) : line)
     }
     accepted
+}
+
+
+// Spock specifications are dynamic Groovy; patterns such as UPM report their private helpers
+// as unused because the calls are dispatched at runtime. Tests are covered by CodeNarc's basic
+// rules and by the corpus/functional gates; SpotBugs stays on production bytecode.
+tasks.named('spotbugsTest') {
+    enabled = false
 }

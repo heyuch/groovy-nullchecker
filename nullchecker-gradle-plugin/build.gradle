@@ -13,6 +13,7 @@ plugins {
     // Publishes the plugin marker plus the plugin artifact to plugins.gradle.org.
     // Portal review is manual and takes days after the first upload.
     id 'com.gradle.plugin-publish' version '2.2.1'
+    id 'com.github.spotbugs' version '6.5.13'
 }
 
 def spockVersion = '2.3-groovy-4.0'
@@ -206,4 +207,33 @@ signing {
                 providers.environmentVariable('MAVEN_GPG_PASSPHRASE').getOrElse(''))
     }
     sign publishing.publications
+}
+
+
+// Same bug-pattern policy as the checker: the shared filter explains which patterns are
+// Groovy bytecode artefacts. The Gradle API is the compile classpath, so SpotBugs sees the
+// plugin's real dependencies rather than a partial picture.
+spotbugs {
+    toolVersion = '4.10.5'
+    effort = 'max'
+    reportLevel = 'low'
+    ignoreFailures = false
+    excludeFilter = rootProject.file('config/spotbugs/exclude.xml')
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+    auxClassPaths.from(project.configurations.detachedConfiguration(
+            project.dependencies.create('org.ow2.asm:asm:9.7')))
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+
+// Spock specifications are dynamic Groovy; patterns such as UPM report their private helpers
+// as unused because the calls are dispatched at runtime. Tests are covered by CodeNarc's basic
+// rules and by the corpus/functional gates; SpotBugs stays on production bytecode.
+tasks.named('spotbugsTest') {
+    enabled = false
 }

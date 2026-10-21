@@ -31,6 +31,12 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Static analysis runs in `check`.** CodeNarc enforces explicit types, explicit returns and
+  braces on main sources (tests keep the correctness rules only), and SpotBugs analyses
+  production bytecode. The SpotBugs filter records the patterns that do not describe Groovy
+  bytecode -- closure serialization, synthetic fields, compiler-generated null checks and casts,
+  and unused-private-method reports for dynamic classes -- so a new real finding fails the build.
+  SpotBugs is the maintained successor to FindBugs, which does not run on JDK 17.
 - The resolver caches per resolved `MethodNode`, including the negative answer, so contract
   lookup is a map hit rather than a repeated hierarchy walk. `containerLookups` now gates only
   the built-in entries; an explicitly declared contract still applies when the family is off.
