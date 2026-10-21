@@ -451,6 +451,18 @@ class NullCheckVisitor extends CheckingVisitor {
         return analyzeCondition(condition, true)
     }
 
+    private static <T> Set<T> union(Set<T> left, Set<T> right) {
+        Set<T> result = new LinkedHashSet<T>(left)
+        result.addAll(right)
+        return result
+    }
+
+    private static <T> Set<T> intersection(Set<T> left, Set<T> right) {
+        Set<T> result = new LinkedHashSet<T>(left)
+        result.retainAll(right)
+        return result
+    }
+
     /**
      * Analyzes a condition into guard facts, optionally visiting its nodes
      * along the way ({@code visiting: false} re-analyzes an already visited
@@ -473,10 +485,10 @@ class NullCheckVisitor extends CheckingVisitor {
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
-            facts.whenTrue = left.whenTrue + right.whenTrue
-            facts.whenFalse = left.whenFalse.intersect(right.whenFalse)
-            facts.lookupsTrue = left.lookupsTrue + right.lookupsTrue
-            facts.lookupsFalse = left.lookupsFalse.intersect(right.lookupsFalse)
+            facts.whenTrue = union(left.whenTrue, right.whenTrue)
+            facts.whenFalse = intersection(left.whenFalse, right.whenFalse)
+            facts.lookupsTrue = union(left.lookupsTrue, right.lookupsTrue)
+            facts.lookupsFalse = intersection(left.lookupsFalse, right.lookupsFalse)
         } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_OR) {
             GuardFacts left = analyzeCondition(condition.leftExpression, visiting)
             GuardFacts right = visiting
@@ -486,10 +498,10 @@ class NullCheckVisitor extends CheckingVisitor {
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
-            facts.whenTrue = left.whenTrue.intersect(right.whenTrue)
-            facts.whenFalse = left.whenFalse + right.whenFalse
-            facts.lookupsTrue = left.lookupsTrue.intersect(right.lookupsTrue)
-            facts.lookupsFalse = left.lookupsFalse + right.lookupsFalse
+            facts.whenTrue = intersection(left.whenTrue, right.whenTrue)
+            facts.whenFalse = union(left.whenFalse, right.whenFalse)
+            facts.lookupsTrue = intersection(left.lookupsTrue, right.lookupsTrue)
+            facts.lookupsFalse = union(left.lookupsFalse, right.lookupsFalse)
         } else {
             if (visiting) {
                 condition.visit(this)
