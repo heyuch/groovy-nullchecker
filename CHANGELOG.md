@@ -40,6 +40,11 @@ versions follow [Semantic Versioning](https://semver.org/).
   `nonNullByDefault=38`, i.e. every class is under the marking. Bump `nullcheck.toolVersion`
   when a new checker is released, since this dogfood deliberately uses the published artifact
   rather than the working tree.
+- **The last Java sources became Groovy.** `NullCheckCoverage` is now a `@CompileStatic` Groovy
+  DTO (its public fields become Groovy properties; the only callers are Groovy), and the two
+  `package-info.java` files are `package-info.groovy` next to the sources they apply to, instead
+  of sitting in `src/main/java` while governing `src/main/groovy`. `src/main/java` no longer
+  contains sources; the `javadoc` jar is empty but still produced for Central.
 - **Static analysis runs in `check`.** CodeNarc enforces explicit types, explicit returns and
   braces on main sources (tests keep the correctness rules only), and SpotBugs analyses
   production bytecode. The SpotBugs filter records the patterns that do not describe Groovy

@@ -39,7 +39,7 @@ java {
         languageVersion = JavaLanguageVersion.of(17)
     }
     // Central 强制要求每个构件都带 -sources.jar 与 -javadoc.jar，缺一个 bundle 就校验失败。
-    // 本库 main 源码全是 Groovy，而 javadoc 任务只处理 .java ⇒ 这个 javadoc jar 内容近乎为空。
+    // 本库 main 源码全是 Groovy，javadoc 任务没有输入 ⇒ 这个 javadoc jar 为空。
     // 校验只要求文件存在，所以能过；想用 groovydoc 填内容见 docs/PUBLISHING.md。
     withSourcesJar()
     withJavadocJar()
@@ -410,6 +410,7 @@ nullcheck {
     toolVersion = '0.3.1'
     strict = true
     failOnError = true
+    targets = ['src/main/groovy']
 }
 
 tasks.named('check') {

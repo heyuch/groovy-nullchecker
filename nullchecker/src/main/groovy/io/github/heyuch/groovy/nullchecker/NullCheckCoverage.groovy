@@ -1,4 +1,6 @@
-package io.github.heyuch.groovy.nullchecker;
+package io.github.heyuch.groovy.nullchecker
+
+import groovy.transform.CompileStatic
 
 /**
  * What a check run actually looked at.
@@ -14,29 +16,27 @@ package io.github.heyuch.groovy.nullchecker;
  * of a typical Groovy codebase, so a non-zero count is the cheapest evidence that the
  * checker is really running.
  */
-public class NullCheckCoverage {
+@CompileStatic
+class NullCheckCoverage {
 
     /** Source files handed to the checker. */
-    public int files;
+    int files
 
     /** Classes registered with the checker; synthetic package-info nodes are excluded. */
-    public int classes;
+    int classes
 
     /** Of those, how many are compiled statically. */
-    public int compileStaticClasses;
+    int compileStaticClasses
 
     /** Of those, how many are non-null by default, from a class, outer class or package. */
-    public int nonNullByDefaultClasses;
+    int nonNullByDefaultClasses
 
     /** Methods with a non-void return type, the ones a null return would violate. */
-    public int methodsWithReturnType;
+    int methodsWithReturnType
 
     @Override
-    public String toString() {
-        return "files=" + files
-                + " classes=" + classes
-                + " compileStatic=" + compileStaticClasses
-                + " nonNullByDefault=" + nonNullByDefaultClasses
-                + " methodsWithReturnType=" + methodsWithReturnType;
+    String toString() {
+        return String.format('files=%d classes=%d compileStatic=%d nonNullByDefault=%d methodsWithReturnType=%d',
+                files, classes, compileStaticClasses, nonNullByDefaultClasses, methodsWithReturnType)
     }
 }
