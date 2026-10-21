@@ -52,7 +52,7 @@ repositories {
 
 dependencies {
     // 仅编译期使用。它永远不会进入你的运行时 classpath。
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.4.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.5.0'
 }
 ```
 
@@ -63,7 +63,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.4.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.5.0.jar')
 }
 ```
 
@@ -76,7 +76,7 @@ Gradle 需要仓库里的 plugin marker，所以只能按 id 安装。）
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.5.0'
 }
 ```
 
@@ -380,6 +380,46 @@ nullcheck {
 
 CLI：`--no-container-lookups`。
 
+### 契约（Contracts）
+
+上面这些机制在内部是同一个模型：一次调用可以收窄参数、让结果可空，或者根本不返回。
+三个来源按下面的优先级提供契约：
+
+1. **配置**——插件的 `contracts`，或 CLI 的 `--contract`；
+2. **注解**——JetBrains `@Contract`、`@EnsuresNonNullIf`、`@EnsuresNonNull`、`@NoReturn`；
+3. **内置表**——`Map.get`、`getOrDefault`、`find`、`max`、`Objects.requireNonNull` 等。
+
+配置优先，是为了让库里写错或缺失的契约能在不改库的前提下纠正：
+
+```groovy
+nullcheck {
+    contracts = [
+        // 本项目能保证这个键一定存在
+        'java.util.Map#get'         : '-> !null',
+        // 库自己的注解写反了
+        'com.acme.Utils#isNotEmpty' : 'null -> false',
+    ]
+}
+```
+
+CLI：`--contract "java.util.Map#get=-> !null"`。
+
+语法沿用 JetBrains：
+
+| 契约 | 含义 |
+| --- | --- |
+| `null -> fail` | 传 null 时抛出；调用返回后该参数非空 |
+| `-> fail` | 永不返回 |
+| `null -> true` / `null -> false` | 返回值揭示参数是否为 null |
+| `_, !null -> !null` | 当且仅当该参数可空时结果可空 |
+| `-> !null` / `-> null` | 结果恒非空 / 恒为 null |
+
+条目按 `declaringClass#method` 匹配，也会沿父类和接口查找，所以 `java.util.Map#get` 同样
+覆盖 `HashMap.get`。无法解释的契约会被忽略，而不是猜测。
+
+有两样东西**刻意不算契约**：`containsKey` 对后续查找的收窄是两个调用之间的事实；元素类型
+（`List<@Nullable E>`）是类型，不是行为。
+
 ### 接受的守卫写法
 
 以下写法**不会**产生发现：
@@ -647,7 +687,7 @@ coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWit
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.5.0'
 }
 
 nullcheck {

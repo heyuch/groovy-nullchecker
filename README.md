@@ -57,7 +57,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.4.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.5.0'
 }
 ```
 
@@ -70,7 +70,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.4.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.5.0.jar')
 }
 ```
 
@@ -84,7 +84,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.5.0'
 }
 ```
 
@@ -407,6 +407,50 @@ nullcheck {
 
 CLI: `--no-container-lookups`.
 
+### Contracts
+
+Everything above is one model internally: a call may narrow its arguments, make its result
+nullable, or never return. Three sources feed it, in this order of precedence:
+
+1. **Configuration** — `contracts` in the plugin, `--contract` on the CLI;
+2. **Annotations** — JetBrains `@Contract`, `@EnsuresNonNullIf`, `@EnsuresNonNull`,
+   `@NoReturn`;
+3. **Built-ins** — `Map.get`, `getOrDefault`, `find`, `max`, `Objects.requireNonNull` and the
+   rest.
+
+Configuration wins so a library whose annotation is wrong can be corrected without changing
+the library:
+
+```groovy
+nullcheck {
+    contracts = [
+        // this project knows the key is present
+        'java.util.Map#get'         : '-> !null',
+        // the library's own annotation is backwards
+        'com.acme.Utils#isNotEmpty' : 'null -> false',
+    ]
+}
+```
+
+CLI: `--contract "java.util.Map#get=-> !null"`.
+
+The syntax is JetBrains':
+
+| Contract | Meaning |
+| --- | --- |
+| `null -> fail` | throws for a null argument; after the call it is non-null |
+| `-> fail` | never returns |
+| `null -> true` / `null -> false` | the result reveals whether the argument was null |
+| `_, !null -> !null` | the result is nullable exactly when that argument is |
+| `-> !null` / `-> null` | the result is always non-null / always null |
+
+Entries are matched by `declaringClass#method`, including on superclasses and interfaces, so
+`java.util.Map#get` also covers `HashMap.get`. A malformed contract is ignored rather than
+guessed at.
+
+Two things are deliberately **not** contracts: `containsKey` narrowing a later lookup is a fact
+about two calls, and an element type (`List<@Nullable E>`) is a type rather than a behaviour.
+
 ### Guard patterns it accepts
 
 These are recognised and do **not** produce findings:
@@ -700,7 +744,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.4.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.5.0'
 }
 
 nullcheck {

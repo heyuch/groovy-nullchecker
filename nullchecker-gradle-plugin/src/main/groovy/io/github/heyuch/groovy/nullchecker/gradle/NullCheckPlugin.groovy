@@ -194,6 +194,9 @@ class NullCheckPlugin implements Plugin<Project> {
         if (!extension.containerLookups.get()) {
             args << '--no-container-lookups'
         }
+        extension.contracts.get().each { String owner, String contract ->
+            args << '--contract' << "${owner}=${contract}".toString()
+        }
         File defaultReport = new File(project.layout.buildDirectory.get().asFile,
                 'reports/nullcheck/nullcheck.txt')
         args << '--report' << extension.reportFile.getOrElse(defaultReport.absolutePath)

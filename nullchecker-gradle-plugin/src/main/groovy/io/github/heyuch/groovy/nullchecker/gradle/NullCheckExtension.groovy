@@ -2,6 +2,7 @@ package io.github.heyuch.groovy.nullchecker.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 
 /**
@@ -114,6 +115,17 @@ class NullCheckExtension {
     final Property<Boolean> containerLookups
 
     /**
+     * Contracts declared by the project, keyed by {@code declaringClass#method} and written
+     * in the same syntax as JetBrains' {@code @Contract}, e.g.
+     * {@code ['java.util.Map#get': '-> !null']}.
+     *
+     * <p>Matched against the declaring class and its supertypes. These win over annotations
+     * and over the built-in table, so a library whose contract is wrong can be corrected
+     * without changing the library.
+     */
+    final MapProperty<String, String> contracts
+
+    /**
      * The checker version to use.
      *
      * <p>Resolved from the project's repositories, so {@code mavenLocal()} must be among
@@ -135,6 +147,7 @@ class NullCheckExtension {
         this.guardNotNullWhenFalse = project.objects.listProperty(String)
         this.neverReturns = project.objects.listProperty(String)
         this.containerLookups = project.objects.property(Boolean)
+        this.contracts = project.objects.mapProperty(String, String)
         this.toolVersion = project.objects.property(String)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
@@ -151,6 +164,7 @@ class NullCheckExtension {
         guardNotNullWhenFalse.convention([])
         neverReturns.convention([])
         containerLookups.convention(true)
+        contracts.convention([:])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
     }
 }

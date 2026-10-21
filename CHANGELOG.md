@@ -3,6 +3,29 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.5.0]
+
+### Added
+
+- **A single contract registry.** `@Contract`, `@EnsuresNonNullIf`, `@EnsuresNonNull`,
+  `@NoReturn`, the `neverReturns` / `guardNotNullWhenTrue/False` configuration and the
+  built-in table for `Map.get`, `find`, `max`, `Objects.requireNonNull` and friends now resolve
+  to the same model and behave identically, instead of being five separate implementation
+  paths.
+- **`contracts` configuration** (plugin) and **`--contract`** (CLI) declare a contract for any
+  method by `declaringClass#method`, in JetBrains' syntax. Configuration wins over annotations
+  and built-ins, so a library whose contract is wrong or missing can be corrected without
+  changing the library.
+- The registry also recognises `_, !null -> !null` (the result is nullable exactly when that
+  argument is, as in `getOrDefault`) and `-> !null` / `-> null` (a constant result nullness),
+  which the annotation reader did not support before.
+
+### Changed
+
+- The resolver caches per resolved `MethodNode`, including the negative answer, so contract
+  lookup is a map hit rather than a repeated hierarchy walk. `containerLookups` now gates only
+  the built-in entries; an explicitly declared contract still applies when the family is off.
+
 ## [0.4.0]
 
 ### Added

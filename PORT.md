@@ -216,6 +216,29 @@ non-null**: with a nullable value type a present key may hold an explicit null. 
 switchable (`containerLookups = false` / `--no-container-lookups`) for a project that is not
 ready for the new findings.
 
+### 2.12 One contract registry (3)
+
+Contract logic used to live in five places: `@Contract` was parsed three times, `@EnsuresNonNull*`
+twice, the guard lists and `neverReturns` each had their own handling, and the Map/collection
+result rules were hard-coded. Adding a fourth source meant editing all of them, and the
+sources could disagree about the same call.
+
+This port has one `Contract` model -- result nullness, which arguments are narrowed in which
+branch, arguments narrowed after a normal return, and whether the call returns -- and one
+resolver with three sources in order of precedence: configuration, annotations, built-ins.
+Configuration first is deliberate: a project must be able to correct a library's wrong
+annotation without changing the library. The resolver caches per resolved `MethodNode`,
+including the negative answer, so the second call is a map hit rather than a hierarchy walk.
+
+The built-in table says what the operation promises, not what the element type says:
+`Map.get` misses, `find` may find nothing, `max` cannot answer an empty collection. The
+`containerLookups` switch gates the built-in entries only; an explicitly declared contract
+still applies when the family is off.
+
+Two mechanisms stay outside the registry because they are not per-method contracts:
+`containsKey` narrowing a later lookup is a fact about two calls, and element types
+(`List<@Nullable E>`) are types. Both keep their existing handling.
+
 ## 3. Known capability loss
 
 ### 3.1 Type-inference-driven checks are weaker

@@ -226,6 +226,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Whether container lookups that can miss are nullable. */
     private static final String CONTAINER_LOOKUPS_PROPERTY = 'groovy.nullchecker.containerlookups'
 
+    /** Project-declared contracts, as {@code declaringClass#method=contract;...}. */
+    private static final String CONTRACTS_PROPERTY = 'groovy.nullchecker.contracts'
+
+    private static Map<String, Contract> PORT_CONFIG_CONTRACTS = [:]
+
+    private static final Map<MethodNode, Contract> PORT_CONTRACT_CACHE = new IdentityHashMap<>()
+
     private static boolean PORT_CONTAINER_LOOKUPS = true
 
     /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
@@ -336,6 +343,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     @Override
     Object run() {
         boolean strict = isStrictEnabled()
+        PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
+        PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
+        PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
+        PORT_CONTAINER_LOOKUPS = !'false'.equalsIgnoreCase(
+                System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
         def unit = context?.compilationUnit
         if (unit != null && !unit.is(PORT_CACHE_UNIT)) {
             PORT_CACHE_UNIT = unit
@@ -345,14 +357,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             PORT_CLASS_LOADERS = null
             PORT_DECL_ANNO_NAMES.clear()
             PORT_TYPE_ANNO_NAMES.clear()
+            PORT_CONTRACT_CACHE.clear()
+            PORT_CONFIG_CONTRACTS = buildConfigContracts()
         } else if (unit == null) {
             PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+            PORT_CONTRACT_CACHE.clear()
+            PORT_CONFIG_CONTRACTS = buildConfigContracts()
         }
-        PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
-        PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
-        PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
-        PORT_CONTAINER_LOOKUPS = !'false'.equalsIgnoreCase(
-                System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
         // run() would leave the counters describing only the last class seen (observed
@@ -1009,9 +1020,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 } else if (condition instanceof MethodCallExpression || condition instanceof StaticMethodCallExpression) {
                     def target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                     if (target instanceof MethodNode) {
-                        applyObjectGuard(target, condition, facts)
                         applyContractGuard(target, condition, facts)
-                        applyConfiguredGuard(target, condition, facts)
                         applyContainsKeyGuard(condition, facts)
                     }
                 }
@@ -1019,59 +1028,27 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             }
 
             /**
-             * Recognises {@code Objects.nonNull} / {@code Objects.isNull} by their fully
-             * qualified owner, so a same-named method elsewhere is not mistaken for them.
-             */
-            private void applyObjectGuard(MethodNode target, Expression condition, GuardFacts facts) {
-                if (target.declaringClass?.name != 'java.util.Objects') return
-                if (!(target.name in ['nonNull', 'isNull'])) return
-                def args = condition.arguments
-                if (!(args instanceof TupleExpression) || args.expressions.size() != 1) return
-                def var = guardableVariable(args.getExpression(0))
-                if (var == null) return
-                (target.name == 'nonNull' ? facts.whenTrue : facts.whenFalse).add(var)
-            }
-
-            /**
-             * Applies a contract declared on the method itself: {@code @EnsuresNonNullIf}.
+             * Applies a contract to a condition: the arguments it proves non-null in one of the
+             * two branches.
              *
-             * <p>{@code expression} names the arguments the contract covers, as {@code #1},
-             * {@code #2}; {@code result} says which outcome guarantees them. The annotation is
-             * the natural home for a project's own {@code isNullOrEmpty}, because the contract
-             * travels with the method instead of being re-declared by every caller.
-             *
-             * <p>References this version cannot interpret (a field path, an out-of-range
-             * argument) are ignored rather than guessed at: guessing would narrow a value that
-             * can still be null.
+             * <p>{@code @EnsuresNonNullIf}, JetBrains' {@code @Contract("null -> true|false")},
+             * the project's {@code guardNotNullWhenTrue/False} lists and the built-in
+             * {@code Objects.nonNull/isNull} all resolve to the same model, so they narrow
+             * identically. References the contract cannot interpret are ignored rather than
+             * guessed at.
              */
             private void applyContractGuard(MethodNode target, Expression condition, GuardFacts facts) {
                 def callArgs = condition.arguments
                 if (!(callArgs instanceof TupleExpression) || !callArgs.expressions) return
-                AnnotationNode contract = findAnnotation(target, 'EnsuresNonNullIf')
-                if (contract != null) {
-                    Boolean expected = booleanMember(contract, 'result')
-                    if (expected != null) {
-                        for (String reference : stringMembers(contract, 'expression')) {
-                            int index = argumentIndex(reference)
-                            if (index < 0 || index >= callArgs.expressions.size()) continue
-                            addArgumentFact(callArgs.getExpression(index), expected, facts)
-                        }
-                    }
+                Contract contract = contractFor(condition, target)
+                if (contract == null) return
+                for (int index : contract.nonNullWhenTrue) {
+                    if (index >= callArgs.expressions.size()) continue
+                    addArgumentFact(callArgs.getExpression(index), true, facts)
                 }
-                // JetBrains' @Contract spells the same idea as text: "null -> false" means a
-                // null argument returns false, so a true result proves it was not null.
-                AnnotationNode jetbrains = findAnnotation(target, 'Contract')
-                if (jetbrains != null) {
-                    String spec = stringMember(jetbrains, 'value')
-                    for (ContractClause clause : parseContract(spec)) {
-                        if (clause.result != 'true' && clause.result != 'false') continue
-                        boolean whenTrue = clause.result == 'false'
-                        for (int i = 0; i < clause.arguments.size(); i++) {
-                            if (clause.arguments[i] != 'null') continue
-                            if (i >= callArgs.expressions.size()) continue
-                            addArgumentFact(callArgs.getExpression(i), whenTrue, facts)
-                        }
-                    }
+                for (int index : contract.nonNullWhenFalse) {
+                    if (index >= callArgs.expressions.size()) continue
+                    addArgumentFact(callArgs.getExpression(index), false, facts)
                 }
             }
 
@@ -1083,30 +1060,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 } else {
                     facts.whenFalse.add(var)
                 }
-            }
-
-            /**
-             * Applies a guard the caller declared, matched by {@code declaringClass#method}.
-             *
-             * <p>The polarity cannot be inferred from the name, so it is declared: a method
-             * in the "when true" list asserts its first argument is non-null when it returns
-             * true ({@code isNotEmpty}), one in the "when false" list when it returns false
-             * ({@code isNullOrEmpty}). Getting the polarity wrong would silence a real
-             * finding rather than add noise, which is why the lists are separate instead of
-             * a suffix on one list.
-             */
-            private void applyConfiguredGuard(MethodNode target, Expression condition, GuardFacts facts) {
-                if (PORT_GUARDS_TRUE.isEmpty() && PORT_GUARDS_FALSE.isEmpty()) return
-                String key = target.declaringClass?.name + '#' + target.name
-                boolean whenTrue = PORT_GUARDS_TRUE.contains(key)
-                boolean whenFalse = PORT_GUARDS_FALSE.contains(key)
-                if (!whenTrue && !whenFalse) return
-                def args = condition.arguments
-                if (!(args instanceof TupleExpression) || !args.expressions) return
-                def var = guardableVariable(args.getExpression(0))
-                if (var == null) return
-                if (whenTrue) facts.whenTrue.add(var)
-                if (whenFalse) facts.whenFalse.add(var)
             }
 
             private Variable guardableVariable(Expression expr) {
@@ -1188,29 +1141,31 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
              * than being folded into the type argument's default.
              */
             private boolean isNullableContainerLookup(Expression expression) {
-                if (!PORT_CONTAINER_LOOKUPS) return false
                 if (!(expression instanceof MethodCallExpression)) return false
                 MethodCallExpression call = (MethodCallExpression) expression
-                ClassNode receiver = typeOfExpression(call.objectExpression)
-                String name = call.methodAsString
+                def target = call.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
+                if (!(target instanceof MethodNode)) return false
+                Contract contract = contractFor(call, (MethodNode) target)
+                if (contract == null) return false
+                // The switch turns off the built-in family; an explicit contract still applies.
+                if (contract.builtIn && !PORT_CONTAINER_LOOKUPS) return false
+                if (contract.result == ResultNullness.NON_NULL) return false
                 List<Expression> args = call.arguments instanceof TupleExpression
                         ? ((TupleExpression) call.arguments).expressions
                         : Collections.emptyList()
-                if (isMapLike(receiver)) {
-                    if (name == 'getOrDefault') {
-                        return args.size() == 2 && isKnownNullable(args.get(1))
-                    }
-                    if (name in MAP_LOOKUP_METHODS) {
-                        if (args.size() == 1 && hasNonNullMapValue(receiver)) {
-                            return !isLookupGuarded(call.objectExpression, args.get(0))
-                        }
-                        return true
+                if (contract.result == ResultNullness.NULLABLE_IF_ARG_NULLABLE) {
+                    int index = contract.resultArgument
+                    return index >= 0 && index < args.size() && isKnownNullable(args.get(index))
+                }
+                if (contract.result == ResultNullness.NULLABLE && contract.presence != null) {
+                    int index = contract.presence.argument
+                    ClassNode receiver = typeOfExpression(call.objectExpression)
+                    if (index < args.size() && hasNonNullMapValue(receiver)
+                            && isLookupGuarded(call.objectExpression, args.get(index))) {
+                        return false
                     }
                 }
-                if (name in PARTIAL_COLLECTION_METHODS && isCollectionLike(receiver)) {
-                    return true
-                }
-                false
+                true
             }
 
             private boolean isNullableMapSubscript(Expression expression) {
@@ -1241,11 +1196,9 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 if (!(target instanceof MethodNode) || !(args instanceof TupleExpression) || !args.expressions) {
                     return
                 }
-                if (target.name in NONNULL_VALIDATOR_METHODS) {
-                    narrowToNonNull(args.getExpression(0))
-                } else if (target.name == 'assertNotNull') {
-                    // JUnit 4 takes (message, actual) while JUnit 5 and TestNG take (actual, message),
-                    // so narrow the arguments matching non-message parameters rather than assuming a position
+                // JUnit 4 takes (message, actual) while JUnit 5 and TestNG take (actual, message),
+                // so narrow the arguments matching non-message parameters rather than assuming a position
+                if (target.name == 'assertNotNull') {
                     def params = target.parameters
                     int limit = Math.min(args.expressions.size(), params.length)
                     for (int i = 0; i < limit; i++) {
@@ -1253,31 +1206,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                             narrowToNonNull(args.getExpression(i))
                         }
                     }
+                    return
                 }
-                // A declared postcondition: after the call returns normally the named
-                // arguments are non-null. Same effect as requireNonNull, stated on the method
-                // instead of hard-coded here.
-                AnnotationNode postcondition = findAnnotation(target, 'EnsuresNonNull')
-                if (postcondition != null) {
-                    for (String reference : stringMembers(postcondition, 'expression')) {
-                        int index = argumentIndex(reference)
-                        if (index < 0 || index >= args.expressions.size()) continue
-                        narrowToNonNull(args.getExpression(index))
-                    }
-                }
-                // JetBrains' @Contract("null -> fail"): the call throws for a null argument, so
-                // reaching the next statement proves every argument in that position is not null.
-                AnnotationNode contract = findAnnotation(target, 'Contract')
-                if (contract != null) {
-                    String spec = stringMember(contract, 'value')
-                    for (ContractClause clause : parseContract(spec)) {
-                        if (clause.result != 'fail') continue
-                        for (int i = 0; i < clause.arguments.size() && i < args.expressions.size(); i++) {
-                            if (clause.arguments[i] == 'null') {
-                                narrowToNonNull(args.getExpression(i))
-                            }
-                        }
-                    }
+                Contract contract = contractFor(call, (MethodNode) target)
+                if (contract == null) return
+                for (int index : contract.nonNullAfterReturn) {
+                    if (index >= args.expressions.size()) continue
+                    narrowToNonNull(args.getExpression(index))
                 }
             }
 
@@ -2086,25 +2021,285 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * {@code "null -> fail"} is not enough: the call still returns for other arguments.
      */
     private static boolean isNoReturnCall(Expression expression) {
-        if (!(expression instanceof MethodCallExpression) && !(expression instanceof StaticMethodCallExpression)) {
-            return false
-        }
+        if (expression == null) return false
         def target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
         if (!(target instanceof MethodNode)) return false
-        MethodNode method = (MethodNode) target
-        String key = method.declaringClass?.name + '#' + method.name
-        if (PORT_NEVER_RETURNS.contains(key)) return true
+        Contract contract = contractFor(expression, (MethodNode) target)
+        contract != null && contract.neverReturns
+    }
+
+    /** How a call's result relates to nullness. */
+    private static enum ResultNullness {
+        /** Never null by this contract. */
+        NON_NULL,
+        /** Null when the operation has no result. */
+        NULLABLE,
+        /** The value of the given argument. */
+        PARAM,
+        /** Nullable exactly when the given argument is nullable. */
+        NULLABLE_IF_ARG_NULLABLE
+    }
+
+    /** A lookup that is non-null only when the same key is known to be present. */
+    private static class PresenceRule {
+        int argument
+    }
+
+    /**
+     * What a call promises: its result, which arguments it narrows, and whether it returns.
+     *
+     * <p>One model for every source. Annotations ({@code @Contract}, {@code @EnsuresNonNullIf},
+     * {@code @EnsuresNonNull}, {@code @NoReturn}), the project's configuration, and the
+     * built-in table for library methods all resolve to this, in that order of precedence
+     * (configuration first, then annotations, then built-ins). Keeping one model is what makes
+     * a configured contract and an annotated one behave identically.
+     */
+    private static class Contract {
+        /** Marks a cached "no source had a contract" answer, distinct from "not computed yet". */
+        boolean unresolved
+
+        ResultNullness result = ResultNullness.NON_NULL
+
+        int resultArgument = -1
+
+        boolean neverReturns
+
+        Set<Integer> nonNullWhenTrue = new LinkedHashSet<Integer>()
+
+        Set<Integer> nonNullWhenFalse = new LinkedHashSet<Integer>()
+
+        Set<Integer> nonNullAfterReturn = new LinkedHashSet<Integer>()
+
+        PresenceRule presence
+
+        /** True when the contract came from the built-in table, so the family switch applies. */
+        boolean builtIn
+
+        static Contract absent() {
+            new Contract(unresolved: true)
+        }
+    }
+
+    private static Contract neverContract() {
+        new Contract(neverReturns: true)
+    }
+
+    private static Contract factContract(boolean whenTrue) {
+        Contract contract = new Contract()
+        (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(0)
+        contract
+    }
+
+    private static Contract afterReturnContract(int index) {
+        Contract contract = new Contract()
+        contract.nonNullAfterReturn.add(index)
+        contract
+    }
+
+    /**
+     * Parses a JetBrains contract string into the model.
+     *
+     * <p>Recognised shapes: {@code -> fail} and {@code null -> fail} (narrowing), {@code null ->
+     * true|false} (branch facts), and {@code _, !null -> !null} (the result is nullable exactly
+     * when that argument is). Anything else returns {@code null} so a lower-priority source --
+     * or the built-in table -- can answer instead of an empty contract masking it.
+     */
+    private static Contract contractFromJetBrains(String specification) {
+        if (specification == null) return null
+        Contract contract = new Contract()
+        boolean recognised = false
+        for (ContractClause clause : parseContract(specification)) {
+            if (clause.result == 'fail') {
+                if (clause.arguments.every { String argument -> argument == '_' || argument.isEmpty() }) {
+                    contract.neverReturns = true
+                    recognised = true
+                } else {
+                    for (int i = 0; i < clause.arguments.size(); i++) {
+                        if (clause.arguments[i] == 'null') {
+                            contract.nonNullAfterReturn.add(i)
+                            recognised = true
+                        }
+                    }
+                }
+            } else if (clause.result == 'true' || clause.result == 'false') {
+                boolean whenTrue = clause.result == 'false'
+                for (int i = 0; i < clause.arguments.size(); i++) {
+                    if (clause.arguments[i] != 'null') continue
+                    (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(i)
+                    recognised = true
+                }
+            } else if (clause.result == '!null') {
+                List<Integer> nonNullArguments = new ArrayList<Integer>()
+                for (int i = 0; i < clause.arguments.size(); i++) {
+                    if (clause.arguments[i] == '!null') nonNullArguments.add(i)
+                }
+                if (nonNullArguments.size() == 1) {
+                    contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
+                    contract.resultArgument = nonNullArguments.get(0)
+                    recognised = true
+                } else if (nonNullArguments.isEmpty()) {
+                    contract.result = ResultNullness.NON_NULL
+                    recognised = true
+                }
+            } else if (clause.result == 'null'
+                    && clause.arguments.every { String argument -> argument == '_' || argument.isEmpty() }) {
+                contract.result = ResultNullness.NULLABLE
+                recognised = true
+            }
+        }
+        recognised ? contract : null
+    }
+
+    /** Contracts declared by annotations on the method itself. */
+    private static Contract annotationContract(MethodNode target) {
+        AnnotationNode jetbrains = findAnnotation(target, 'Contract')
+        if (jetbrains != null) {
+            Contract parsed = contractFromJetBrains(stringMember(jetbrains, 'value'))
+            if (parsed != null) return parsed
+        }
+        AnnotationNode ensuresIf = findAnnotation(target, 'EnsuresNonNullIf')
+        if (ensuresIf != null) {
+            Boolean expected = booleanMember(ensuresIf, 'result')
+            if (expected != null) {
+                Contract contract = new Contract()
+                for (String reference : stringMembers(ensuresIf, 'expression')) {
+                    int index = argumentIndex(reference)
+                    if (index < 0) continue
+                    (expected ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(index)
+                }
+                if (contract.nonNullWhenTrue || contract.nonNullWhenFalse) return contract
+            }
+        }
+        AnnotationNode ensures = findAnnotation(target, 'EnsuresNonNull')
+        if (ensures != null) {
+            Contract contract = new Contract()
+            for (String reference : stringMembers(ensures, 'expression')) {
+                int index = argumentIndex(reference)
+                if (index >= 0) contract.nonNullAfterReturn.add(index)
+            }
+            if (contract.nonNullAfterReturn) return contract
+        }
         for (String annotation : NO_RETURN_ANNOS) {
-            if (findAnnotation(method, annotation) != null) return true
+            if (findAnnotation(target, annotation) != null) return neverContract()
         }
-        AnnotationNode contract = findAnnotation(method, 'Contract')
-        if (contract == null) return false
-        String spec = stringMember(contract, 'value')
-        for (ContractClause clause : parseContract(spec)) {
-            if (clause.result != 'fail') continue
-            if (clause.arguments.every { it == '_' || it.isEmpty() }) return true
+        null
+    }
+
+    /**
+     * Built-in contracts for library methods whose result nullness is not in their signature.
+     *
+     * <p>These describe the operation, not the element type: {@code Map.get} misses, {@code
+     * find} may find nothing, {@code max} cannot answer an empty collection. The table is the
+     * last source, so a project can override any entry through {@code contracts}.
+     */
+    private static Contract builtInContract(Expression callExpression, MethodNode target) {
+        String owner = target.declaringClass?.name
+        String name = target.name
+        if (owner == 'java.util.Objects') {
+            if (name == 'nonNull') return factContract(true)
+            if (name == 'isNull') return factContract(false)
         }
-        false
+        if (name in NONNULL_VALIDATOR_METHODS) {
+            return afterReturnContract(0)
+        }
+        if (!(callExpression instanceof MethodCallExpression)) return null
+        MethodCallExpression call = (MethodCallExpression) callExpression
+        ClassNode receiver = typeOfExpression(call.objectExpression)
+        if (isMapLike(receiver)) {
+            if (name == 'getOrDefault') {
+                Contract contract = new Contract()
+                contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
+                contract.resultArgument = 1
+                contract.builtIn = true
+                return contract
+            }
+            if (name in MAP_LOOKUP_METHODS) {
+                Contract contract = new Contract()
+                contract.result = ResultNullness.NULLABLE
+                contract.builtIn = true
+                if (name in ['get', 'getAt', 'remove']) {
+                    contract.presence = new PresenceRule(argument: 0)
+                }
+                return contract
+            }
+        }
+        if (name in PARTIAL_COLLECTION_METHODS && isCollectionLike(receiver)) {
+            Contract contract = new Contract()
+            contract.result = ResultNullness.NULLABLE
+            contract.builtIn = true
+            return contract
+        }
+        null
+    }
+
+    /** Resolves a call's contract: configuration, then annotations, then built-ins. */
+    private static Contract contractFor(Expression callExpression, MethodNode target) {
+        if (target == null) return null
+        Contract cached = PORT_CONTRACT_CACHE.get(target)
+        if (cached != null) {
+            return cached.unresolved ? null : cached
+        }
+        Contract resolved = configuredContract(target)
+        if (resolved == null) resolved = annotationContract(target)
+        if (resolved == null) resolved = builtInContract(callExpression, target)
+        PORT_CONTRACT_CACHE.put(target, resolved ?: Contract.absent())
+        resolved
+    }
+
+    /**
+     * Contracts declared by the project, matched by {@code declaringClass#method} and by the
+     * same key on any superclass or interface.
+     */
+    private static Contract configuredContract(MethodNode target) {
+        if (PORT_CONFIG_CONTRACTS.isEmpty()) return null
+        ClassNode owner = target.declaringClass
+        if (owner == null) return null
+        Set<String> seen = new HashSet<String>()
+        Deque<ClassNode> pending = new ArrayDeque<ClassNode>()
+        pending.add(owner)
+        while (!pending.isEmpty()) {
+            ClassNode current = pending.poll()
+            if (current == null || !seen.add(current.name)) continue
+            Contract contract = PORT_CONFIG_CONTRACTS.get(current.name + '#' + target.name)
+            if (contract != null) return contract
+            if (current.superClass != null) pending.add(current.superClass)
+            current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
+        }
+        null
+    }
+
+    private static Map<String, Contract> buildConfigContracts() {
+        Map<String, Contract> contracts = new LinkedHashMap<String, Contract>()
+        for (String key : PORT_GUARDS_TRUE) {
+            contracts.put(key, factContract(true))
+        }
+        for (String key : PORT_GUARDS_FALSE) {
+            contracts.put(key, factContract(false))
+        }
+        for (String key : PORT_NEVER_RETURNS) {
+            contracts.put(key, neverContract())
+        }
+        for (Map.Entry<String, String> entry : readContractEntries().entrySet()) {
+            Contract contract = contractFromJetBrains(entry.value)
+            if (contract != null) {
+                contracts.put(entry.key, contract)
+            }
+        }
+        contracts
+    }
+
+    private static Map<String, String> readContractEntries() {
+        Map<String, String> entries = new LinkedHashMap<String, String>()
+        String raw = System.getProperty(CONTRACTS_PROPERTY)
+        if (raw == null) return entries
+        for (String part : raw.split(';')) {
+            String entry = part.trim()
+            if (entry.isEmpty()) continue
+            int separator = entry.indexOf('=')
+            if (separator <= 0) continue
+            entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
+        }
+        entries
     }
 
     /** Key and value types of a map being iterated. */
