@@ -1,0 +1,5 @@
+<ruleset xmlns="http://codenarc.org/ruleset/1.0">
+    <!-- Tests are Spock specifications: def methods and implicit returns are the framework's
+         idiom. Keep the correctness rules, skip the main-source style rules. -->
+    <ruleset-ref path="rulesets/basic.xml"/>
+</ruleset>

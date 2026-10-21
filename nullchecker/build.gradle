@@ -85,6 +85,12 @@ tasks.withType(org.gradle.api.plugins.quality.CodeNarc).configureEach {
     }
 }
 
+// Spock tests use def methods and implicit returns by convention; only the correctness rules
+// apply to them. The main source set uses config/codenarc/codenarc.xml.
+tasks.named('codenarcTest') {
+    configFile = rootProject.file('config/codenarc/codenarc-test.xml')
+}
+
 // 参考实现的 classpath 必须【精确】到 groovy 6 及其配套模块：一旦混进本项目产物或
 // 另一份 groovy，同一个类加载器里就会出现两份 groovy.lang/AST，症状是诡异的
 // NoClassDefFoundError。这里按「大版本 6」筛，避免把 Groovy 4 拖进来。
