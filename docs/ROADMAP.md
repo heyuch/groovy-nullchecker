@@ -28,7 +28,7 @@ is only reconsidered after the method-local work is complete and a real project 
 - Phase 0 is deliberately a snapshot over the existing sets, not yet the per-variable
   `Nullness` map described in NULLNESS-FLOW.
 - `dualRun` is informational; upstream parity is not a release gate.
-- The latest published release is `0.5.0`.
+- The latest published release is `0.6.0`.
 
 ## Order
 
@@ -201,19 +201,21 @@ Status: pending, low priority.
 
 #### R1. Version and release
 
-Status: next.
+Status: done (0.6.0 released).
 
-- Choose the next version (`0.6.0` is the likely minor bump for the flow work).
-- Update `gradle.properties`; `spotlessApply` updates the installation examples.
-- Run `clean check`, `dualRun`, `dist`, and the release workflow.
-- After publication, bump the dogfood plugin and `nullcheck.toolVersion` to the new release.
+- `gradle.properties` is `0.6.0`; the tag and GitHub Release are `v0.6.0`.
+- `clean check`, `dualRun`, `dist`, the release workflow and the plugin functional suite passed.
+- GitHub Release assets and the Gradle Plugin Portal publication are live.
+- Maven Central accepted the deployment; first-release propagation may still show 404 until the
+  portal deployment finishes. Bump the dogfood plugin/`toolVersion` once `0.6.0` is resolvable
+  from Central; this is a post-release follow-up, not an open roadmap item.
 
 #### R2. Documentation
 
-Status: with R1.
+Status: done.
 
 - README/README.zh-CN, CHANGELOG, PORT and NULLNESS-FLOW reflect the released behavior.
-- Keep historical CHANGELOG/BACKLOG versions untouched.
+- Historical CHANGELOG/BACKLOG versions remain untouched.
 
 ## Tracking
 
