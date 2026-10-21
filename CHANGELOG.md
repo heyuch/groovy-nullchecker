@@ -45,11 +45,12 @@ versions follow [Semantic Versioning](https://semver.org/).
   `package-info.java` files are `package-info.groovy` next to the sources they apply to, instead
   of sitting in `src/main/java` while governing `src/main/groovy`. `src/main/java` no longer
   contains sources; the `javadoc` jar is empty but still produced for Central.
-- **CodeNarc covers the mechanical parts of the coding baseline.** Trailing whitespace, tabs,
-  consecutive blank lines, missing blank lines after package/imports, unused imports/variables/
-  private members, unnecessary semicolons, separator-comment banners and type suffixes in field
-  and variable names are now enforced. Size/complexity rules are intentionally left for a
-  separate pass because the visitor is deliberately large.
+- **CodeNarc enables every rule that fits the project.** A trial of all 405 bundled rules found
+  724 violations across 45 rules; 42 rules are disabled with reasons recorded in
+  `docs/CODENARC.md` (conflicting style, intentional CLI/best-effort behaviour, and size/
+  complexity pending a threshold decision). The committed ruleset enables 363 rules and reports
+  zero violations. Two findings were fixed: the `current`/`CURRENT` name clash and an unnecessary
+  last-element expression.
 - **Static analysis runs in `check`.** CodeNarc enforces explicit types, explicit returns and
   braces on main sources (tests keep the correctness rules only), and SpotBugs analyses
   production bytecode. The SpotBugs filter records the patterns that do not describe Groovy

@@ -78,7 +78,9 @@ dependencies {
 
 // The baseline is clean; a new violation fails the build.
 codenarc {
-    ignoreFailures = false
+    configFile = rootProject.file(project.findProperty('codenarcAll')
+            ? 'config/codenarc/all.xml' : 'config/codenarc/codenarc.xml')
+    ignoreFailures = project.findProperty('codenarcAll') != null
 }
 
 // Trial run: report every bug pattern first, then narrow the filter for Groovy bytecode.

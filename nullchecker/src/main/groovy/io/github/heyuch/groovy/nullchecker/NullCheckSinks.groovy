@@ -27,7 +27,7 @@ class NullCheckSinks {
         CURRENT.remove()
     }
 
-    static @Nullable NullCheckSink current() {
+    static @Nullable NullCheckSink currentSink() {
         NullCheckSink sink = CURRENT.get()
         if (sink != null) {
             return sink

@@ -315,7 +315,7 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     private static @Nullable ClosureHint currentHint(List<ClosureHint> stack) {
-        return stack.isEmpty() ? null : stack.get(stack.size() - 1)
+        return stack.isEmpty() ? null : stack.last()
     }
 
     /** Whether a variable is an element of a collection whose element type is nullable. */

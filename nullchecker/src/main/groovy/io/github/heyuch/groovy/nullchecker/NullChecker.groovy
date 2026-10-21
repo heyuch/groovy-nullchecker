@@ -271,7 +271,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * the DSL, so it is reached dynamically; this shim is the one place that says so.
      */
     private void reportTypeError(CharSequence message, ASTNode node) {
-        NullCheckSink sink = NullCheckSinks.current()
+        NullCheckSink sink = NullCheckSinks.currentSink()
         if (sink != null) {
             String file = getContext().source.name
             sink.report(NullCheckFinding.of(file, node.lineNumber, message.toString()))
