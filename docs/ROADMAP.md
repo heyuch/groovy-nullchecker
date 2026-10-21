@@ -201,7 +201,7 @@ Status: pending, low priority.
 
 #### R1. Version and release
 
-Status: after flow work (and optionally P1/P2/C1, depending on scope).
+Status: next.
 
 - Choose the next version (`0.6.0` is the likely minor bump for the flow work).
 - Update `gradle.properties`; `spotlessApply` updates the installation examples.

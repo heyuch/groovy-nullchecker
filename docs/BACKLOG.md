@@ -19,6 +19,12 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### SpotBugs analyses test bytecode
+
+`spotbugsTest` is enabled in both modules. The shared filter removes only the Spock artefact
+(`UPM_UNCALLED_PRIVATE_METHOD` on `*Spec` classes); the rest of the test bytecode is now
+analysed.
+
 ### Finding classification has one owner
 
 `NullCheckCategories` owns the message-to-category table and labels. `NullCheckFinding` and the
@@ -66,15 +72,6 @@ nullable). `any`/`every` are boolean, and `find`/`findResult` stay nullable beca
 can still miss. N24 pins those semantics.
 
 ## Gradle plugin: compile mode
-
-### 7. SpotBugs does not analyse test bytecode
-
-`spotbugsTest` is disabled because Spock's dynamic dispatch makes `UPM_UNCALLED_PRIVATE_METHOD`
-noisy. Tests are covered by CodeNarc's basic rules and the corpus/functional gates.
-
-Direction: a test-specific filter that keeps the meaningful patterns, if it becomes valuable.
-
-Priority: low.
 
 ## Real-world trial (anonymized)
 

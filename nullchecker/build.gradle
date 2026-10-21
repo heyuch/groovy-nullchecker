@@ -330,11 +330,10 @@ signing {
 
 
 
-// Spock specifications are dynamic Groovy; patterns such as UPM report their private helpers
-// as unused because the calls are dispatched at runtime. Tests are covered by CodeNarc's basic
-// rules and by the corpus/functional gates; SpotBugs stays on production bytecode.
+// SpotBugs also analyses test bytecode. Spock's dynamic dispatch makes a few patterns noisy;
+// the filter in config/spotbugs/exclude.xml removes only those test-specific artefacts.
 tasks.named('spotbugsTest') {
-    enabled = false
+    enabled = true
 }
 
 // Dogfood: check this project with the last published checker. Bump toolVersion on release.

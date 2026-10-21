@@ -14,6 +14,10 @@
         <Class name="~io\.github\.heyuch\.groovy\.nullchecker\.gradle\..*"/>
         <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
     </Match>
+    <Match>
+        <Class name="~io\.github\.heyuch\.groovy\.nullchecker\..*Spec"/>
+        <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
+    </Match>
 
     <!-- Groovy closures and inner classes are compiler-generated. Serialization and
          representation rules describe hand-written Java objects, not these classes. -->
