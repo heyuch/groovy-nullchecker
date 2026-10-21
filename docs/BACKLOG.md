@@ -4,8 +4,8 @@ Improvements found while using the checker on real codebases. Reproductions are 
 keep only the shape that triggers the behaviour, not any project's code or names. Priority
 reflects impact on real projects, not implementation effort.
 
-> The method-local nullness flow design (current state, CFG plan, and rollout phases) is in
-> [NULLNESS-FLOW.md](NULLNESS-FLOW.md).
+> The method-local nullness flow design is in [NULLNESS-FLOW.md](NULLNESS-FLOW.md), and the
+> execution order for the remaining work is in [ROADMAP.md](ROADMAP.md).
 
 ## Completed in 0.5.0
 

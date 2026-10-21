@@ -1,6 +1,6 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 implemented (strict-only branch join); Phase 1/2 deferred until evidence
+- Status: Phase 0 implemented (strict-only branch join); Phase 1/2 tracked in [ROADMAP.md](ROADMAP.md)
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
 - Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
 
@@ -14,8 +14,8 @@
 
 - **Phase 0（`FlowState` + 分支 join）已批准为下一步实现。** 它修的是当前已知的
   分支顺序依赖和 early exit 误报/漏报，不需要完整 CFG。
-- **方法内 CFG（Phase 1）只在 Phase 0 之后仍有真实循环/try/switch 缺口时启动**；
-  Phase 2 的 access path/闭包暂不排期。
+- **Phase 1（方法内 CFG）和 Phase 2（access path/闭包）是剩余路线图**，按
+  [ROADMAP.md](ROADMAP.md) 的 F1-F7 顺序推进到方法内边界；不再等待额外证据。
 - **不适合做 k-CFA / CFA2 这类跨过程高阶分析。** 对 Groovy 的动态分派、闭包逃逸和
   编译器插件的延迟预算来说，复杂度和收益不成比例。
 - 当前实现已经是一个**手写的、结构化的流分析雏形**：`GuardFacts` 负责条件，
@@ -408,7 +408,7 @@ x.f.g          // 深度上限 2，最多到第二层
 
 ### Phase 0：`FlowState` + 分支 join（最高 ROI）
 
-**决定：批准实施；Phase 1/2 暂不排期。**
+**决定：Phase 0 已实施；Phase 1/2 按 [ROADMAP.md](ROADMAP.md) 继续推进。**
 
 目标：修掉第 4 节的顺序依赖和 early exit 问题，不先写完整 CFG。
 
@@ -440,8 +440,8 @@ x.f.g          // 深度上限 2，最多到第二层
 
 ### Phase 1：显式 CFG
 
-触发条件：Phase 0 之后，真实项目里至少出现 3 个独立的、无法用局部规则修复的循环 /
-`try` / `break`/`continue` / `switch` FP/FN 案例，每个都能加入 corpus，且性能预算明确。
+状态：已批准，按 ROADMAP F1-F4 推进；不再以“是否有 3 个案例”为启动条件。性能和
+corpus 验收仍然保留。
 
 任务：
 
@@ -464,7 +464,7 @@ x.f.g          // 深度上限 2，最多到第二层
 
 ### Phase 2：access path 与闭包
 
-触发条件：真实项目的主要漏报/误报来自字段/属性链或闭包捕获。
+状态：Phase 1 完成后按 ROADMAP F5-F6 推进；仍在方法内边界，不做别名/堆抽象。
 
 任务：
 
@@ -596,7 +596,7 @@ x.f.g          // 深度上限 2，最多到第二层
    单独 `UNKNOWN` 不报，`NULL ⊔ UNKNOWN` 报。该策略需要单元测试固定。
 2. `this.field` 的流事实在哪些方法调用后失效？保守做法是任何非纯调用都失效。
 3. 闭包逃逸时，捕获变量是标 `UNKNOWN` 还是 `MAYBE_NULL`？取决于误报容忍度。
-4. 是否把 Phase 0 直接做成最终方案，还是必须上完整 CFG？用真实项目数据决定。
+4. Phase 0 是否直接作为最终方案？已决定继续推进到方法内 CFG；实现顺序见 ROADMAP。
 5. 是否向上游提交？提交是可选动作，不再要求默认模式行为完全不变。
 6. access path 的深度上限和别名策略需要一组真实代码来校准。
 
