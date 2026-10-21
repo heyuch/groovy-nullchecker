@@ -168,18 +168,21 @@ build.
 
 #### C1. Java `Optional` / Stream unwrapping (#8)
 
-Status: next.
+Status: done.
 
-- `Optional.orElse`: nullable if its argument is nullable.
-- `orElseGet`: unknown/nullable; `orElseThrow` and `get`: non-null.
+- `Optional.orElse`: nullable if its argument is nullable, including a literal `null`.
+- `orElseGet`: conservatively nullable; `orElseThrow` and `get`: non-null.
 - `Stream.findFirst` / `findAny`: non-null `Optional`.
-- Add corpus fixtures, including a nullable `orElse(null)`.
+- `positive/optional_or_else.groovy` covers `orElse(null)`, `orElse('x')`, `get()` and
+  `Stream.findFirst().orElse(null)`.
+
+Acceptance: the Optional fixture passes in both annotation and strict modes.
 
 ### 4. Cleanup
 
 #### Q1. One finding-classification owner (#5)
 
-Status: pending.
+Status: next.
 
 - Move the fragment/category mapping into core; have the harness delegate.
 - Compile mode and CLI must classify the same message identically.

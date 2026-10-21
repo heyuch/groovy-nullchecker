@@ -19,6 +19,12 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### Java Optional/Stream unwrapping
+
+`Optional.orElse` now follows its argument (`orElse(null)` is nullable), `orElseGet` is
+conservatively nullable, and `orElseThrow` / `get` / `Stream.findFirst` / `findAny` are
+non-null. `positive/optional_or_else.groovy` covers both the nullable and non-null forms.
+
 ### Compile mode has a canary
 
 Compile mode registers a `nullcheckCanary` task that runs the checker CLI on a generated
@@ -73,18 +79,6 @@ noisy. Tests are covered by CodeNarc's basic rules and the corpus/functional gat
 Direction: a test-specific filter that keeps the meaningful patterns, if it becomes valuable.
 
 Priority: low.
-
-### 8. Java Stream/Optional unwrapping is not modelled
-
-`Stream.findFirst()` / `findAny()` return `Optional<T>`, which is itself non-null, but
-`orElse(null)`, `orElseGet { null }`, `map` and `flatMap` can produce a nullable value. The
-checker has no Optional built-ins, so unwrapping can hide a null.
-
-Direction: register `Optional.orElse` as nullable-if-argument-nullable (`orElseGet` unknown,
-`orElseThrow`/`get` non-null), and keep `findFirst`/`findAny` non-null. This is Java interop,
-not a Groovy collection guard.
-
-Priority: low/medium (only when the project uses Java streams).
 
 ## Real-world trial (anonymized)
 

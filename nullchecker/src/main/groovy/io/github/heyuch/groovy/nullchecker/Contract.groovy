@@ -61,6 +61,10 @@ class Contract {
         return contract
     }
 
+    static Contract nonNullResult() {
+        return new Contract()
+    }
+
     static Contract nullableResult() {
         Contract contract = new Contract()
         contract.result = ResultNullness.NULLABLE

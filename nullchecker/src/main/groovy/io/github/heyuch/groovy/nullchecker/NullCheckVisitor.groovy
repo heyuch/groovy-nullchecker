@@ -1233,7 +1233,8 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         if (contract.result == ResultNullness.NULLABLE_IF_ARG_NULLABLE) {
             int index = contract.resultArgument
-            return index >= 0 && index < args.size() && isKnownNullable(args.get(index))
+            return index >= 0 && index < args.size() &&
+                    (isNullExpr(args.get(index)) || isKnownNullable(args.get(index)))
         }
         PresenceRule presence = contract.presence
         if (contract.result == ResultNullness.NULLABLE && presence != null) {

@@ -81,6 +81,14 @@ class ContractRegistry {
             registerBuiltIn('java.util.Map#' + name, Contract.nullableResult())
         }
         registerBuiltIn('java.util.Map#getOrDefault', Contract.nullableIfArgNullable(1))
+        // Java Optional: orElse returns its argument when empty, so its nullness follows that
+        // argument; orElseGet/orElseThrow/get and Stream.findFirst/findAny are handled below.
+        registerBuiltIn('java.util.Optional#orElse', Contract.nullableIfArgNullable(0))
+        registerBuiltIn('java.util.Optional#orElseGet', Contract.nullableResult())
+        registerBuiltIn('java.util.Optional#orElseThrow', Contract.nonNullResult())
+        registerBuiltIn('java.util.Optional#get', Contract.nonNullResult())
+        registerBuiltIn('java.util.stream.Stream#findFirst', Contract.nonNullResult())
+        registerBuiltIn('java.util.stream.Stream#findAny', Contract.nonNullResult())
         registerBuiltIn('java.util.Objects#nonNull', Contract.whenTrue(0))
         registerBuiltIn('java.util.Objects#isNull', Contract.whenFalse(0))
         // Name-only: these throw for a null argument whichever library declares them.

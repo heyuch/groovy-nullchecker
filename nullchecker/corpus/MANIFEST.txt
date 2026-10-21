@@ -159,6 +159,12 @@ rule=R05
 strict=only
 expect=2
 note=closure may execute zero times; captured write joins with the pre-call state
+
+positive/optional_or_else.groovy
+rule=R05
+strict=any
+expect=2
+note=Optional.orElse(null) and Stream.findFirst().orElse(null) are nullable; get/orElse('x') are not
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06
