@@ -88,10 +88,12 @@ class NullnessFlowTransfer extends FlowTransfer {
             visitor.applyFacts(facts.whenTrue)
             visitor.applyNonEmptyFacts(facts.nonEmptyTrue)
             visitor.applyLookupFacts(facts.lookupsTrue)
+            visitor.applyPathFacts(facts.pathsTrue)
         } else if (edge.kind == CfgEdgeKind.FALSE) {
             visitor.applyFacts(facts.whenFalse)
             visitor.applyNonEmptyFacts(facts.nonEmptyFalse)
             visitor.applyLookupFacts(facts.lookupsFalse)
+            visitor.applyPathFacts(facts.pathsFalse)
         }
         return visitor.captureState()
     }

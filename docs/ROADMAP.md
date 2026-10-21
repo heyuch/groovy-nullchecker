@@ -98,18 +98,23 @@ Status: done.
 
 #### F5. Finite access paths
 
-Status: next.
+Status: done.
 
-- Add `x`, `this.f`, `x.f`, depth <= 2.
-- Kill rules on assignment, field write and unknown calls; conservative field invalidation.
-- State clearly that alias handling is not sound; do not grow a heap abstraction.
-- Keep element/`Map.Entry` type facts in the existing logic.
+- `AccessPath` tracks a root (`this`/variable) plus at most two field names; `this.f` and
+  `a.b.c` are in scope.
+- `FlowState` carries path facts; guards apply them on TRUE/FALSE edges and the lexical
+  annotation path uses the same facts.
+- Assignments update the path fact; method calls invalidate paths rooted at the receiver
+  (including `this`), so `reset(); this.f.length()` reports again.
+- Alias handling remains deliberately unsound and documented; no heap abstraction.
+- Element/`Map.Entry` facts stay in the existing logic.
 
-Acceptance: `if (this.f != null) { this.f.x() }`, `a.b` and post-call invalidation fixtures.
+Acceptance: `strict/flow_access_path.groovy` covers a guarded `this.value`, an unguarded read
+and a post-call read.
 
 #### F6. Closures
 
-Status: pending F4.
+Status: next.
 
 - Analyze each closure as its own CFG; capture variables as read/write summaries.
 - Known call sites (`each`, `collect`, direct `call()`) analyze once; after-state joins

@@ -36,7 +36,7 @@ class Sample {
 
         when:
         FlowAnalysis analysis = new FlowAnalysis(graph, transfer,
-                new FlowState([:], [] as Set, [] as Set))
+                new FlowState([:], [:], [] as Set, [] as Set))
         analysis.run()
 
         then:
@@ -75,7 +75,7 @@ class Sample {
             } else if (call.methodAsString == 'b') {
                 locals.put(marker, Nullness.NULL)
             }
-            return new FlowState(locals, input.nonEmptyVars, input.lookupGuards)
+            return new FlowState(locals, input.paths, input.nonEmptyVars, input.lookupGuards)
         }
 
         @Override

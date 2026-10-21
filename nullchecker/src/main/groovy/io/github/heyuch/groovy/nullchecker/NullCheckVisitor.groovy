@@ -140,6 +140,9 @@ class NullCheckVisitor extends CheckingVisitor {
     /** Collections currently known non-empty; used to refine max()/min(). */
     private final Set<Variable> nonEmptyVars = new HashSet<>()
 
+    /** Finite access paths known non-null, e.g. this.value. */
+    private final Map<String, Nullness> pathFacts = new LinkedHashMap<>()
+
     @Override
     void visitDeclarationExpression(DeclarationExpression decl) {
         super.visitDeclarationExpression(decl)
@@ -176,6 +179,20 @@ class NullCheckVisitor extends CheckingVisitor {
 
         Expression leftExpr = expr.leftExpression
         Expression rightExpr = expr.rightExpression
+
+        if (isAssignment(expr.operation.type) && leftExpr instanceof PropertyExpression) {
+            AccessPath path = AccessPath.from(leftExpr)
+            if (path != null) {
+                invalidatePath(path.text)
+                if (isNullExpr(rightExpr)) {
+                    pathFacts.put(path.text, Nullness.NULL)
+                } else if (flowSensitive && (canBeNull(rightExpr) || isKnownNullable(rightExpr))) {
+                    pathFacts.put(path.text, Nullness.MAYBE_NULL)
+                } else {
+                    pathFacts.put(path.text, Nullness.NON_NULL)
+                }
+            }
+        }
 
         if (isAssignment(expr.operation.type) && leftExpr instanceof VariableExpression) {
             Variable target = findTargetVariable((VariableExpression) leftExpr)
@@ -225,6 +242,17 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         if (!call.safe && !call.implicitThis) {
             checkDereference(call.objectExpression, call)
+        }
+        AccessPath receiverPath = AccessPath.from(call.objectExpression)
+        if (receiverPath != null) {
+            invalidatePaths(receiverPath.root)
+        } else if (call.objectExpression instanceof VariableExpression) {
+            VariableExpression receiverVariable = (VariableExpression) call.objectExpression
+            if (receiverVariable.isThisExpression()) {
+                invalidatePaths('this')
+            } else {
+                invalidatePaths(receiverVariable.name)
+            }
         }
         checkMethodArguments(call)
         applyCallNarrowing(call)
@@ -520,6 +548,7 @@ class NullCheckVisitor extends CheckingVisitor {
         restoreState(before)
         applyFacts(facts.whenTrue)
         applyNonEmptyFacts(facts.nonEmptyTrue)
+        applyPathFacts(facts.pathsTrue)
         applyLookupFacts(facts.lookupsTrue)
         ifElse.ifBlock.visit(this)
         boolean thenExits = cannotCompleteNormally(ifElse.ifBlock)
@@ -541,12 +570,16 @@ class NullCheckVisitor extends CheckingVisitor {
     private void visitIfElseLexical(IfStatement ifElse, GuardFacts facts) {
         withGuards(facts.whenTrue) {
             withNonEmptyGuards(facts.nonEmptyTrue) {
-                withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
+                withPathGuards(facts.pathsTrue) {
+                    withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
+                }
             }
         }
         withGuards(facts.whenFalse) {
             withNonEmptyGuards(facts.nonEmptyFalse) {
-                withLookupGuards(facts.lookupsFalse) { ifElse.elseBlock.visit(this) }
+                withPathGuards(facts.pathsFalse) {
+                    withLookupGuards(facts.lookupsFalse) { ifElse.elseBlock.visit(this) }
+                }
             }
         }
         // Early exit: if (x == null) return/throw → x is non-null after (and vice versa)
@@ -592,7 +625,9 @@ class NullCheckVisitor extends CheckingVisitor {
     private void visitWhileLoopLexical(WhileStatement loop, GuardFacts facts) {
         withGuards(facts.whenTrue) {
             withNonEmptyGuards(facts.nonEmptyTrue) {
-                withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
+                withPathGuards(facts.pathsTrue) {
+                    withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
+                }
             }
         }
     }
@@ -633,13 +668,17 @@ class NullCheckVisitor extends CheckingVisitor {
         if (!condition.is(expression.trueExpression) && !expression.booleanExpression.is(expression.trueExpression)) {
             withGuards(facts.whenTrue) {
                 withNonEmptyGuards(facts.nonEmptyTrue) {
-                    withLookupGuards(facts.lookupsTrue) { expression.trueExpression.visit(this) }
+                    withPathGuards(facts.pathsTrue) {
+                        withLookupGuards(facts.lookupsTrue) { expression.trueExpression.visit(this) }
+                    }
                 }
             }
         }
         withGuards(facts.whenFalse) {
             withNonEmptyGuards(facts.nonEmptyFalse) {
-                withLookupGuards(facts.lookupsFalse) { expression.falseExpression.visit(this) }
+                withPathGuards(facts.pathsFalse) {
+                    withLookupGuards(facts.lookupsFalse) { expression.falseExpression.visit(this) }
+                }
             }
         }
     }
@@ -689,6 +728,10 @@ class NullCheckVisitor extends CheckingVisitor {
             facts.whenFalse = inner.whenTrue
             facts.nonEmptyTrue = inner.nonEmptyFalse
             facts.nonEmptyFalse = inner.nonEmptyTrue
+            facts.with {
+                pathsTrue = inner.pathsFalse
+                pathsFalse = inner.pathsTrue
+            }
         } else if (condition instanceof BooleanExpression) {
             facts = analyzeCondition(condition.expression, visiting)
         } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_AND) {
@@ -700,11 +743,15 @@ class NullCheckVisitor extends CheckingVisitor {
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
-            facts.whenTrue = union(left.whenTrue, right.whenTrue)
-            facts.whenFalse = intersection(left.whenFalse, right.whenFalse)
-            facts.lookupsTrue = union(left.lookupsTrue, right.lookupsTrue)
-            facts.lookupsFalse = intersection(left.lookupsFalse, right.lookupsFalse)
-            facts.nonEmptyTrue = union(left.nonEmptyTrue, right.nonEmptyTrue)
+            facts.with {
+                whenTrue = union(left.whenTrue, right.whenTrue)
+                whenFalse = intersection(left.whenFalse, right.whenFalse)
+                lookupsTrue = union(left.lookupsTrue, right.lookupsTrue)
+                lookupsFalse = intersection(left.lookupsFalse, right.lookupsFalse)
+                nonEmptyTrue = union(left.nonEmptyTrue, right.nonEmptyTrue)
+                pathsTrue = union(left.pathsTrue, right.pathsTrue)
+                pathsFalse = intersection(left.pathsFalse, right.pathsFalse)
+            }
         } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_OR) {
             GuardFacts left = analyzeCondition(condition.leftExpression, visiting)
             GuardFacts right = visiting
@@ -714,11 +761,15 @@ class NullCheckVisitor extends CheckingVisitor {
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
-            facts.whenTrue = intersection(left.whenTrue, right.whenTrue)
-            facts.whenFalse = union(left.whenFalse, right.whenFalse)
-            facts.lookupsTrue = intersection(left.lookupsTrue, right.lookupsTrue)
-            facts.lookupsFalse = union(left.lookupsFalse, right.lookupsFalse)
-            facts.nonEmptyFalse = union(left.nonEmptyFalse, right.nonEmptyFalse)
+            facts.with {
+                whenTrue = intersection(left.whenTrue, right.whenTrue)
+                whenFalse = union(left.whenFalse, right.whenFalse)
+                lookupsTrue = intersection(left.lookupsTrue, right.lookupsTrue)
+                lookupsFalse = union(left.lookupsFalse, right.lookupsFalse)
+                nonEmptyFalse = union(left.nonEmptyFalse, right.nonEmptyFalse)
+                pathsTrue = intersection(left.pathsTrue, right.pathsTrue)
+                pathsFalse = union(left.pathsFalse, right.pathsFalse)
+            }
         } else {
             if (visiting) {
                 condition.visit(this)
@@ -734,6 +785,7 @@ class NullCheckVisitor extends CheckingVisitor {
      */
     private GuardFacts analyzeLeafCondition(Expression condition) {
         GuardFacts facts = new GuardFacts()
+        AccessPath conditionPath = AccessPath.from(condition)
         if (condition instanceof BinaryExpression) {
             int op = condition.operation.type
             if (op == Types.KEYWORD_INSTANCEOF) {
@@ -752,6 +804,8 @@ class NullCheckVisitor extends CheckingVisitor {
                 if (isNotEqual || isEqual) {
                     Expression left = condition.leftExpression
                     Expression right = condition.rightExpression
+                    AccessPath leftPath = AccessPath.from(left)
+                    AccessPath rightPath = AccessPath.from(right)
                     Variable var = null
                     if (isNullExpr(right)) {
                         var = guardableVariable(left)
@@ -760,6 +814,10 @@ class NullCheckVisitor extends CheckingVisitor {
                     }
                     if (var != null) {
                         (isNotEqual ? facts.whenTrue : facts.whenFalse).add(var)
+                    } else if (isNullExpr(right) && leftPath != null) {
+                        (isNotEqual ? facts.pathsTrue : facts.pathsFalse).add(leftPath.text)
+                    } else if (isNullExpr(left) && rightPath != null) {
+                        (isNotEqual ? facts.pathsTrue : facts.pathsFalse).add(rightPath.text)
                     } else if (isNullExpr(right) && isSafeNav(left)) {
                         addSafeNavReceiverFacts(left, isNotEqual ? facts.whenTrue : facts.whenFalse)
                     } else if (isNullExpr(left) && isSafeNav(right)) {
@@ -785,6 +843,8 @@ class NullCheckVisitor extends CheckingVisitor {
             }
         } else if (isSafeNav(condition)) {
             addSafeNavReceiverFacts(condition, facts.whenTrue)
+        } else if (conditionPath != null) {
+            facts.pathsTrue.add(conditionPath.text)
         } else if (condition instanceof MethodCallExpression || condition instanceof StaticMethodCallExpression) {
             Object target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
             if (target instanceof MethodNode) {
@@ -909,6 +969,41 @@ class NullCheckVisitor extends CheckingVisitor {
         nonEmptyVars.addAll(vars)
     }
 
+    void applyPathFacts(Set<String> paths) {
+        for (String path : paths) {
+            pathFacts.put(path, Nullness.NON_NULL)
+        }
+    }
+
+    private <T> T withPathGuards(Set<String> paths, Closure<T> body) {
+        if (!paths) {
+            return body()
+        }
+        Map<String, Nullness> saved = new LinkedHashMap<String, Nullness>(pathFacts)
+        for (String path : paths) {
+            pathFacts.put(path, Nullness.NON_NULL)
+        }
+        T result = body()
+        pathFacts.clear()
+        pathFacts.putAll(saved)
+        return result
+    }
+
+    private void invalidatePaths(String root) {
+        Iterator<String> iterator = pathFacts.keySet().iterator()
+        while (iterator.hasNext()) {
+            String path = iterator.next()
+            if (path == root || path.startsWith(root + '.')) {
+                iterator.remove()
+            }
+        }
+    }
+
+    private void invalidatePath(String path) {
+        pathFacts.remove(path)
+        invalidatePaths(path)
+    }
+
     /**
      * Applies a contract to a condition: the arguments it proves non-null in one of the
      * two branches.
@@ -996,7 +1091,7 @@ class NullCheckVisitor extends CheckingVisitor {
         for (Set<String> frame : lookupGuards) {
             lookups.addAll(frame)
         }
-        return new FlowState(locals, nonEmptyVars, lookups)
+        return new FlowState(locals, pathFacts, nonEmptyVars, lookups)
     }
 
     void restoreState(FlowState state) {
@@ -1009,6 +1104,8 @@ class NullCheckVisitor extends CheckingVisitor {
                 nullableVars.add(entry.key)
             }
         }
+        pathFacts.clear()
+        pathFacts.putAll(state.paths)
         nonEmptyVars.clear()
         nonEmptyVars.addAll(state.nonEmptyVars)
         lookupGuards.clear()
@@ -1275,7 +1372,13 @@ class NullCheckVisitor extends CheckingVisitor {
                 && (inferredNullableTypeUse(receiver) || isNullableMapSubscript(receiver))) {
             reporter.report("Potential null dereference: '${receiver.text}' may be null", context)
         } else if (receiver instanceof PropertyExpression) {
-            if (nullableProperty(receiver) || isNullableEntryProperty(receiver)) {
+            AccessPath path = AccessPath.from(receiver)
+            Nullness pathFact = path == null ? null : pathFacts.get(path.text)
+            if (pathFact == Nullness.NON_NULL) {
+                return
+            }
+            if (pathFact == Nullness.NULL || pathFact == Nullness.MAYBE_NULL ||
+                    nullableProperty(receiver) || isNullableEntryProperty(receiver)) {
                 reporter.report("Potential null dereference: '${receiver.propertyAsString}' may be null", context)
             }
         } else if (receiver instanceof CastExpression) {
@@ -1398,6 +1501,14 @@ class NullCheckVisitor extends CheckingVisitor {
             return inferredNullableTypeUse(expr) || isNullableMapSubscript(expr)
         }
         if (expr instanceof PropertyExpression) {
+            AccessPath path = AccessPath.from(expr)
+            Nullness pathFact = path == null ? null : pathFacts.get(path.text)
+            if (pathFact == Nullness.NON_NULL) {
+                return false
+            }
+            if (pathFact == Nullness.NULL || pathFact == Nullness.MAYBE_NULL) {
+                return true
+            }
             return nullableProperty(expr) || isNullableEntryProperty(expr)
         }
         if (expr instanceof TernaryExpression) {

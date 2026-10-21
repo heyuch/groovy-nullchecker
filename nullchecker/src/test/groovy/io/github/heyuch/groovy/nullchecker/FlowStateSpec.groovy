@@ -13,10 +13,10 @@ class FlowStateSpec extends Specification {
         Variable b = new VariableExpression('b')
         Variable c = new VariableExpression('c')
         FlowState left = new FlowState(
-                [(a): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL],
+                [(a): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL], [:],
                 [a] as Set, ['map|left'] as Set)
         FlowState right = new FlowState(
-                [(c): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL],
+                [(c): Nullness.MAYBE_NULL, (b): Nullness.NON_NULL], [:],
                 [] as Set, ['map|right'] as Set)
 
         when:
@@ -49,7 +49,7 @@ class FlowStateSpec extends Specification {
         given:
         Variable a = new VariableExpression('a')
         FlowState state = new FlowState(
-                [(a): Nullness.NON_NULL], [a] as Set, ['map|key'] as Set)
+                [(a): Nullness.NON_NULL], [:], [a] as Set, ['map|key'] as Set)
 
         when:
         FlowState joined = FlowState.join(null, state)
@@ -64,7 +64,7 @@ class FlowStateSpec extends Specification {
     def 'sameAs compares locals and must facts'() {
         given:
         Variable a = new VariableExpression('a')
-        FlowState state = new FlowState([(a): Nullness.NON_NULL], [a] as Set, ['map|key'] as Set)
+        FlowState state = new FlowState([(a): Nullness.NON_NULL], [:], [a] as Set, ['map|key'] as Set)
 
         expect:
         state.sameAs(state.copy())
@@ -75,7 +75,7 @@ class FlowStateSpec extends Specification {
         given:
         Variable a = new VariableExpression('a')
         FlowState state = new FlowState(
-                [(a): Nullness.MAYBE_NULL], [a] as Set, ['map|key'] as Set)
+                [(a): Nullness.MAYBE_NULL], [:], [a] as Set, ['map|key'] as Set)
 
         when:
         FlowState copy = state.copy()

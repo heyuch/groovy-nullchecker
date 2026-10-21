@@ -1,6 +1,6 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 + F1-F4 implemented; F5 (finite access paths) is next in [ROADMAP.md](ROADMAP.md)
+- Status: Phase 0 + F1-F5 implemented; F6 (closures) is next in [ROADMAP.md](ROADMAP.md)
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
 - Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
 

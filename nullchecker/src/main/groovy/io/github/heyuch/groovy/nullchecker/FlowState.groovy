@@ -19,18 +19,22 @@ class FlowState {
 
     final Map<Variable, Nullness> locals
 
+    final Map<String, Nullness> paths
+
     final Set<Variable> nonEmptyVars
 
     final Set<String> lookupGuards
 
-    FlowState(Map<Variable, Nullness> locals, Set<Variable> nonEmptyVars, Set<String> lookupGuards) {
+    FlowState(Map<Variable, Nullness> locals, Map<String, Nullness> paths,
+              Set<Variable> nonEmptyVars, Set<String> lookupGuards) {
         this.locals = new LinkedHashMap<Variable, Nullness>(locals)
+        this.paths = new LinkedHashMap<String, Nullness>(paths)
         this.nonEmptyVars = new LinkedHashSet<Variable>(nonEmptyVars)
         this.lookupGuards = new LinkedHashSet<String>(lookupGuards)
     }
 
     FlowState copy() {
-        return new FlowState(locals, nonEmptyVars, lookupGuards)
+        return new FlowState(locals, paths, nonEmptyVars, lookupGuards)
     }
 
     boolean sameAs(@Nullable FlowState other) {
@@ -38,6 +42,7 @@ class FlowState {
             return false
         }
         return locals == other.locals &&
+                paths == other.paths &&
                 nonEmptyVars == other.nonEmptyVars &&
                 lookupGuards == other.lookupGuards
     }
@@ -57,9 +62,17 @@ class FlowState {
             Nullness rightValue = right.locals[variable] ?: Nullness.UNKNOWN
             joined.put(variable, joinValue(leftValue, rightValue))
         }
+        Set<String> pathKeys = new LinkedHashSet<String>(left.paths.keySet())
+        pathKeys.addAll(right.paths.keySet())
+        Map<String, Nullness> joinedPaths = new LinkedHashMap<String, Nullness>()
+        for (String path : pathKeys) {
+            Nullness leftValue = left.paths[path] ?: Nullness.UNKNOWN
+            Nullness rightValue = right.paths[path] ?: Nullness.UNKNOWN
+            joinedPaths.put(path, joinValue(leftValue, rightValue))
+        }
         Set<Variable> nonEmpty = intersection(left.nonEmptyVars, right.nonEmptyVars)
         Set<String> lookups = intersection(left.lookupGuards, right.lookupGuards)
-        return new FlowState(joined, nonEmpty, lookups)
+        return new FlowState(joined, joinedPaths, nonEmpty, lookups)
     }
 
     static Nullness joinValue(Nullness left, Nullness right) {
