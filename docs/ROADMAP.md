@@ -55,9 +55,10 @@ Status: in progress.
 
 - F2a (done): strict `for`/`do-while`/`switch` state snapshots and joins; zero-iteration
   paths and switch outcomes are covered by `strict/flow_loop_switch.groovy`.
-- F2b (next): explicit statement-level CFG: block, if, while/do/for, break/continue,
-  return/throw; worklist dataflow; loop fixed points; switch fall-through/break edges;
-  condition refinement on CFG edges.
+- F2b (in progress): the structural CFG is in place (`CfgNode` / `CfgEdge` /
+  `ControlFlowGraph`), with if/while/for/do/switch/break/continue/return/throw edges and
+  `ControlFlowGraphSpec`. Next: the `FlowState` worklist/transfer over those nodes, loop
+  fixed points, switch fall-through/break edges and condition refinement.
 - The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
 Acceptance: branch, no-else, zero/multi-iteration loop, break/continue and switch fixtures;
