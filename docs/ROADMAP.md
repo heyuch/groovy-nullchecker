@@ -51,7 +51,7 @@ corpus change.
 
 #### F2. Statement-level CFG and worklist
 
-Status: in progress.
+Status: done.
 
 - F2a (done): strict `for`/`do-while`/`switch` state snapshots and joins; zero-iteration
   paths and switch outcomes are covered by `strict/flow_loop_switch.groovy`.
@@ -63,8 +63,10 @@ Status: in progress.
   `FlowAnalysisSpec`), and `NullnessFlowTransfer` now drives `strict` methods through the CFG;
   annotation mode keeps the old visitor. Condition facts are applied on TRUE/FALSE edges and
   no-return expressions stop propagation.
-  Remaining for F2: switch fall-through, for-loop variable type facts and tighter
-  break/continue edge handling.
+  Switch fall-through is modelled (a case's normal flow reaches the next case, `break` goes to
+  after), and the for-each variable receives the collection's nullable element facts. Remaining
+  F3 work is try/catch/finally; break/continue edges are structural and covered by the CFG
+  builder tests.
 - The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
 Acceptance: branch, no-else, zero/multi-iteration loop, break/continue and switch fixtures;
@@ -72,7 +74,7 @@ no duplicate findings; default annotation mode unchanged.
 
 #### F3. `try/catch/finally`
 
-Status: pending F2.
+Status: next.
 
 - Define the exception-edge policy (do not silently insert an edge from every expression).
 - Catch parameter starts non-null; try normal/exception states join at catch.

@@ -124,14 +124,18 @@ class ControlFlowGraph {
 
     private void connectSwitch(SwitchStatement statement, CfgNode node, CfgNode after,
                               CfgNode continueTarget) {
-        for (CaseStatement caseStatement : statement.caseStatements) {
-            CfgNode entry = buildStatement(caseStatement.code, after, after, continueTarget)
-            node.connect(entry ?: after, CfgEdgeKind.NORMAL)
-        }
+        CfgNode next = after
         if (statement.defaultStatement != null) {
-            CfgNode defaultEntry = buildStatement(statement.defaultStatement, after, after, continueTarget)
-            node.connect(defaultEntry ?: after, CfgEdgeKind.NORMAL)
-        } else {
+            next = buildStatement(statement.defaultStatement, after, after, continueTarget)
+            node.connect(next ?: after, CfgEdgeKind.NORMAL)
+        }
+        List<CaseStatement> cases = statement.caseStatements
+        for (int index = cases.size() - 1; index >= 0; index--) {
+            CfgNode entry = buildStatement(cases.get(index).code, next, after, continueTarget)
+            node.connect(entry ?: next, CfgEdgeKind.NORMAL)
+            next = entry ?: next
+        }
+        if (cases.isEmpty() && statement.defaultStatement == null) {
             node.connect(after, CfgEdgeKind.FALSE)
         }
     }

@@ -53,6 +53,7 @@ class NullnessFlowTransfer extends FlowTransfer {
             conditions.put(node, visitor.visitCondition(loop.booleanExpression.expression))
         } else if (statement instanceof ForStatement) {
             ForStatement loop = (ForStatement) statement
+            visitor.prepareForLoop(loop)
             loop.collectionExpression.visit(visitor)
         } else if (statement instanceof SwitchStatement) {
             SwitchStatement switchStatement = (SwitchStatement) statement

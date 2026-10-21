@@ -129,6 +129,18 @@ rule=R05
 strict=only
 expect=1
 note=loop body may be analysed repeatedly; findings are deduplicated
+
+strict/flow_switch_fallthrough.groovy
+rule=N25
+strict=never
+expect=none
+note=fall-through from a null case reaches the next case's non-null assignment
+
+strict/flow_for_nullable_element.groovy
+rule=R05
+strict=any
+expect=1
+note=for-each variable carries List<@Nullable String>'s element nullness
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06

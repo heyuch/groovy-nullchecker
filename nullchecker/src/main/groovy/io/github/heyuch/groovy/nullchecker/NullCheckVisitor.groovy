@@ -253,8 +253,8 @@ class NullCheckVisitor extends CheckingVisitor {
             'any', 'every', 'eachWithIndex', 'count', 'sum', 'groupBy', 'unique',
             'takeWhile', 'dropWhile', 'sort'] as Set<String>
 
-    @Override
-    void visitForLoop(ForStatement statement) {
+    /** Records the element facts for a for-each variable; CFG analysis calls this before the body. */
+    void prepareForLoop(ForStatement statement) {
         Parameter loopVar = statement.variable
         ClassNode collectionType = typeOfExpression(statement.collectionExpression)
         MapEntryTypes entry = mapEntryTypes(collectionType)
@@ -265,6 +265,12 @@ class NullCheckVisitor extends CheckingVisitor {
         if (loopVar != null && elementNullable) {
             nullableElements.add(loopVar)
         }
+    }
+
+    @Override
+    void visitForLoop(ForStatement statement) {
+        Parameter loopVar = statement.variable
+        prepareForLoop(statement)
         try {
             if (!flowSensitive) {
                 super.visitForLoop(statement)
