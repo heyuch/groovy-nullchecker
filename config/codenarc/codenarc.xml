@@ -16,8 +16,8 @@
     <!-- A method's result is returned explicitly, not by falling off the last expression. -->
     <rule class='org.codenarc.rule.convention.ImplicitReturnStatementRule'/>
 
-    <!-- Every class states how it is compiled. The DSL entry point is the documented
-         exception and carries @CompileDynamic; everything else is @CompileStatic. -->
+    <!-- Every class states how it is compiled, and all of them are @CompileStatic. The
+         DSL's dynamic seam is wrapped in NullChecker (see onClass/onMethod/reportTypeError). -->
     <rule class='org.codenarc.rule.convention.CompileStaticRule'/>
 
     <!-- Deliberately not enabled:

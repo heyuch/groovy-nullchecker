@@ -28,13 +28,14 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
-import groovy.transform.CompileDynamic
+import groovy.transform.CompileStatic
 
 
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.control.CompilationUnit
+import org.codehaus.groovy.transform.stc.TypeCheckingContext
 import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
 
 /**
@@ -116,7 +117,7 @@ import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
  *
  * @since 6.0.0
  */
-@CompileDynamic
+@CompileStatic
 class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Rule family: nullness of values (dereference, return, assignment, argument). */
@@ -258,8 +259,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * <p>Also a dynamic property ({@code getProperty('context')}); the wrapper keeps
      * {@code context.compilationUnit}/{@code context.source} navigable.
      */
-    private Object getContext() {
-        return getProperty('context')
+    private TypeCheckingContext getContext() {
+        return (TypeCheckingContext) getProperty('context')
     }
 
     /**
@@ -287,7 +288,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     /** Reports into this DSL instance, so a finding lands on the current type-checking context. */
-    private final NullCheckReporter reporter = new NullCheckReporter({ message, node ->
+    private final NullCheckReporter reporter = new NullCheckReporter({ CharSequence message, ASTNode node ->
         reportTypeError(message, node)
     })
 
