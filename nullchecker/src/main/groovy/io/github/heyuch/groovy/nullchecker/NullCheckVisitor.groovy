@@ -257,13 +257,23 @@ class NullCheckVisitor extends CheckingVisitor {
                 return
             }
             statement.collectionExpression.visit(this)
-            FlowState afterCollection = captureState()
-            restoreState(afterCollection)
-            statement.loopBlock.visit(this)
-            FlowState body = captureState()
-            restoreState(afterCollection)
-            FlowState merged = FlowState.join(afterCollection, body)
-            restoreState(merged ?: afterCollection)
+            FlowState before = captureState()
+            FlowState header = before.copy()
+            FlowState previous = null
+            int iterations = 0
+            while (iterations < 8) {
+                restoreState(header)
+                statement.loopBlock.visit(this)
+                FlowState body = captureState()
+                FlowState merged = FlowState.join(before, body)
+                if (merged == null || merged.sameAs(header) || merged.sameAs(previous)) {
+                    break
+                }
+                previous = header
+                header = merged
+                iterations++
+            }
+            restoreState(header)
         } finally {
             if (loopVar != null) {
                 entryVariables.remove(loopVar)
@@ -533,15 +543,25 @@ class NullCheckVisitor extends CheckingVisitor {
             return
         }
         FlowState before = captureState()
-        restoreState(before)
-        applyFacts(facts.whenTrue)
-        applyNonEmptyFacts(facts.nonEmptyTrue)
-        applyLookupFacts(facts.lookupsTrue)
-        loop.loopBlock.visit(this)
-        FlowState body = captureState()
-        restoreState(before)
-        FlowState merged = FlowState.join(before, body)
-        restoreState(merged ?: before)
+        FlowState header = before.copy()
+        FlowState previous = null
+        int iterations = 0
+        while (iterations < 8) {
+            restoreState(header)
+            applyFacts(facts.whenTrue)
+            applyNonEmptyFacts(facts.nonEmptyTrue)
+            applyLookupFacts(facts.lookupsTrue)
+            loop.loopBlock.visit(this)
+            FlowState body = captureState()
+            FlowState merged = FlowState.join(before, body)
+            if (merged == null || merged.sameAs(header) || merged.sameAs(previous)) {
+                break
+            }
+            previous = header
+            header = merged
+            iterations++
+        }
+        restoreState(header)
     }
 
     private void visitWhileLoopLexical(WhileStatement loop, GuardFacts facts) {

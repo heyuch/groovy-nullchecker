@@ -61,6 +61,16 @@ class FlowStateSpec extends Specification {
         joined.lookupGuards == ['map|key'] as Set
     }
 
+    def 'sameAs compares locals and must facts'() {
+        given:
+        Variable a = new VariableExpression('a')
+        FlowState state = new FlowState([(a): Nullness.NON_NULL], [a] as Set, ['map|key'] as Set)
+
+        expect:
+        state.sameAs(state.copy())
+        !state.sameAs(null)
+    }
+
     def 'join and copy do not alias the source state'() {
         given:
         Variable a = new VariableExpression('a')

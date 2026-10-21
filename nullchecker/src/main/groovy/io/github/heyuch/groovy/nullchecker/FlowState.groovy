@@ -33,6 +33,15 @@ class FlowState {
         return new FlowState(locals, nonEmptyVars, lookupGuards)
     }
 
+    boolean sameAs(@Nullable FlowState other) {
+        if (other == null) {
+            return false
+        }
+        return locals == other.locals &&
+                nonEmptyVars == other.nonEmptyVars &&
+                lookupGuards == other.lookupGuards
+    }
+
     static @Nullable FlowState join(@Nullable FlowState left, @Nullable FlowState right) {
         if (left == null) {
             return right?.copy()

@@ -26,11 +26,17 @@ class NullCheckReporter {
 
     private final Closure reportFunction
 
+    private final Set<String> reported = new HashSet<String>()
+
     NullCheckReporter(Closure reportFunction) {
         this.reportFunction = reportFunction
     }
 
     void report(CharSequence message, ASTNode node) {
+        String key = "${message}|${node.lineNumber}|${node.columnNumber}".toString()
+        if (!reported.add(key)) {
+            return
+        }
         reportFunction.call(message, node)
     }
 

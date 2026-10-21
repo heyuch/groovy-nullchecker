@@ -57,8 +57,10 @@ Status: in progress.
   paths and switch outcomes are covered by `strict/flow_loop_switch.groovy`.
 - F2b (in progress): the structural CFG is in place (`CfgNode` / `CfgEdge` /
   `ControlFlowGraph`), with if/while/for/do/switch/break/continue/return/throw edges and
-  `ControlFlowGraphSpec`. Next: the `FlowState` worklist/transfer over those nodes, loop
-  fixed points, switch fall-through/break edges and condition refinement.
+  `ControlFlowGraphSpec`. Strict `while`/`for` bodies now iterate to a flow-state fixed point,
+  and duplicate findings are suppressed by the reporter (`flow_loop_report_once`).
+  Next: the `FlowState` worklist/transfer over the CFG, switch fall-through/break edges and
+  condition refinement on edges.
 - The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
 Acceptance: branch, no-else, zero/multi-iteration loop, break/continue and switch fixtures;

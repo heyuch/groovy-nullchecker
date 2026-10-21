@@ -123,6 +123,12 @@ rule=R05
 strict=only
 expect=3
 note=while/for zero-iteration paths and switch outcomes join; do-while runs once
+
+strict/flow_loop_report_once.groovy
+rule=R05
+strict=only
+expect=1
+note=loop body may be analysed repeatedly; findings are deduplicated
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06
