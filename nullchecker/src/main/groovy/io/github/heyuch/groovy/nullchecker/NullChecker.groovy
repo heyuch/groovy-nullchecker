@@ -74,6 +74,7 @@ import org.codehaus.groovy.syntax.Types
 import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
 
+import static io.github.heyuch.groovy.nullchecker.AstSupport.*
 import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
 import static org.codehaus.groovy.syntax.Types.isAssignment
@@ -159,27 +160,6 @@ import static org.codehaus.groovy.syntax.Types.isAssignment
  */
 class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
-    // PORT: upstream uses Set.of(...), which is Java 9+. These use the Java 8 equivalents
-    // deliberately, so that lowering the target JDK later stays a build-config change rather
-    // than a source change; the build currently targets 17.
-    // Collections.unmodifiableSet over a Groovy set literal keeps the immutability these
-    // constants are meant to have; they are only ever queried with contains().
-    private static final Set<String> NULLABLE_ANNOS = Collections.unmodifiableSet(['Nullable', 'CheckForNull', 'MonotonicNonNull'] as Set)
-    /**
-     * Annotations that assert a value is not null.
-     *
-     * <p>{@code NotEmpty} and {@code NotBlank} are Bean Validation constraints, and both reject
-     * null before checking content, so each is a non-null contract as well. The other
-     * constraints are not: {@code @Size}, {@code @Pattern}, {@code @Email} and friends all
-     * accept null.
-     */
-    private static final Set<String> NONNULL_ANNOS = Collections.unmodifiableSet([
-            'NonNull', 'NotNull', 'Nonnull', 'NotEmpty', 'NotBlank'] as Set)
-    private static final Set<String> MONOTONIC_ANNOS = Collections.unmodifiableSet(['MonotonicNonNull', 'Lazy'] as Set)
-    private static final Set<String> NULLCHECK_ANNOS = Collections.unmodifiableSet(['NullCheck', 'ParametersAreNonnullByDefault', 'ParametersAreNonNullByDefault'] as Set)
-    private static final Set<String> NONNULL_BY_DEFAULT_ANNOS = Collections.unmodifiableSet(['NonNullByDefault', 'NonnullByDefault', 'NullMarked'] as Set)
-    private static final Set<String> NULL_UNMARKED_ANNOS = Collections.unmodifiableSet(['NullUnmarked'] as Set)
-
     /**
      * Defaults that apply to parameters only. {@code @NonNullApi} is Spring's package-level
      * marking and covers returns as well, so it appears in both sets.
@@ -196,7 +176,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
-    private static final Set<String> NONNULL_VALIDATOR_METHODS = Collections.unmodifiableSet(['requireNonNull', 'checkNotNull'] as Set)
     /** Rule family: nullness of values (dereference, return, assignment, argument). */
     static final String CHECK_NULL = 'null'
 
@@ -209,25 +188,14 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Comma-separated rule families to run; absent means {@link #CHECKS_ALL}. */
     static final String CHECKS_PROPERTY = 'groovy.nullchecker.checks'
 
-    /** Guard methods declared by the caller, as {@code declaringClass#method}. */
-    private static final String GUARD_TRUE_PROPERTY = 'groovy.nullchecker.guards.true'
-
-    private static final String GUARD_FALSE_PROPERTY = 'groovy.nullchecker.guards.false'
-
     private static Set<String> PORT_GUARDS_TRUE = Collections.emptySet()
 
     private static Set<String> PORT_GUARDS_FALSE = Collections.emptySet()
-
-    /** Methods declared to never return normally, as {@code declaringClass#method}. */
-    private static final String NEVER_RETURNS_PROPERTY = 'groovy.nullchecker.neverreturns'
 
     private static Set<String> PORT_NEVER_RETURNS = Collections.emptySet()
 
     /** Whether container lookups that can miss are nullable. */
     private static final String CONTAINER_LOOKUPS_PROPERTY = 'groovy.nullchecker.containerlookups'
-
-    /** Project-declared contracts, as {@code declaringClass#method=contract;...}. */
-    private static final String CONTRACTS_PROPERTY = 'groovy.nullchecker.contracts'
 
     private static Map<String, Contract> PORT_CONFIG_CONTRACTS = [:]
 
@@ -235,29 +203,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     private static boolean PORT_CONTAINER_LOOKUPS = true
 
-    /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
-    private static Set<String> readGuardEntries(String property) {
-        String raw = System.getProperty(property)
-        if (raw == null || raw.trim().isEmpty()) {
-            return Collections.emptySet()
-        }
-        Set<String> entries = new HashSet<String>()
-        for (String part : raw.split(',')) {
-            String entry = part.trim()
-            if (!entry.isEmpty()) {
-                entries.add(entry)
-            }
-        }
-        Collections.unmodifiableSet(entries)
-    }
-
     /** Packages whose constraints imply non-null but not "assigned in source". */
     private static final Set<String> VALIDATION_ANNO_PACKAGES = Collections.unmodifiableSet([
             'jakarta.validation.constraints',
             'javax.validation.constraints',
             'org.hibernate.validator.constraints'] as Set)
-
-    private static final Set<String> ASSERTION_MESSAGE_TYPES = Collections.unmodifiableSet(['java.lang.String', 'java.util.function.Supplier'] as Set)
 
     /**
      * PORT: back-port of Groovy 6's extension parameters ({@code getOptions()}).
@@ -307,15 +257,15 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         PORT_OPTIONS.clear()
     }
 
-    /** Drops per-compilation caches, so a new compilation cannot see a stale package answer. */
+    /** Drops per-compilation caches, so a new compilation cannot see a stale answer. */
     static void resetCaches() {
         PORT_CACHE_UNIT = null
         PORT_PACKAGE_ANNOS = [:]
         PORT_PACKAGE_ANNO_BY_CLASS.clear()
         PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
         PORT_CLASS_LOADERS = null
-        PORT_DECL_ANNO_NAMES.clear()
-        PORT_TYPE_ANNO_NAMES.clear()
+        AstSupport.resetCaches()
+        ContractRegistry.reset()
     }
 
     /**
@@ -343,9 +293,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     @Override
     Object run() {
         boolean strict = isStrictEnabled()
-        PORT_GUARDS_TRUE = readGuardEntries(GUARD_TRUE_PROPERTY)
-        PORT_GUARDS_FALSE = readGuardEntries(GUARD_FALSE_PROPERTY)
-        PORT_NEVER_RETURNS = readGuardEntries(NEVER_RETURNS_PROPERTY)
         PORT_CONTAINER_LOOKUPS = !'false'.equalsIgnoreCase(
                 System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
         def unit = context?.compilationUnit
@@ -355,14 +302,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             PORT_PACKAGE_ANNO_BY_CLASS.clear()
             PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
             PORT_CLASS_LOADERS = null
-            PORT_DECL_ANNO_NAMES.clear()
-            PORT_TYPE_ANNO_NAMES.clear()
-            PORT_CONTRACT_CACHE.clear()
-            PORT_CONFIG_CONTRACTS = buildConfigContracts()
+            AstSupport.resetCaches()
+            ContractRegistry.reset()
+            ContractRegistry.prepare()
         } else if (unit == null) {
             PORT_PACKAGE_ANNOS = collectPackageAnnotations()
-            PORT_CONTRACT_CACHE.clear()
-            PORT_CONFIG_CONTRACTS = buildConfigContracts()
+            ContractRegistry.reset()
+            ContractRegistry.prepare()
         }
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
@@ -1040,7 +986,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             private void applyContractGuard(MethodNode target, Expression condition, GuardFacts facts) {
                 def callArgs = condition.arguments
                 if (!(callArgs instanceof TupleExpression) || !callArgs.expressions) return
-                Contract contract = contractFor(condition, target)
+                Contract contract = ContractRegistry.contractFor(condition, target)
                 if (contract == null) return
                 for (int index : contract.nonNullWhenTrue) {
                     if (index >= callArgs.expressions.size()) continue
@@ -1145,7 +1091,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 MethodCallExpression call = (MethodCallExpression) expression
                 def target = call.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                 if (!(target instanceof MethodNode)) return false
-                Contract contract = contractFor(call, (MethodNode) target)
+                Contract contract = ContractRegistry.contractFor(call, (MethodNode) target)
                 if (contract == null) return false
                 // The switch turns off the built-in family; an explicit contract still applies.
                 if (contract.builtIn && !PORT_CONTAINER_LOOKUPS) return false
@@ -1208,7 +1154,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     }
                     return
                 }
-                Contract contract = contractFor(call, (MethodNode) target)
+                Contract contract = ContractRegistry.contractFor(call, (MethodNode) target)
                 if (contract == null) return
                 for (int index : contract.nonNullAfterReturn) {
                     if (index >= args.expressions.size()) continue
@@ -1430,32 +1376,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     /**
-     * PORT: picks the node that actually carries a local declaration's annotations.
-     * <p>
-     * For {@code @Nullable String x} Groovy 6 attaches the annotation to
-     * {@code decl.variableExpression}, but Groovy 4 attaches it to the
-     * {@code DeclarationExpression} itself, leaving the variable expression bare.
-     * Checking only the variable expression (as upstream does) makes every
-     * annotation-based local rule silently skip on Groovy 4. Either node is
-     * returned, so the same code is correct on both versions.
-     */
-    private static AnnotatedNode declAnnoCarrier(DeclarationExpression decl, VariableExpression ve) {
-        if (!ve.annotations.isEmpty() || !ve.type.annotations.isEmpty()) {
-            return ve
-        }
-        decl
-    }
-
-    private static boolean hasNullableAnno(AnnotatedNode node) {
-        hasAnno(node, NULLABLE_ANNOS)
-    }
-
-    private static boolean hasNonNullAnno(AnnotatedNode node) {
-        if (node.getNodeMetaData('INFERRED_NON_NULL' /* PORT: marker absent in Groovy 4 */) == Boolean.TRUE) return true
-        hasAnno(node, NONNULL_ANNOS)
-    }
-
-    /**
      * Whether a member counts as non-null: explicitly annotated, or inheriting a
      * package/class-level {@code @NullMarked} default.
      *
@@ -1469,10 +1389,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         if (hasNonNullAnno(node)) return true
         ClassNode owner = node instanceof FieldNode ? ((FieldNode) node).declaringClass : null
         owner != null && isFieldNonNullByDefault(owner)
-    }
-
-    private static boolean hasMonotonicAnno(AnnotatedNode node) {
-        hasAnno(node, MONOTONIC_ANNOS)
     }
 
     /**
@@ -1492,62 +1408,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static final Map<AnnotatedNode, Set<String>> PORT_DECL_ANNO_NAMES = new IdentityHashMap<>()
 
     private static final Map<AnnotatedNode, Set<String>> PORT_TYPE_ANNO_NAMES = new IdentityHashMap<>()
-
-    private static boolean hasAnno(AnnotatedNode node, Set<String> annoNames) {
-        if (node == null) return false
-        Set<String> declared = PORT_DECL_ANNO_NAMES.get(node)
-        if (declared == null) {
-            declared = new HashSet<String>()
-            node.annotations?.each { AnnotationNode annotation ->
-                String name = annotation.classNode?.nameWithoutPackage
-                if (name != null) declared.add(name)
-            }
-            PORT_DECL_ANNO_NAMES.put(node, declared)
-        }
-        if (!Collections.disjoint(declared, annoNames)) return true
-        ClassNode type = typeOf(node)
-        if (type == null) return false
-        Set<String> typeAnnotations = PORT_TYPE_ANNO_NAMES.get(node)
-        if (typeAnnotations == null) {
-            typeAnnotations = new HashSet<String>()
-            type.typeAnnotations?.each { AnnotationNode annotation ->
-                String name = annotation.classNode?.nameWithoutPackage
-                if (name != null) typeAnnotations.add(name)
-            }
-            PORT_TYPE_ANNO_NAMES.put(node, typeAnnotations)
-        }
-        !Collections.disjoint(typeAnnotations, annoNames)
-    }
-
-    private static ClassNode typeOf(AnnotatedNode node) {
-        switch (node) {
-            case MethodNode: return ((MethodNode) node).returnType
-            case Parameter: return ((Parameter) node).type
-            case FieldNode: return ((FieldNode) node).type
-            default: return null
-        }
-    }
-
-    private static boolean hasNullCheckAnno(AnnotatedNode node) {
-        node.annotations?.any { it.classNode?.nameWithoutPackage in NULLCHECK_ANNOS } ?: false
-    }
-
-    private static boolean hasNonNullByDefaultAnno(AnnotatedNode node) {
-        if (hasNullUnmarkedAnno(node)) return false
-        declaresNonNullByDefault(node)
-    }
-
-    private static boolean declaresNonNullByDefault(AnnotatedNode node) {
-        declaresAny(node, NONNULL_BY_DEFAULT_ANNOS)
-    }
-
-    private static boolean declaresAny(AnnotatedNode node, Set<String> names) {
-        node.annotations?.any { it.classNode?.nameWithoutPackage in names } ?: false
-    }
-
-    private static boolean hasNullUnmarkedAnno(AnnotatedNode node) {
-        node.annotations?.any { it.classNode?.nameWithoutPackage in NULL_UNMARKED_ANNOS } ?: false
-    }
 
     /**
      * Determines whether a class is non-null-by-default, honouring JSpecify-style
@@ -1736,149 +1596,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         name == null ? null : name.replaceAll(/\.$/, '')
     }
 
-    /** The resolved type of an expression, falling back to its declared type. */
-    private static ClassNode typeOfExpression(Expression expression) {
-        if (expression == null) return null
-        def inferred = expression.getNodeMetaData(StaticTypesMarker.INFERRED_TYPE)
-        inferred instanceof ClassNode ? (ClassNode) inferred : expression.type
-    }
-
-    /**
-     * Whether a collection type's elements are nullable.
-     *
-     * <p>For {@code List<@Nullable String>} the annotation sits on the type argument, which is
-     * where JSpecify puts it and where Groovy keeps it; arrays carry it on the component type.
-     */
-    private static boolean hasNullableElementType(ClassNode type) {
-        if (type == null) return false
-        if (type.array) return hasNullableTypeUse(type.componentType)
-        // Iterating a Map yields Map.Entry, which is not the key: the annotation on the first
-        // type argument says nothing about the entry. Treating it as the element would report
-        // every entry dereference in a map typed with nullable keys.
-        if (isMapLike(type)) return false
-        def generics = type.genericsTypes
-        generics != null && generics.length > 0 && hasNullableTypeUse(generics[0].type)
-    }
-
-    private static boolean isMapLike(ClassNode type) {
-        type.name == 'java.util.Map' || type.isDerivedFrom(ClassHelper.MAP_TYPE)
-    }
-
-    /** Map methods whose result is null when the key is absent (or the value was null). */
-    private static final Set<String> MAP_LOOKUP_METHODS = Collections.unmodifiableSet(
-            ['get', 'getAt', 'remove', 'put', 'putIfAbsent', 'replace',
-             'compute', 'computeIfAbsent', 'computeIfPresent', 'merge'] as Set<String>)
-
-    /** Collection methods that return no result, or cannot answer for an empty collection. */
-    private static final Set<String> PARTIAL_COLLECTION_METHODS = Collections.unmodifiableSet(
-            ['find', 'findResult', 'max', 'min'] as Set<String>)
-
-    private static final ClassNode ITERABLE_TYPE = ClassHelper.make(Iterable)
-
-    private static boolean isCollectionLike(ClassNode type) {
-        if (type == null) return false
-        if (type.isArray()) return true
-        type.name in ['java.lang.Iterable', 'java.util.Collection', 'java.util.List', 'java.util.Set']
-                || type.isDerivedFrom(ITERABLE_TYPE)
-    }
-
-    /** Whether a map's values are non-null, so {@code containsKey} can prove a lookup. */
-    private static boolean hasNonNullMapValue(ClassNode mapType) {
-        MapEntryTypes types = mapEntryTypes(mapType)
-        types != null && !hasNullableTypeUse(types.valueType)
-    }
-
-    private static String lookupKey(Expression container, Expression key) {
-        if (container == null || key == null) return null
-        if (container instanceof VariableExpression && container.isThisExpression()) return null
-        container.text + '|' + key.text
-    }
-
-    private static boolean hasNullableTypeUse(ClassNode type) {
-        type?.typeAnnotations?.any { it.classNode?.nameWithoutPackage in NULLABLE_ANNOS } ?: false
-    }
-
-    /** The annotation with the given simple name on a node, or {@code null}. */
-    private static AnnotationNode findAnnotation(AnnotatedNode node, String simpleName) {
-        if (node == null) return null
-        node.annotations?.find { it.classNode?.nameWithoutPackage == simpleName }
-    }
-
-    /** A boolean annotation member, or {@code null} when absent or not a constant. */
-    private static Boolean booleanMember(AnnotationNode annotation, String name) {
-        def member = annotation.getMember(name)
-        member instanceof ConstantExpression && member.value instanceof Boolean ? (Boolean) member.value : null
-    }
-
-    /** A single string annotation member, or {@code null}. */
-    private static String stringMember(AnnotationNode annotation, String name) {
-        def member = annotation.getMember(name)
-        member instanceof ConstantExpression && member.value instanceof String ? (String) member.value : null
-    }
-
-    /**
-     * Parses a JetBrains {@code @Contract} specification.
-     *
-     * <p>The grammar is {@code arg, arg -> result} clauses separated by {@code ;}. Only two
-     * shapes matter here: {@code null -> fail} (the call throws for a null argument) and
-     * {@code null -> true|false} (the result reveals whether the argument was null). Anything
-     * else -- {@code !null}, {@code _}, {@code param1}, {@code new} -- is left alone rather than
-     * interpreted, because a wrong reading would narrow a value that can still be null.
-     */
-    private static List<ContractClause> parseContract(String specification) {
-        List<ContractClause> clauses = new ArrayList<ContractClause>()
-        if (specification == null) return clauses
-        for (String rawClause : specification.split(';')) {
-            String clause = rawClause.trim()
-            if (clause.isEmpty()) continue
-            int arrow = clause.indexOf('->')
-            if (arrow < 0) continue
-            String result = clause.substring(arrow + 2).trim()
-            if (result.isEmpty()) continue
-            List<String> arguments = new ArrayList<String>()
-            for (String rawArgument : clause.substring(0, arrow).split(',')) {
-                arguments.add(rawArgument.trim())
-            }
-            clauses.add(new ContractClause(arguments: arguments, result: result))
-        }
-        clauses
-    }
-
-    /** One {@code args -> result} clause of a {@code @Contract}. */
-    private static class ContractClause {
-        List<String> arguments = new ArrayList<String>()
-        String result
-    }
-
-    /** A string-array annotation member, accepting a single value written without braces. */
-    private static List<String> stringMembers(AnnotationNode annotation, String name) {
-        List<String> values = new ArrayList<String>()
-        def member = annotation.getMember(name)
-        if (member instanceof ConstantExpression) {
-            def value = ((ConstantExpression) member).value
-            if (value instanceof String) {
-                values.add((String) value)
-            } else if (value instanceof String[]) {
-                values.addAll(Arrays.asList((String[]) value))
-            }
-        } else if (member instanceof ListExpression) {
-            for (Expression element : ((ListExpression) member).expressions) {
-                if (element instanceof ConstantExpression && element.value instanceof String) {
-                    values.add((String) element.value)
-                }
-            }
-        }
-        values
-    }
-
-    /** Zero-based argument index for a {@code #1}-style reference, or -1 when unsupported. */
-    private static int argumentIndex(String reference) {
-        if (reference == null) return -1
-        def matcher = reference =~ /^#(\d+)$/
-        if (!matcher.matches()) return -1
-        Integer.parseInt((String) matcher.group(1)) - 1
-    }
-
     /**
      * Whether the node carries a Bean Validation constraint rather than a nullness
      * annotation. Matched by package, because the constraint's simple name is exactly
@@ -1887,78 +1604,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     private static boolean isValidationConstraint(AnnotatedNode node) {
         if (node == null) return false
         node.annotations?.any { it.classNode?.packageName in VALIDATION_ANNO_PACKAGES } ?: false
-    }
-
-    private static boolean isNullExpr(Expression expr) {
-        if (expr instanceof ConstantExpression) return ((ConstantExpression) expr).isNullExpression()
-        if (expr instanceof CastExpression) return isNullExpr(((CastExpression) expr).expression)
-        false
-    }
-
-    /**
-     * A safe-navigation result ({@code a?.b} or {@code a?.b()}) may be null: at minimum
-     * whenever its receiver is, but also if the accessed property or method yields null.
-     */
-    private static boolean isSafeNavResult(Expression expr) {
-        // A spread expression is flagged safe as well -- it tolerates a null receiver and
-        // yields an empty list instead. But that makes its *result* a List, never null,
-        // so treating it as a safe-navigation result reported every "xs*.prop" and its
-        // dereference. Spread method calls (xs*.trim()) do not carry the flag.
-        if (expr instanceof PropertyExpression) {
-            // isSpreadSafe, not "spread": Groovy's AST flag is named isSpreadSafe(), and
-            // reading a non-existent property throws inside the checker -- which the harness
-            // now turns into a hard failure rather than a clean-looking zero.
-            return expr.safe && !expr.spreadSafe
-        }
-        if (expr instanceof MethodCallExpression) {
-            return expr.safe && !expr.spreadSafe
-        }
-        false
-    }
-
-    private static boolean isSubscript(Expression expr) {
-        expr instanceof BinaryExpression && expr.operation.type == Types.LEFT_SQUARE_BRACKET
-    }
-
-    /**
-     * Determines whether an expression's inferred type carries a {@code @Nullable}
-     * type-use annotation. The static type checker's generics inference preserves type
-     * annotations when instantiating class and method level type variables, so this
-     * recognizes a {@code @Nullable} type argument reaching a result: {@code get(0)},
-     * the idiomatic {@code xs[0]} subscript, or DGM calls like {@code head()} on a
-     * {@code List<@Nullable String>}, whether the annotated type appears in source or
-     * comes from a compiled dependency (GROOVY-12206).
-     */
-    private static boolean inferredNullableTypeUse(Expression expr) {
-        def inferred = expr.getNodeMetaData(StaticTypesMarker.INFERRED_TYPE)
-        inferred instanceof ClassNode &&
-            inferred.typeAnnotations?.any { it.classNode?.nameWithoutPackage in NULLABLE_ANNOS }
-    }
-
-    /**
-     * Determines whether a property read produces a {@code @Nullable} value, consulting the
-     * accessor resolved during type checking and falling back to the property or field
-     * declaration (where the annotations reside for Groovy properties, whose resolved
-     * accessor is a synthetic node).
-     */
-    private static boolean nullableProperty(PropertyExpression pexp) {
-        def target = pexp.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-        if (target instanceof MethodNode && hasNullableAnno(target)) return true
-        def name = pexp.propertyAsString
-        if (name == null) return false
-        def receiverType = pexp.objectExpression.getNodeMetaData(StaticTypesMarker.INFERRED_TYPE) ?: pexp.objectExpression.type
-        def prop = receiverType?.getProperty(name)
-        if (prop != null && (hasNullableAnno(prop) || (prop.field != null && hasNullableAnno(prop.field)))) return true
-        def field = receiverType?.getField(name)
-        field != null && hasNullableAnno(field)
-    }
-
-    private static boolean canBeNull(Expression expr) {
-        if (isNullExpr(expr)) return true
-        if (expr instanceof TernaryExpression) {
-            return canBeNull(expr.trueExpression) || canBeNull(expr.falseExpression)
-        }
-        false
     }
 
     private static boolean isEarlyExit(Statement stmt) {
@@ -1979,7 +1624,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         if (statement == null) return false
         if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) return true
         if (statement instanceof BreakStatement || statement instanceof ContinueStatement) return true
-        if (statement instanceof ExpressionStatement) return isNoReturnCall(statement.expression)
+        if (statement instanceof ExpressionStatement) return ContractRegistry.isNoReturnCall(statement.expression)
         if (statement instanceof BlockStatement) {
             for (Statement child : statement.statements) {
                 if (cannotCompleteNormally(child)) return true
@@ -2007,321 +1652,13 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         false
     }
 
-    /** Annotation simple names that promise a method never returns normally. */
-    private static final Set<String> NO_RETURN_ANNOS = Collections.unmodifiableSet(
-            ['NoReturn', 'NeverReturns', 'DoesNotReturn'] as Set<String>)
-
-    /**
-     * Whether a call never returns normally.
-     *
-     * <p>Three declarations say so, all matched by simple name: {@code @NoReturn} (and the two
-     * spellings in {@link #NO_RETURN_ANNOS}), JetBrains' {@code @Contract} with a clause whose
-     * result is {@code fail} and whose arguments are all {@code _} (any value), and the
-     * project's own {@code neverReturns} list. A single failing branch such as
-     * {@code "null -> fail"} is not enough: the call still returns for other arguments.
-     */
-    private static boolean isNoReturnCall(Expression expression) {
-        if (expression == null) return false
-        def target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
-        if (!(target instanceof MethodNode)) return false
-        Contract contract = contractFor(expression, (MethodNode) target)
-        contract != null && contract.neverReturns
-    }
-
-    /** How a call's result relates to nullness. */
-    private static enum ResultNullness {
-        /** Never null by this contract. */
-        NON_NULL,
-        /** Null when the operation has no result. */
-        NULLABLE,
-        /** The value of the given argument. */
-        PARAM,
-        /** Nullable exactly when the given argument is nullable. */
-        NULLABLE_IF_ARG_NULLABLE
-    }
-
-    /** A lookup that is non-null only when the same key is known to be present. */
-    private static class PresenceRule {
-        int argument
-    }
-
-    /**
-     * What a call promises: its result, which arguments it narrows, and whether it returns.
-     *
-     * <p>One model for every source. Annotations ({@code @Contract}, {@code @EnsuresNonNullIf},
-     * {@code @EnsuresNonNull}, {@code @NoReturn}), the project's configuration, and the
-     * built-in table for library methods all resolve to this, in that order of precedence
-     * (configuration first, then annotations, then built-ins). Keeping one model is what makes
-     * a configured contract and an annotated one behave identically.
-     */
-    private static class Contract {
-        /** Marks a cached "no source had a contract" answer, distinct from "not computed yet". */
-        boolean unresolved
-
-        ResultNullness result = ResultNullness.NON_NULL
-
-        int resultArgument = -1
-
-        boolean neverReturns
-
-        Set<Integer> nonNullWhenTrue = new LinkedHashSet<Integer>()
-
-        Set<Integer> nonNullWhenFalse = new LinkedHashSet<Integer>()
-
-        Set<Integer> nonNullAfterReturn = new LinkedHashSet<Integer>()
-
-        PresenceRule presence
-
-        /** True when the contract came from the built-in table, so the family switch applies. */
-        boolean builtIn
-
-        static Contract absent() {
-            new Contract(unresolved: true)
-        }
-    }
-
-    private static Contract neverContract() {
-        new Contract(neverReturns: true)
-    }
-
-    private static Contract factContract(boolean whenTrue) {
-        Contract contract = new Contract()
-        (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(0)
-        contract
-    }
-
-    private static Contract afterReturnContract(int index) {
-        Contract contract = new Contract()
-        contract.nonNullAfterReturn.add(index)
-        contract
-    }
-
-    /**
-     * Parses a JetBrains contract string into the model.
-     *
-     * <p>Recognised shapes: {@code -> fail} and {@code null -> fail} (narrowing), {@code null ->
-     * true|false} (branch facts), and {@code _, !null -> !null} (the result is nullable exactly
-     * when that argument is). Anything else returns {@code null} so a lower-priority source --
-     * or the built-in table -- can answer instead of an empty contract masking it.
-     */
-    private static Contract contractFromJetBrains(String specification) {
-        if (specification == null) return null
-        Contract contract = new Contract()
-        boolean recognised = false
-        for (ContractClause clause : parseContract(specification)) {
-            if (clause.result == 'fail') {
-                if (clause.arguments.every { String argument -> argument == '_' || argument.isEmpty() }) {
-                    contract.neverReturns = true
-                    recognised = true
-                } else {
-                    for (int i = 0; i < clause.arguments.size(); i++) {
-                        if (clause.arguments[i] == 'null') {
-                            contract.nonNullAfterReturn.add(i)
-                            recognised = true
-                        }
-                    }
-                }
-            } else if (clause.result == 'true' || clause.result == 'false') {
-                boolean whenTrue = clause.result == 'false'
-                for (int i = 0; i < clause.arguments.size(); i++) {
-                    if (clause.arguments[i] != 'null') continue
-                    (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(i)
-                    recognised = true
-                }
-            } else if (clause.result == '!null') {
-                List<Integer> nonNullArguments = new ArrayList<Integer>()
-                for (int i = 0; i < clause.arguments.size(); i++) {
-                    if (clause.arguments[i] == '!null') nonNullArguments.add(i)
-                }
-                if (nonNullArguments.size() == 1) {
-                    contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
-                    contract.resultArgument = nonNullArguments.get(0)
-                    recognised = true
-                } else if (nonNullArguments.isEmpty()) {
-                    contract.result = ResultNullness.NON_NULL
-                    recognised = true
-                }
-            } else if (clause.result == 'null'
-                    && clause.arguments.every { String argument -> argument == '_' || argument.isEmpty() }) {
-                contract.result = ResultNullness.NULLABLE
-                recognised = true
-            }
-        }
-        recognised ? contract : null
-    }
-
-    /** Contracts declared by annotations on the method itself. */
-    private static Contract annotationContract(MethodNode target) {
-        AnnotationNode jetbrains = findAnnotation(target, 'Contract')
-        if (jetbrains != null) {
-            Contract parsed = contractFromJetBrains(stringMember(jetbrains, 'value'))
-            if (parsed != null) return parsed
-        }
-        AnnotationNode ensuresIf = findAnnotation(target, 'EnsuresNonNullIf')
-        if (ensuresIf != null) {
-            Boolean expected = booleanMember(ensuresIf, 'result')
-            if (expected != null) {
-                Contract contract = new Contract()
-                for (String reference : stringMembers(ensuresIf, 'expression')) {
-                    int index = argumentIndex(reference)
-                    if (index < 0) continue
-                    (expected ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(index)
-                }
-                if (contract.nonNullWhenTrue || contract.nonNullWhenFalse) return contract
-            }
-        }
-        AnnotationNode ensures = findAnnotation(target, 'EnsuresNonNull')
-        if (ensures != null) {
-            Contract contract = new Contract()
-            for (String reference : stringMembers(ensures, 'expression')) {
-                int index = argumentIndex(reference)
-                if (index >= 0) contract.nonNullAfterReturn.add(index)
-            }
-            if (contract.nonNullAfterReturn) return contract
-        }
-        for (String annotation : NO_RETURN_ANNOS) {
-            if (findAnnotation(target, annotation) != null) return neverContract()
-        }
-        null
-    }
-
-    /**
-     * Built-in contracts for library methods whose result nullness is not in their signature.
-     *
-     * <p>These describe the operation, not the element type: {@code Map.get} misses, {@code
-     * find} may find nothing, {@code max} cannot answer an empty collection. The table is the
-     * last source, so a project can override any entry through {@code contracts}.
-     */
-    private static Contract builtInContract(Expression callExpression, MethodNode target) {
-        String owner = target.declaringClass?.name
-        String name = target.name
-        if (owner == 'java.util.Objects') {
-            if (name == 'nonNull') return factContract(true)
-            if (name == 'isNull') return factContract(false)
-        }
-        if (name in NONNULL_VALIDATOR_METHODS) {
-            return afterReturnContract(0)
-        }
-        if (!(callExpression instanceof MethodCallExpression)) return null
-        MethodCallExpression call = (MethodCallExpression) callExpression
-        ClassNode receiver = typeOfExpression(call.objectExpression)
-        if (isMapLike(receiver)) {
-            if (name == 'getOrDefault') {
-                Contract contract = new Contract()
-                contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
-                contract.resultArgument = 1
-                contract.builtIn = true
-                return contract
-            }
-            if (name in MAP_LOOKUP_METHODS) {
-                Contract contract = new Contract()
-                contract.result = ResultNullness.NULLABLE
-                contract.builtIn = true
-                if (name in ['get', 'getAt', 'remove']) {
-                    contract.presence = new PresenceRule(argument: 0)
-                }
-                return contract
-            }
-        }
-        if (name in PARTIAL_COLLECTION_METHODS && isCollectionLike(receiver)) {
-            Contract contract = new Contract()
-            contract.result = ResultNullness.NULLABLE
-            contract.builtIn = true
-            return contract
-        }
-        null
-    }
-
-    /** Resolves a call's contract: configuration, then annotations, then built-ins. */
-    private static Contract contractFor(Expression callExpression, MethodNode target) {
-        if (target == null) return null
-        Contract cached = PORT_CONTRACT_CACHE.get(target)
-        if (cached != null) {
-            return cached.unresolved ? null : cached
-        }
-        Contract resolved = configuredContract(target)
-        if (resolved == null) resolved = annotationContract(target)
-        if (resolved == null) resolved = builtInContract(callExpression, target)
-        PORT_CONTRACT_CACHE.put(target, resolved ?: Contract.absent())
-        resolved
-    }
-
-    /**
-     * Contracts declared by the project, matched by {@code declaringClass#method} and by the
-     * same key on any superclass or interface.
-     */
-    private static Contract configuredContract(MethodNode target) {
-        if (PORT_CONFIG_CONTRACTS.isEmpty()) return null
-        ClassNode owner = target.declaringClass
-        if (owner == null) return null
-        Set<String> seen = new HashSet<String>()
-        Deque<ClassNode> pending = new ArrayDeque<ClassNode>()
-        pending.add(owner)
-        while (!pending.isEmpty()) {
-            ClassNode current = pending.poll()
-            if (current == null || !seen.add(current.name)) continue
-            Contract contract = PORT_CONFIG_CONTRACTS.get(current.name + '#' + target.name)
-            if (contract != null) return contract
-            if (current.superClass != null) pending.add(current.superClass)
-            current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
-        }
-        null
-    }
-
-    private static Map<String, Contract> buildConfigContracts() {
-        Map<String, Contract> contracts = new LinkedHashMap<String, Contract>()
-        for (String key : PORT_GUARDS_TRUE) {
-            contracts.put(key, factContract(true))
-        }
-        for (String key : PORT_GUARDS_FALSE) {
-            contracts.put(key, factContract(false))
-        }
-        for (String key : PORT_NEVER_RETURNS) {
-            contracts.put(key, neverContract())
-        }
-        for (Map.Entry<String, String> entry : readContractEntries().entrySet()) {
-            Contract contract = contractFromJetBrains(entry.value)
-            if (contract != null) {
-                contracts.put(entry.key, contract)
-            }
-        }
-        contracts
-    }
-
-    private static Map<String, String> readContractEntries() {
-        Map<String, String> entries = new LinkedHashMap<String, String>()
-        String raw = System.getProperty(CONTRACTS_PROPERTY)
-        if (raw == null) return entries
-        for (String part : raw.split(';')) {
-            String entry = part.trim()
-            if (entry.isEmpty()) continue
-            int separator = entry.indexOf('=')
-            if (separator <= 0) continue
-            entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
-        }
-        entries
-    }
-
     /** Key and value types of a map being iterated. */
-    private static class MapEntryTypes {
-        ClassNode keyType
-        ClassNode valueType
-    }
-
     /** What a call hands to its closure: an element, a map entry, or a pair of key and value. */
     private static class ClosureHint {
         boolean elementNullable
         /** True for each/eachWithIndex, which pass (key, value) rather than the entry. */
         boolean pairwise
         MapEntryTypes entryTypes
-    }
-
-    /** Key and value types of a map type, or {@code null} when the type is not a map. */
-    private static MapEntryTypes mapEntryTypes(ClassNode type) {
-        if (type == null || !isMapLike(type)) return null
-        def generics = type.genericsTypes
-        if (generics == null || generics.length < 2) return null
-        new MapEntryTypes(keyType: generics[0].type, valueType: generics[1].type)
     }
 
     /**
