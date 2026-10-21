@@ -67,6 +67,7 @@ class CorpusRules {
             N20: 'a JetBrains @Contract narrows the argument it describes',
             N21: 'a call that never returns makes the code after it unreachable',
             N22: 'container lookups narrow on containsKey and stay silent when they cannot miss',
+            N23: 'max/min on a collection proved non-empty stays non-null',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

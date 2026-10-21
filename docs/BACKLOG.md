@@ -4,45 +4,27 @@ Improvements found while using the checker on real codebases. Reproductions are 
 keep only the shape that triggers the behaviour, not any project's code or names. Priority
 reflects impact on real projects, not implementation effort.
 
-## Checker
+## Completed in 0.5.0
 
-### 1. Safe-navigation conditions do not narrow the receiver
+### Safe-navigation conditions narrow the receiver
 
-```groovy
-Item item = itemsById.get(id)
-if (item?.details?.kind != Kind.SPECIAL) {
-    continue
-}
-String value = item.details.value   // reported: item may be null
-```
+`a?.b?.c == null` / `!= null`, `== <non-null constant>` / `!= <non-null constant>` and a truthy
+safe-navigation chain now add the chain's receiver variables to the branch facts. With
+`if (item?.details?.kind != Kind.SPECIAL) { continue }`, `item` is non-null after the `if`.
 
-When `item` is null the safe-navigation chain yields null, `null != SPECIAL` is true, and the
-loop continues; after the `if`, `item` and `details` are necessarily non-null. The checker does
-not model the value of a safe-navigation chain, so it cannot narrow the receiver.
+Limitation: only receiver **variables** are tracked. A nullable property in the middle of the
+chain (for example an annotated `Details details` field) is still judged by its declaration;
+tracking access paths is part of the CFG work, not this fix.
 
-Direction: in `NullCheckVisitor`'s guard analysis, record that `a?.b != <non-null constant>`
-implies `a` (and `b`, if the chain is longer) is non-null on the branch where the comparison is
-false. The symmetric cases (`== null`, `== <non-null constant>`) should follow the same rule.
+### `max` / `min` are non-null after a non-empty guard
 
-Priority: high. This idiom is common and currently produces false positives.
+A branch guarded by `isNotNullOrEmpty(collection)` / `isNotNullOrEmptyDeeply(collection)` now
+records the collection as non-empty; `max`/`min` on that same receiver return non-null.
+`find`/`findResult` stay nullable because the predicate can still miss.
 
-### 2. `max` / `min` remain nullable after a non-empty guard
-
-```groovy
-if (isNotEmpty(orders)) {
-    Order newest = orders.max { it.id }
-    return newest                       // reported: newest may be null
-}
-```
-
-`max`/`min` are registered as partial collection methods, which is right for an empty
-collection. In a branch where the same collection is known non-empty they cannot return null.
-`find`/`findResult` must stay nullable even then: the predicate can miss.
-
-Direction: let the built-in partial entries consult guard facts for the receiver variable; when
-the branch proves the receiver non-empty, narrow `max`/`min` to non-null.
-
-Priority: medium-high. The guard is already understood; only the call result is not.
+Limitation: the non-empty fact currently comes from those two conventional helper names. A
+project-specific helper with another name still needs a future non-empty guard declaration;
+`guardNotNullWhenTrue` only proves non-null, not non-empty.
 
 ## Gradle plugin: compile mode
 
@@ -135,8 +117,8 @@ Triage of the remaining findings:
 | Class | Shape | Action |
 | --- | --- | --- |
 | likely real | map lookup then dereference; collection lookup before `size()`/`sort()` | guard the lookup or prove the key is present |
-| false positive | safe-navigation + `continue` | tracked as item 1 |
-| false positive | `max` after a non-empty guard | tracked as item 2 |
+| fixed | safe-navigation + `continue` | receiver narrowing added; see Completed |
+| fixed | `max` after a non-empty guard | non-empty guard fact added; see Completed |
 | resolution (report-only) | dynamic helper call; GString where `String` is expected | clean up in the project or keep `failOn` excluding `resolution` |
 
 The trial did not change the external project's sources.

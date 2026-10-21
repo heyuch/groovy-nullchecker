@@ -11,7 +11,7 @@ The trial ruleset is `config/codenarc/all.xml`; run it with:
 ./gradlew :nullchecker:codenarcMain -PcodenarcAll=true
 ```
 
-The committed `config/codenarc/codenarc.xml` enables **325 rules** and reports **0 violations**.
+The committed `config/codenarc/codenarc.xml` enables **323 rules** and reports **0 violations**.
 It is generated from the same rule set minus the excluded categories and the disabled rules
 below; this file is the record of the triage.
 
@@ -34,6 +34,7 @@ below; this file is the record of the triage.
 | `StaticMethodsBeforeInstanceMethods` | same |
 | `StaticFieldsBeforeInstanceFields` | same |
 | `IfStatementCouldBeTernary` | Explicit `if` is preferred |
+| `CouldBeSwitchStatement` | The visitor dispatches on AST node types; a value switch would be artificial |
 | `SpaceAroundMapEntryColon` | Formatting style not part of the baseline |
 | `MisorderedStaticImports` | Import order not part of the baseline |
 | `LineLength` | No line limit in the baseline |
@@ -57,8 +58,8 @@ below; this file is the record of the triage.
 
 ### Size and complexity (pending a separate threshold decision)
 
-`MethodCount`, `ParameterCount`, `MethodSize`, `NestedBlockDepth`, `CyclomaticComplexity`,
-`AbcMetric`, `NestedForLoop`.
+`ClassSize`, `MethodCount`, `ParameterCount`, `MethodSize`, `NestedBlockDepth`,
+`CyclomaticComplexity`, `AbcMetric`, `NestedForLoop`.
 
 The visitor is deliberately large and the CLI's `run` is long; enabling these without a
 baseline/threshold decision would gate on known structure rather than on a regression.

@@ -97,7 +97,6 @@
     <rule class='org.codenarc.rule.convention.CompileStaticRule'/>
     <rule class='org.codenarc.rule.convention.ConfusingTernaryRule'/>
     <rule class='org.codenarc.rule.convention.CouldBeElvisRule'/>
-    <rule class='org.codenarc.rule.convention.CouldBeSwitchStatementRule'/>
     <rule class='org.codenarc.rule.convention.FieldTypeRequiredRule'/>
     <rule class='org.codenarc.rule.convention.HashtableIsObsoleteRule'/>
     <rule class='org.codenarc.rule.convention.ImplicitClosureParameterRule'/>
@@ -273,7 +272,6 @@
     <rule class='org.codenarc.rule.serialization.SerialPersistentFieldsRule'/>
     <rule class='org.codenarc.rule.serialization.SerialVersionUIDRule'/>
     <rule class='org.codenarc.rule.serialization.SerializableClassMustDefineSerialVersionUIDRule'/>
-    <rule class='org.codenarc.rule.size.ClassSizeRule'/>
     <rule class='org.codenarc.rule.size.CrapMetricRule'/>
     <rule class='org.codenarc.rule.unnecessary.AddEmptyStringRule'/>
     <rule class='org.codenarc.rule.unnecessary.ConsecutiveLiteralAppendsRule'/>

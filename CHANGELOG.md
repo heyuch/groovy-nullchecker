@@ -45,6 +45,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   `package-info.java` files are `package-info.groovy` next to the sources they apply to, instead
   of sitting in `src/main/java` while governing `src/main/groovy`. `src/main/java` no longer
   contains sources; the `javadoc` jar is empty but still produced for Central.
+- **Flow refinements for safe navigation and non-empty collections.** A safe-navigation chain
+  compared with null or a non-null constant now narrows its receiver variables on the branch
+  where the chain is known non-null. `isNotNullOrEmpty(...)` guards make `max`/`min` on the same
+  collection non-null; `find`/`findResult` remain nullable. Both shapes have corpus regressions.
 - **Spotless handles basic Groovy formatting.** Both modules use Spotless 8.10.4 with import
   ordering, semicolon removal, trailing-whitespace trimming and a final newline. Greclipse is
   deliberately not used: it is large and the project does not need a full re-formatter.

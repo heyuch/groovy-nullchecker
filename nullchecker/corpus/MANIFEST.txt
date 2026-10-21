@@ -162,6 +162,13 @@ rule=N03
 strict=never
 expect=none
 
+negative/max_after_non_empty_guard.groovy
+rule=N23
+strict=never
+expect=none
+note=max/min on a collection proved non-empty by a guard
+
+
 negative/spread_property_result.groovy
 rule=N13
 strict=never

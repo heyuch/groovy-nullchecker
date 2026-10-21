@@ -35,6 +35,7 @@ import org.codehaus.groovy.ast.Variable
 import org.codehaus.groovy.ast.expr.BinaryExpression
 import org.codehaus.groovy.ast.expr.BooleanExpression
 import org.codehaus.groovy.ast.expr.CastExpression
+import org.codehaus.groovy.ast.expr.ClassExpression
 import org.codehaus.groovy.ast.expr.ClosureExpression
 import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
@@ -92,6 +93,9 @@ class NullCheckVisitor extends CheckingVisitor {
 
     private final boolean containerLookups
 
+    private static final Set<String> NON_EMPTY_WHEN_TRUE = [
+            'isNotNullOrEmpty', 'isNotNullOrEmptyDeeply'] as Set<String>
+
     private final Set<Variable> nullableVars
 
     NullCheckVisitor(boolean flowSensitive, MethodNode method, boolean methodNonNull,
@@ -110,6 +114,9 @@ class NullCheckVisitor extends CheckingVisitor {
 
     private final Set<Variable> monotonicInitialized = new HashSet<>()
     private final Set<Variable> guardedVars = new HashSet<>()
+
+    /** Collections currently known non-empty; used to refine max()/min(). */
+    private final Set<Variable> nonEmptyVars = new HashSet<>()
 
     @Override
     void visitDeclarationExpression(DeclarationExpression decl) {
@@ -169,6 +176,7 @@ class NullCheckVisitor extends CheckingVisitor {
                 }
             }
 
+            nonEmptyVars.remove(target)
             if (isNullExpr(rightExpr)) {
                 nullableVars.add(target)
                 guardedVars.remove(target)
@@ -416,17 +424,23 @@ class NullCheckVisitor extends CheckingVisitor {
     void visitIfElse(IfStatement ifElse) {
         GuardFacts facts = visitCondition(ifElse.booleanExpression.expression)
         withGuards(facts.whenTrue) {
-            withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
+            withNonEmptyGuards(facts.nonEmptyTrue) {
+                withLookupGuards(facts.lookupsTrue) { ifElse.ifBlock.visit(this) }
+            }
         }
         withGuards(facts.whenFalse) {
-            withLookupGuards(facts.lookupsFalse) { ifElse.elseBlock.visit(this) }
+            withNonEmptyGuards(facts.nonEmptyFalse) {
+                withLookupGuards(facts.lookupsFalse) { ifElse.elseBlock.visit(this) }
+            }
         }
         // Early exit: if (x == null) return/throw → x is non-null after (and vice versa)
         if (isEarlyExit(ifElse.ifBlock)) {
             applyFacts(facts.whenFalse)
+            applyNonEmptyFacts(facts.nonEmptyFalse)
         }
         if (isEarlyExit(ifElse.elseBlock)) {
             applyFacts(facts.whenTrue)
+            applyNonEmptyFacts(facts.nonEmptyTrue)
         }
     }
 
@@ -434,7 +448,9 @@ class NullCheckVisitor extends CheckingVisitor {
     void visitWhileLoop(WhileStatement loop) {
         GuardFacts facts = visitCondition(loop.booleanExpression.expression)
         withGuards(facts.whenTrue) {
-            withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
+            withNonEmptyGuards(facts.nonEmptyTrue) {
+                withLookupGuards(facts.lookupsTrue) { loop.loopBlock.visit(this) }
+            }
         }
     }
 
@@ -445,11 +461,15 @@ class NullCheckVisitor extends CheckingVisitor {
         // for elvis, the true expression is the (already visited) condition
         if (!condition.is(expression.trueExpression) && !expression.booleanExpression.is(expression.trueExpression)) {
             withGuards(facts.whenTrue) {
-                withLookupGuards(facts.lookupsTrue) { expression.trueExpression.visit(this) }
+                withNonEmptyGuards(facts.nonEmptyTrue) {
+                    withLookupGuards(facts.lookupsTrue) { expression.trueExpression.visit(this) }
+                }
             }
         }
         withGuards(facts.whenFalse) {
-            withLookupGuards(facts.lookupsFalse) { expression.falseExpression.visit(this) }
+            withNonEmptyGuards(facts.nonEmptyFalse) {
+                withLookupGuards(facts.lookupsFalse) { expression.falseExpression.visit(this) }
+            }
         }
     }
 
@@ -459,6 +479,7 @@ class NullCheckVisitor extends CheckingVisitor {
         statement.messageExpression?.visit(this)
         // assert x/assert x != null → x is non-null for the rest of the block
         applyFacts(facts.whenTrue)
+        applyNonEmptyFacts(facts.nonEmptyTrue)
     }
 
     /**
@@ -495,6 +516,8 @@ class NullCheckVisitor extends CheckingVisitor {
             GuardFacts inner = analyzeCondition(condition.expression, visiting)
             facts.whenTrue = inner.whenFalse
             facts.whenFalse = inner.whenTrue
+            facts.nonEmptyTrue = inner.nonEmptyFalse
+            facts.nonEmptyFalse = inner.nonEmptyTrue
         } else if (condition instanceof BooleanExpression) {
             facts = analyzeCondition(condition.expression, visiting)
         } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_AND) {
@@ -510,6 +533,7 @@ class NullCheckVisitor extends CheckingVisitor {
             facts.whenFalse = intersection(left.whenFalse, right.whenFalse)
             facts.lookupsTrue = union(left.lookupsTrue, right.lookupsTrue)
             facts.lookupsFalse = intersection(left.lookupsFalse, right.lookupsFalse)
+            facts.nonEmptyTrue = union(left.nonEmptyTrue, right.nonEmptyTrue)
         } else if (condition instanceof BinaryExpression && condition.operation.type == Types.LOGICAL_OR) {
             GuardFacts left = analyzeCondition(condition.leftExpression, visiting)
             GuardFacts right = visiting
@@ -523,6 +547,7 @@ class NullCheckVisitor extends CheckingVisitor {
             facts.whenFalse = union(left.whenFalse, right.whenFalse)
             facts.lookupsTrue = intersection(left.lookupsTrue, right.lookupsTrue)
             facts.lookupsFalse = union(left.lookupsFalse, right.lookupsFalse)
+            facts.nonEmptyFalse = union(left.nonEmptyFalse, right.nonEmptyFalse)
         } else {
             if (visiting) {
                 condition.visit(this)
@@ -554,14 +579,30 @@ class NullCheckVisitor extends CheckingVisitor {
                 boolean isNotEqual = (op == Types.COMPARE_NOT_EQUAL || op == Types.COMPARE_NOT_IDENTICAL)
                 boolean isEqual = (op == Types.COMPARE_EQUAL || op == Types.COMPARE_IDENTICAL)
                 if (isNotEqual || isEqual) {
+                    Expression left = condition.leftExpression
+                    Expression right = condition.rightExpression
                     Variable var = null
-                    if (isNullExpr(condition.rightExpression)) {
-                        var = guardableVariable(condition.leftExpression)
-                    } else if (isNullExpr(condition.leftExpression)) {
-                        var = guardableVariable(condition.rightExpression)
+                    if (isNullExpr(right)) {
+                        var = guardableVariable(left)
+                    } else if (isNullExpr(left)) {
+                        var = guardableVariable(right)
                     }
                     if (var != null) {
                         (isNotEqual ? facts.whenTrue : facts.whenFalse).add(var)
+                    } else if (isNullExpr(right) && isSafeNav(left)) {
+                        addSafeNavReceiverFacts(left, isNotEqual ? facts.whenTrue : facts.whenFalse)
+                    } else if (isNullExpr(left) && isSafeNav(right)) {
+                        addSafeNavReceiverFacts(right, isNotEqual ? facts.whenTrue : facts.whenFalse)
+                    } else {
+                        Expression chain = null
+                        if (isSafeNav(left) && isDefinitelyNonNullValue(right)) {
+                            chain = left
+                        } else if (isSafeNav(right) && isDefinitelyNonNullValue(left)) {
+                            chain = right
+                        }
+                        if (chain != null) {
+                            addSafeNavReceiverFacts(chain, isEqual ? facts.whenTrue : facts.whenFalse)
+                        }
                     }
                 }
             }
@@ -571,6 +612,8 @@ class NullCheckVisitor extends CheckingVisitor {
             if (var != null) {
                 facts.whenTrue.add(var)
             }
+        } else if (isSafeNav(condition)) {
+            addSafeNavReceiverFacts(condition, facts.whenTrue)
         } else if (condition instanceof MethodCallExpression || condition instanceof StaticMethodCallExpression) {
             Object target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
             if (target instanceof MethodNode) {
@@ -578,9 +621,121 @@ class NullCheckVisitor extends CheckingVisitor {
                 if (condition instanceof MethodCallExpression) {
                     applyContainsKeyGuard((MethodCallExpression) condition, facts)
                 }
+                applyNonEmptyGuard((MethodCall) condition, facts)
             }
         }
         return facts
+    }
+
+    /** A value that cannot be null: a literal, a class literal, or a non-null property. */
+    private boolean isDefinitelyNonNullValue(Expression expression) {
+        if (expression == null || isNullExpr(expression)) {
+            return false
+        }
+        if (expression instanceof ConstantExpression || expression instanceof ClassExpression) {
+            return true
+        }
+        if (expression instanceof PropertyExpression) {
+            ClassNode type = typeOfExpression(expression)
+            return type != null && type.isEnum() && !isKnownNullable(expression)
+        }
+        return false
+    }
+
+    /** True when the expression contains a safe-navigation step. */
+    private static boolean isSafeNav(Expression expression) {
+        if (expression instanceof PropertyExpression) {
+            PropertyExpression property = (PropertyExpression) expression
+            return property.safe || isSafeNav(property.objectExpression)
+        }
+        if (expression instanceof MethodCallExpression) {
+            MethodCallExpression call = (MethodCallExpression) expression
+            return call.safe || isSafeNav(call.objectExpression)
+        }
+        if (expression instanceof CastExpression) {
+            return isSafeNav(expression.expression)
+        }
+        return false
+    }
+
+    /**
+     * A non-null safe-navigation result proves every receiver on the chain non-null.
+     * For {@code a?.b?.c == VALUE}, the false branch proves {@code a != null}.
+     */
+    private void addSafeNavReceiverFacts(Expression expression, Set<Variable> target) {
+        if (expression instanceof CastExpression) {
+            addSafeNavReceiverFacts(expression.expression, target)
+            return
+        }
+        if (expression instanceof PropertyExpression) {
+            PropertyExpression property = (PropertyExpression) expression
+            collectReceiverVariables(property.objectExpression, target)
+            addSafeNavReceiverFacts(property.objectExpression, target)
+            return
+        }
+        if (expression instanceof MethodCallExpression) {
+            MethodCallExpression call = (MethodCallExpression) expression
+            collectReceiverVariables(call.objectExpression, target)
+            addSafeNavReceiverFacts(call.objectExpression, target)
+        }
+    }
+
+    private void collectReceiverVariables(Expression expression, Set<Variable> target) {
+        if (expression instanceof VariableExpression) {
+            Variable variable = guardableVariable(expression)
+            if (variable != null) {
+                target.add(variable)
+            }
+            return
+        }
+        if (expression instanceof PropertyExpression) {
+            collectReceiverVariables(((PropertyExpression) expression).objectExpression, target)
+            return
+        }
+        if (expression instanceof MethodCallExpression) {
+            collectReceiverVariables(((MethodCallExpression) expression).objectExpression, target)
+            return
+        }
+        if (expression instanceof CastExpression) {
+            collectReceiverVariables(((CastExpression) expression).expression, target)
+        }
+    }
+
+    /** Recognises the conventional non-empty/empty guards on the first argument. */
+    private void applyNonEmptyGuard(MethodCall condition, GuardFacts facts) {
+        String name = condition.methodAsString
+        if (!(name in NON_EMPTY_WHEN_TRUE)) {
+            return
+        }
+        Expression arguments = condition.arguments
+        if (!(arguments instanceof TupleExpression)) {
+            return
+        }
+        TupleExpression tuple = (TupleExpression) arguments
+        if (tuple.expressions.size() != 1) {
+            return
+        }
+        Variable variable = guardableVariable(tuple.getExpression(0))
+        if (variable == null) {
+            return
+        }
+        facts.nonEmptyTrue.add(variable)
+    }
+
+    private <T> T withNonEmptyGuards(Set<Variable> vars, Closure<T> body) {
+        if (!vars) {
+            return body()
+        }
+        Set<Variable> saved = new HashSet<Variable>(nonEmptyVars)
+        nonEmptyVars.addAll(vars)
+        T result = body()
+        nonEmptyVars.clear()
+        nonEmptyVars.addAll(saved)
+        return result
+    }
+
+    private void applyNonEmptyFacts(Set<Variable> vars) {
+        nonEmptyVars.addAll(vars)
     }
 
     /**
@@ -725,11 +880,19 @@ class NullCheckVisitor extends CheckingVisitor {
      * methods are partial regardless of that, which is why the rule lives here rather
      * than being folded into the type argument's default.
      */
+    private boolean isKnownNonEmptyReceiver(MethodCallExpression call) {
+        Variable receiver = guardableVariable(call.objectExpression)
+        return receiver != null && nonEmptyVars.contains(receiver)
+    }
+
     private boolean isNullableContainerLookup(Expression expression) {
         if (!(expression instanceof MethodCallExpression)) {
             return false
         }
         MethodCallExpression call = (MethodCallExpression) expression
+        if (call.methodAsString in ['max', 'min'] && isKnownNonEmptyReceiver(call)) {
+            return false
+        }
         Object target = ((Expression) call).getNodeMetaData((Object) StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
         if (!(target instanceof MethodNode)) {
             return false
@@ -879,11 +1042,12 @@ class NullCheckVisitor extends CheckingVisitor {
             }
             Variable target = findTargetVariable(receiver)
             boolean isMonotonicAndInitialized = target instanceof AnnotatedNode && hasMonotonicAnno(target) && monotonicInitialized.contains(target)
-            if (target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
+            boolean nonEmpty = nonEmptyVars.contains(target)
+            if (!nonEmpty && target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
                 reporter.report("Potential null dereference: '${receiver.name}' is @Nullable", context)
-            } else if (isNullableElement(receiver, target) && !guardedVars.contains(target)) {
+            } else if (!nonEmpty && isNullableElement(receiver, target) && !guardedVars.contains(target)) {
                 reporter.report("Potential null dereference: '${receiver.name}' may be null", context)
-            } else if (flowSensitive && nullableVars.contains(target) && !guardedVars.contains(target)) {
+            } else if (!nonEmpty && flowSensitive && nullableVars.contains(target) && !guardedVars.contains(target)) {
                 reporter.report("Potential null dereference: '${receiver.name}' may be null", context)
             }
         } else if (isSafeNavResult(receiver)) {
@@ -950,7 +1114,7 @@ class NullCheckVisitor extends CheckingVisitor {
     private boolean isKnownNullable(Expression expr) {
         if (expr instanceof VariableExpression) {
             Variable target = findTargetVariable(expr)
-            if (guardedVars.contains(target)) {
+            if (guardedVars.contains(target) || nonEmptyVars.contains(target)) {
                 return false
             }
             if (isNullableElement(expr, target)) {

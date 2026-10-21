@@ -14,5 +14,8 @@ class GuardFacts {
     /** Lookup keys (container text|key text) proved present in that branch. */
     Set<String> lookupsTrue = new HashSet<String>()
     Set<String> lookupsFalse = new HashSet<String>()
+    /** Collections proved non-empty in that branch (max/min can then not return null). */
+    Set<Variable> nonEmptyTrue = new HashSet<Variable>()
+    Set<Variable> nonEmptyFalse = new HashSet<Variable>()
 
 }
