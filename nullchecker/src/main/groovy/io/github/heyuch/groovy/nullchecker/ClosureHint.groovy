@@ -9,8 +9,10 @@ import groovy.transform.PackageScope
 @CompileStatic
 @PackageScope
 class ClosureHint {
+
     boolean elementNullable
     /** True for each/eachWithIndex, which pass (key, value) rather than the entry. */
     boolean pairwise
     @Nullable MapEntryTypes entryTypes
+
 }

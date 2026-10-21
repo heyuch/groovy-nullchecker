@@ -119,4 +119,5 @@ import java.lang.annotation.Target
 
     /** Line in the canary where a violation is expected. */
     static final int REQUIRED_LINE = 7
+
 }

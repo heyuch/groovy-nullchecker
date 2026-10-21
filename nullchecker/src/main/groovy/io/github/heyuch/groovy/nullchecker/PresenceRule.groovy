@@ -7,5 +7,7 @@ import groovy.transform.PackageScope
 @CompileStatic
 @PackageScope
 class PresenceRule {
+
     int argument
+
 }

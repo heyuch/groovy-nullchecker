@@ -9,4 +9,5 @@ import groovy.transform.PackageScope
 interface NullCheckSink {
 
     void report(NullCheckFinding finding)
+
 }

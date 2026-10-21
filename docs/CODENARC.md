@@ -11,7 +11,7 @@ The trial ruleset is `config/codenarc/all.xml`; run it with:
 ./gradlew :nullchecker:codenarcMain -PcodenarcAll=true
 ```
 
-The committed `config/codenarc/codenarc.xml` enables **322 rules** and reports **0 violations**.
+The committed `config/codenarc/codenarc.xml` enables **325 rules** and reports **0 violations**.
 It is generated from the same rule set minus the excluded categories and the disabled rules
 below; this file is the record of the triage.
 
@@ -35,10 +35,8 @@ below; this file is the record of the triage.
 | `StaticFieldsBeforeInstanceFields` | same |
 | `IfStatementCouldBeTernary` | Explicit `if` is preferred |
 | `SpaceAroundMapEntryColon` | Formatting style not part of the baseline |
-| `ClassStartsWithBlankLine` / `ClassEndsWithBlankLine` | Formatting style not part of the baseline |
 | `MisorderedStaticImports` | Import order not part of the baseline |
 | `LineLength` | No line limit in the baseline |
-| `BracesForForLoop` | Formatting duplicate; `ForStatementBraces` already enforces braces |
 | `UnnecessaryCast` | Groovy static typing often needs the cast |
 | `DuplicateStringLiteral` / `DuplicateNumberLiteral` | The repeated literals are messages/keys, not duplicated logic |
 | `FactoryMethodName` | `build…` here builds a map, not a factory; false positive |
@@ -74,6 +72,10 @@ baseline/threshold decision would gate on known structure rather than on a regre
 - `FieldName` / `VariableName`: type suffixes (`List`, `Map`, `Arr`, `Str`, `Count`) are
   forbidden by regex.
 - `IllegalRegex`: separator-comment banners are forbidden.
+- `ClassStartsWithBlankLine` / `ClassEndsWithBlankLine`: class bodies are padded with one blank
+  line after the opening brace and before the closing brace.
+- `BracesForForLoop`: the opening brace stays on the `for` line; the multi-line header in
+  `ContractRegistry` was rewritten with a named list.
 - All other enabled rules are unchanged and currently report zero violations.
 
 ## Maintenance

@@ -77,4 +77,5 @@ class NullCheckConfig {
         }
         return enabled
     }
+
 }

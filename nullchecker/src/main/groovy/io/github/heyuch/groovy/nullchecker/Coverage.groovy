@@ -50,4 +50,5 @@ class Coverage {
             coverageFile.append(cn.name + '\n', 'UTF-8')
         }
     }
+
 }

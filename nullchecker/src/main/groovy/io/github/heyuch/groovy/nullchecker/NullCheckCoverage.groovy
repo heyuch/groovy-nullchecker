@@ -39,4 +39,5 @@ class NullCheckCoverage {
         return String.format('files=%d classes=%d compileStatic=%d nonNullByDefault=%d methodsWithReturnType=%d',
                 files, classes, compileStaticClasses, nonNullByDefaultClasses, methodsWithReturnType)
     }
+
 }

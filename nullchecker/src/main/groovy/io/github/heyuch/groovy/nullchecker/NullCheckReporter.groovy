@@ -73,4 +73,5 @@ class NullCheckReporter {
             errorsFile.append("${where}: ${failure.getClass().name}: ${failure.message}\n".toString(), 'UTF-8')
         }
     }
+
 }

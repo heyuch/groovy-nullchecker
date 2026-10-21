@@ -7,6 +7,7 @@ import groovy.transform.PackageScope
 @CompileStatic
 @PackageScope
 enum ResultNullness {
+
     /** Never null by this contract. */
     NON_NULL,
     /** Null when the operation has no result. */
@@ -15,4 +16,5 @@ enum ResultNullness {
     PARAM,
     /** Nullable exactly when the given argument is nullable. */
     NULLABLE_IF_ARG_NULLABLE
+
 }

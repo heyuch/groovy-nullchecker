@@ -84,4 +84,5 @@ class NullCheckFinding {
         }
         return text.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ')
     }
+
 }

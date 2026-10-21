@@ -80,4 +80,5 @@ class CorpusRules {
     static String fragmentFor(String rule) {
         return RULES[rule]
     }
+
 }

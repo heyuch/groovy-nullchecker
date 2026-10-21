@@ -1060,4 +1060,5 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         return false
     }
+
 }

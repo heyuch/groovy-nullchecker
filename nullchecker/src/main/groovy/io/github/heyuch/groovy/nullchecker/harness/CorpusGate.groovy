@@ -20,15 +20,18 @@ class CorpusGate {
 
     /** A fixture together with what the manifest demands of it. */
     static class Fixture {
+
         String relativePath = ''
         String rule = ''
         String strict = 'any'
         String expect = 'some'
         String note = ''
+
     }
 
     /** Outcome of checking one fixture in one mode. */
     static class ModeResult {
+
         String mode = ''
         int findings
         List<String> messages = []
@@ -36,20 +39,24 @@ class CorpusGate {
         List<String> extraRules = []
         /** Non-empty when the count did not match the expectation. */
         List<String> failures = []
+
     }
 
     /** Outcome of checking one fixture in every applicable mode. */
     static class FixtureResult {
+
         Fixture fixture = new Fixture()
         List<ModeResult> modes = []
 
         List<String> failures() {
             return modes.collectMany { ModeResult m -> m.failures }
         }
+
     }
 
     /** The whole run. */
     static class Report {
+
         List<FixtureResult> results = []
         List<String> failures = []
         Map<String, Integer> ruleCoverage = [:]
@@ -58,6 +65,7 @@ class CorpusGate {
         boolean isOk() {
             return failures.isEmpty() && uncoveredRules.isEmpty()
         }
+
     }
 
     /**
@@ -278,4 +286,5 @@ class CorpusGate {
         report.failures.each { String f -> out.append("  FAILURE: ${f}\n") }
         return out.toString()
     }
+
 }

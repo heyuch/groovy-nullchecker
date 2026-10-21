@@ -296,4 +296,5 @@ class PackageScopes {
     static @Nullable String normalisePackageName(@Nullable String name) {
         return name == null ? null : name.replaceAll(/\.$/, '')
     }
+
 }

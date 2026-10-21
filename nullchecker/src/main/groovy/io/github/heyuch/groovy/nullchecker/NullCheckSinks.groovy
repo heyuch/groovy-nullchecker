@@ -51,4 +51,5 @@ class NullCheckSinks {
         CURRENT.set(fileSink)
         return fileSink
     }
+
 }

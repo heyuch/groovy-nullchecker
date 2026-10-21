@@ -76,8 +76,9 @@ class ContractRegistry {
         for (String name : ['get', 'getAt', 'remove']) {
             registerBuiltIn('java.util.Map#' + name, Contract.lookupResult(0))
         }
-        for (String name : ['put', 'putIfAbsent', 'replace', 'compute',
-                            'computeIfAbsent', 'computeIfPresent', 'merge']) {
+        List<String> mapWriters = ['put', 'putIfAbsent', 'replace', 'compute',
+                                   'computeIfAbsent', 'computeIfPresent', 'merge']
+        for (String name : mapWriters) {
             registerBuiltIn('java.util.Map#' + name, Contract.nullableResult())
         }
         registerBuiltIn('java.util.Map#getOrDefault', Contract.nullableIfArgNullable(1))
@@ -376,4 +377,5 @@ class ContractRegistry {
         }
         return Collections.unmodifiableSet(entries)
     }
+
 }

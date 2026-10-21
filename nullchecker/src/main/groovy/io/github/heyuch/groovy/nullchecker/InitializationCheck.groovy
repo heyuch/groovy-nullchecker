@@ -102,6 +102,7 @@ class InitializationCheck {
     Set<String> assignedFieldNames(List<Statement> statements) {
         Set<String> names = new HashSet<String>()
         CodeVisitorSupport collector = new CodeVisitorSupport() {
+
             @Override
             void visitBinaryExpression(BinaryExpression expression) {
                 if (isAssignment(expression.operation.type)) {
@@ -119,6 +120,7 @@ class InitializationCheck {
                 }
                 super.visitBinaryExpression(expression)
             }
+
         }
         for (Statement statement : statements) {
             if (statement != null) {
@@ -159,4 +161,5 @@ class InitializationCheck {
             annotation.classNode?.packageName in VALIDATION_ANNO_PACKAGES
         }
     }
+
 }

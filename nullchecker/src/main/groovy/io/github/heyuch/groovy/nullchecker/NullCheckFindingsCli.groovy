@@ -91,4 +91,5 @@ class NullCheckFindingsCli {
         }
         System.exit(failing ? 1 : 0)
     }
+
 }

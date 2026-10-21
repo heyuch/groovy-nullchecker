@@ -102,4 +102,5 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
     String getExtension() {
         return extension
     }
+
 }

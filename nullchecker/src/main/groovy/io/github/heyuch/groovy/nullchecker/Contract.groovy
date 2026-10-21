@@ -93,4 +93,5 @@ class Contract {
         contract.nonNullWhenFalse.add(argument)
         return contract
     }
+
 }

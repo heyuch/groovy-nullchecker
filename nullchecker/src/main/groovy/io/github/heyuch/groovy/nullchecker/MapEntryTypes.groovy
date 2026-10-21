@@ -10,6 +10,8 @@ import org.codehaus.groovy.ast.ClassNode
 @CompileStatic
 @PackageScope
 class MapEntryTypes {
+
     @Nullable ClassNode keyType
     @Nullable ClassNode valueType
+
 }

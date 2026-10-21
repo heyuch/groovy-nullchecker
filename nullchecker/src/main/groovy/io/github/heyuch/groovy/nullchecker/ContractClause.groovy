@@ -9,6 +9,8 @@ import groovy.transform.PackageScope
 @CompileStatic
 @PackageScope
 class ContractClause {
+
     List<String> arguments = new ArrayList<String>()
     @Nullable String result
+
 }

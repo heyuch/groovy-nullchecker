@@ -31,4 +31,5 @@ class FileFindingsSink implements NullCheckSink {
             file.append(finding.toTsv() + '\n', 'UTF-8')
         }
     }
+
 }

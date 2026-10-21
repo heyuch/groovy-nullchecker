@@ -106,4 +106,5 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
         }
         return ve
     }
+
 }

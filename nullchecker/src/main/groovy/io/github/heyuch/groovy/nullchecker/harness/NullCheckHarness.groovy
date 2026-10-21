@@ -83,6 +83,7 @@ class NullCheckHarness {
         String getLabel() {
             return name().toLowerCase(Locale.ROOT)
         }
+
     }
 
     /** Message fragments that identify a nullness finding. */
@@ -102,6 +103,7 @@ class NullCheckHarness {
 
     /** One reported problem, normalised to a stable single line. */
     static class Finding {
+
         String path = ''
         int line
         String message = ''
@@ -111,6 +113,7 @@ class NullCheckHarness {
         String toString() {
             return "${path}:${line}: ${message}".toString()
         }
+
     }
 
     /**
@@ -162,6 +165,7 @@ class NullCheckHarness {
 
     /** Result of one compilation. */
     static class Result {
+
         List<Finding> findings = []
         /** Raw compiler output, kept for diagnostics and snapshotting. */
         String raw = ''
@@ -175,10 +179,12 @@ class NullCheckHarness {
         boolean isClean() {
             return findings.isEmpty()
         }
+
     }
 
     /** Outcome of the pre-flight self-check. */
     static class CanaryResult {
+
         boolean healthy
         List<Finding> findings = []
         String detail = ''
@@ -187,6 +193,7 @@ class NullCheckHarness {
         String toString() {
             return (healthy ? "canary ok (${findings.size()} findings)" : "canary FAILED: ${detail}").toString()
         }
+
     }
 
     /**
@@ -394,4 +401,5 @@ class NullCheckHarness {
         return parsed ? parsed.first() : new Finding(path: '', line: 0, message: text.trim(),
                 category: categoryOf(text))
     }
+
 }

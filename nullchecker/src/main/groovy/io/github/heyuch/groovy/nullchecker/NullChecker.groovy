@@ -303,4 +303,5 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             Collections.synchronizedMap(new WeakHashMap<CompilationUnit, NullCheckSession>())
 
     private static Coverage lastCoverage = new Coverage()
+
 }

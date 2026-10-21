@@ -76,4 +76,5 @@ class NullCheckSession {
             new InitializationCheck(scopes, reporter).check(cn)
         }
     }
+
 }

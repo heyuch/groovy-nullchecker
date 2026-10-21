@@ -338,4 +338,7 @@
         <property name='regex' value='^\s*//\s*[-=]{3,}'/>
     </rule>
 
+    <rule class='org.codenarc.rule.formatting.ClassStartsWithBlankLineRule'/>
+    <rule class='org.codenarc.rule.formatting.ClassEndsWithBlankLineRule'/>
+    <rule class='org.codenarc.rule.formatting.BracesForForLoopRule'/>
 </ruleset>
