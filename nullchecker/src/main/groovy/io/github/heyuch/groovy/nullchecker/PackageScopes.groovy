@@ -242,7 +242,11 @@ class PackageScopes {
         for (ClassLoader loader : candidateClassLoaders()) {
             try {
                 Class<?> pkgClass = loader.loadClass(resource)
-                List<String> names = pkgClass.getPackage()?.annotations*.annotationType()*.simpleName
+                Package pkg = pkgClass.getPackage()
+                if (pkg == null) {
+                    continue
+                }
+                List<String> names = pkg.annotations*.annotationType()*.simpleName
                 if (names) {
                     byPackage.put(packageName, names)
                     return names

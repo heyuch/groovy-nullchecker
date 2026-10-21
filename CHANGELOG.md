@@ -31,6 +31,12 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The project checks itself.** The published Gradle plugin (0.3.1) is applied to the
+  `nullchecker` module, `nullcheck` is part of `check`, and `failOnError` is on. The first run
+  found a real nullable `Package.getPackage()` dereference in `PackageScopes`; it now guards the
+  package before reading its annotations. Bump `nullcheck.toolVersion` when a new checker is
+  released, since this dogfood deliberately uses the published artifact rather than the working
+  tree.
 - **Static analysis runs in `check`.** CodeNarc enforces explicit types, explicit returns and
   braces on main sources (tests keep the correctness rules only), and SpotBugs analyses
   production bytecode. The SpotBugs filter records the patterns that do not describe Groovy
