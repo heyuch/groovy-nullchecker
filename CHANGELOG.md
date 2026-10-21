@@ -3,6 +3,13 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Dogfood moved to `0.6.0`.** Maven Central now serves the release, so the self-check plugin
+  and `nullcheck.toolVersion` no longer stay on `0.5.0`.
+
 ## [0.6.0] - 2026-10-21
 
 ### Added

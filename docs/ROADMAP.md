@@ -206,9 +206,7 @@ Status: done (0.6.0 released).
 - `gradle.properties` is `0.6.0`; the tag and GitHub Release are `v0.6.0`.
 - `clean check`, `dualRun`, `dist`, the release workflow and the plugin functional suite passed.
 - GitHub Release assets and the Gradle Plugin Portal publication are live.
-- Maven Central accepted the deployment; first-release propagation may still show 404 until the
-  portal deployment finishes. Bump the dogfood plugin/`toolVersion` once `0.6.0` is resolvable
-  from Central; this is a post-release follow-up, not an open roadmap item.
+- Maven Central now serves `0.6.0`; the dogfood plugin and `toolVersion` are bumped to `0.6.0`.
 
 #### R2. Documentation
 
