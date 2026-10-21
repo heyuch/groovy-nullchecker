@@ -1,8 +1,11 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
+import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.Variable
 import org.codehaus.groovy.control.CompilationUnit
 import static io.github.heyuch.groovy.nullchecker.AstSupport.*
@@ -20,6 +23,7 @@ import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
  * context of the class currently being visited, so the facade passes its per-instance reporter
  * into each call.
  */
+@CompileStatic
 @PackageScope
 class NullCheckSession {
 
@@ -51,14 +55,17 @@ class NullCheckSession {
             boolean methodNonNull = method.returnType != VOID_TYPE &&
                     (hasNonNullAnno(method) || (classNonNullByDefault && !hasNullableAnno(method)))
             if (methodNonNull) {
-                def stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
+                Object stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
                 if (stash instanceof List) {
-                    stash.each { node ->
-                        reporter.report("Cannot return null from @NonNull method '${method.name}'", node)
+                    List<?> violations = (List<?>) stash
+                    for (Object node : violations) {
+                        reporter.report("Cannot return null from @NonNull method '${method.name}'", (ASTNode) node)
                     }
                 }
             }
-            Set<Variable> initialNullable = method.parameters.findAll { hasNullableAnno(it) } as Set<Variable>
+            Set<Variable> initialNullable = method.parameters.findAll { Parameter parameter ->
+                hasNullableAnno(parameter)
+            } as Set<Variable>
             method.code?.visit(new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable,
                     scopes, contracts, reporter, config.containerLookups))
         }

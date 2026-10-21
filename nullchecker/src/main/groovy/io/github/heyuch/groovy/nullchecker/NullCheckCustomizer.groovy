@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.CompilationUnitAware
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.classgen.GeneratorContext
@@ -35,6 +36,7 @@ import org.codehaus.groovy.control.customizers.CompilationCustomizer
  * standalone report: it also proves the checker actually ran (canary plus coverage
  * counters), which a bare customizer cannot.
  */
+@CompileStatic
 class NullCheckCustomizer extends CompilationCustomizer implements CompilationUnitAware {
 
     /**
@@ -73,7 +75,8 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         }
         // A String is mandatory here: passing a Class or ClassExpression is silently
         // ignored by the transformation, which produces a green build that checked nothing.
-        this.inner = new ASTTransformationCustomizer([extensions: [extension]], annotation)
+        this.inner = new ASTTransformationCustomizer([extensions: [extension]],
+                (Class<? extends java.lang.annotation.Annotation>) annotation)
     }
 
     /**
@@ -97,6 +100,6 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     /** The extension class name this customizer registers. */
     String getExtension() {
-        extension
+        return extension
     }
 }

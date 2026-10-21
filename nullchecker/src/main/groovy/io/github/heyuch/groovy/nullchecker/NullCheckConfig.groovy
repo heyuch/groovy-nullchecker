@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
 /**
@@ -11,6 +12,7 @@ import groovy.transform.PackageScope
  * strict) an environment variable. Reading them once produces an immutable object, so the
  * checker and its collaborators do not each reinterpret the properties.
  */
+@CompileStatic
 @PackageScope
 class NullCheckConfig {
 
@@ -50,7 +52,7 @@ class NullCheckConfig {
         Set<String> checks = readChecks()
         boolean containerLookups = !'false'.equalsIgnoreCase(
                 System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
-        new NullCheckConfig(strict, checks.contains(CHECK_NULL),
+        return new NullCheckConfig(strict, checks.contains(CHECK_NULL),
                 checks.contains(CHECK_INITIALIZATION), containerLookups)
     }
 
@@ -73,6 +75,6 @@ class NullCheckConfig {
         if (enabled.isEmpty() || enabled.contains(CHECKS_ALL)) {
             return [CHECK_NULL, CHECK_INITIALIZATION] as Set<String>
         }
-        enabled
+        return enabled
     }
 }

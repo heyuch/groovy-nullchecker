@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ASTNode
 
@@ -15,6 +16,7 @@ import org.codehaus.groovy.ast.ASTNode
  * <p>The reporting function is supplied by the coordinator, so this class does not depend on
  * the DSL and the visitor can be given a reporter instead of the checker.
  */
+@CompileStatic
 @PackageScope
 class NullCheckReporter {
 
@@ -28,7 +30,7 @@ class NullCheckReporter {
         this.reportFunction = reportFunction
     }
 
-    void report(String message, ASTNode node) {
+    void report(CharSequence message, ASTNode node) {
         reportFunction.call(message, node)
     }
 
@@ -45,7 +47,7 @@ class NullCheckReporter {
         if (errors == null) {
             return new ArrayList<String>()
         }
-        new ArrayList<String>(errors)
+        return new ArrayList<String>(errors)
     }
 
     static void resetInternalErrors() {

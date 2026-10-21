@@ -28,6 +28,8 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileDynamic
+
 
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
@@ -112,6 +114,7 @@ import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
  *
  * @since 6.0.0
  */
+@CompileDynamic
 class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Rule family: nullness of values (dereference, return, assignment, argument). */
@@ -166,7 +169,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Mirrors Groovy 6's {@code getOptions()}. */
     Map<String, Object> getOptions() {
-        PORT_OPTIONS
+        return PORT_OPTIONS
     }
 
     /** Drops any options set by a previous compilation. */
@@ -175,7 +178,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     static NullCheckCoverage getLastCoverage() {
-        lastCoverage.snapshot()
+        return lastCoverage.snapshot()
     }
 
     static void resetCoverage() {
@@ -183,7 +186,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     static List<String> getInternalErrors() {
-        NullCheckReporter.getInternalErrors()
+        return NullCheckReporter.getInternalErrors()
     }
 
     static void resetInternalErrors() {

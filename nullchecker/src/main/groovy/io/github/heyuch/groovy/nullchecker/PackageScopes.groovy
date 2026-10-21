@@ -1,7 +1,10 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.PackageNode
 import org.codehaus.groovy.control.CompilationUnit
 import static io.github.heyuch.groovy.nullchecker.AstSupport.*
 
@@ -13,6 +16,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.*
  * on the classpath -- plus the caches that make resolving them affordable. One instance per
  * compilation; the caches are instance state, so nothing leaks into the next compilation.
  */
+@CompileStatic
 @PackageScope
 class PackageScopes {
 
@@ -69,11 +73,17 @@ class PackageScopes {
         try {
             unit?.AST?.classes?.each { ClassNode cn ->
                 if (cn.name.endsWith('.package-info')) {
-                    def pkg = cn.package
+                    PackageNode pkg = cn.package
                     String pkgName = normalisePackageName(pkg?.name) ?:
                             cn.name.substring(0, cn.name.length() - '.package-info'.length())
                     if (pkgName) {
-                        found[pkgName] = pkg?.annotations*.classNode*.nameWithoutPackage ?: []
+                        List<String> names = new ArrayList<String>()
+                        if (pkg != null) {
+                            for (AnnotationNode annotation : pkg.annotations) {
+                                names.add(annotation.classNode.nameWithoutPackage)
+                            }
+                        }
+                        found[pkgName] = names
                     }
                 }
             }
@@ -81,7 +91,7 @@ class PackageScopes {
             // Best effort: an unreachable AST must not break the check itself, it only
             // means package defaults are unavailable and class-level marking applies.
         }
-        found
+        return found
     }
 
     /**
@@ -114,22 +124,22 @@ class PackageScopes {
      * annotated element itself.
      */
     boolean isNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, Collections.emptySet())
+        return isNullDefaultInScope(cn, Collections.emptySet())
     }
 
     /** Parameter defaults: "@NullMarked"-style plus the parameter-scoped annotations. */
     boolean isParameterNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, PARAMETER_DEFAULT_ANNOS)
+        return isNullDefaultInScope(cn, PARAMETER_DEFAULT_ANNOS)
     }
 
     /** Return-value defaults: "@NullMarked"-style plus the return-scoped annotations. */
     boolean isReturnValueNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, RETURN_DEFAULT_ANNOS)
+        return isNullDefaultInScope(cn, RETURN_DEFAULT_ANNOS)
     }
 
     /** Field defaults: "@NullMarked"-style plus the field-scoped annotations. */
     boolean isFieldNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, FIELD_DEFAULT_ANNOS)
+        return isNullDefaultInScope(cn, FIELD_DEFAULT_ANNOS)
     }
 
     /** Any default at all, whatever it covers; used for the coverage counter. */
@@ -137,7 +147,7 @@ class PackageScopes {
         Set<String> anyScope = new HashSet<String>(PARAMETER_DEFAULT_ANNOS)
         anyScope.addAll(RETURN_DEFAULT_ANNOS)
         anyScope.addAll(FIELD_DEFAULT_ANNOS)
-        isNullDefaultInScope(cn, anyScope)
+        return isNullDefaultInScope(cn, anyScope)
     }
 
     /**
@@ -167,7 +177,7 @@ class PackageScopes {
         }
         List<String> pkgAnnos = packageAnnotationNames(cn)
         if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
-        pkgAnnos.any { String n -> accepted.contains(n) }
+        return pkgAnnos.any { String n -> accepted.contains(n) }
     }
 
     /**
@@ -187,9 +197,11 @@ class PackageScopes {
         if (fromSource != null) {
             names.addAll(fromSource)
         }
-        def pkg = cn?.package
+        PackageNode pkg = cn?.package
         if (pkg != null) {
-            names.addAll(pkg.annotations*.classNode*.nameWithoutPackage ?: [])
+            for (AnnotationNode annotation : pkg.annotations) {
+                names.add(annotation.classNode.nameWithoutPackage)
+            }
         }
         List<String> fromClasspath = pkgName == null ? null : lookupPackageAnnotations(pkgName)
         if (fromClasspath != null) {
@@ -198,7 +210,7 @@ class PackageScopes {
         if (cacheKey != null) {
             byClass.put(cacheKey, names)
         }
-        names
+        return names
     }
 
     /**
@@ -232,7 +244,7 @@ class PackageScopes {
             }
         }
         byPackage.put(packageName, null)
-        null
+        return null
     }
 
     /**
@@ -263,11 +275,11 @@ class PackageScopes {
         loaders << PackageScopes.classLoader
         loaders = loaders.findAll { ClassLoader l -> l != null }.unique()
         classLoaders = loaders
-        loaders
+        return loaders
     }
 
     /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
     static String normalisePackageName(String name) {
-        name == null ? null : name.replaceAll(/\.$/, '')
+        return name == null ? null : name.replaceAll(/\.$/, '')
     }
 }

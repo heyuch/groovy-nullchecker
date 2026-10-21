@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
 /**
@@ -11,6 +12,7 @@ import groovy.transform.PackageScope
  * first, then annotations, then built-ins). Keeping one model is what makes a configured
  * contract and an annotated one behave identically.
  */
+@CompileStatic
 @PackageScope
 class Contract {
 
@@ -37,56 +39,56 @@ class Contract {
     static Contract absent() {
         Contract contract = new Contract()
         contract.unresolved = true
-        contract
+        return contract
     }
 
     static Contract never() {
         Contract contract = new Contract()
         contract.neverReturns = true
-        contract
+        return contract
     }
 
     static Contract fact(boolean whenTrue) {
         Contract contract = new Contract()
         (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(0)
-        contract
+        return contract
     }
 
     static Contract afterReturn(int index) {
         Contract contract = new Contract()
         contract.nonNullAfterReturn.add(index)
-        contract
+        return contract
     }
 
     static Contract nullableResult() {
         Contract contract = new Contract()
         contract.result = ResultNullness.NULLABLE
-        contract
+        return contract
     }
 
     /** A nullable lookup: non-null only when the same key is known present. */
     static Contract lookupResult(int keyArgument) {
         Contract contract = nullableResult()
         contract.presence = new PresenceRule(argument: keyArgument)
-        contract
+        return contract
     }
 
     static Contract nullableIfArgNullable(int argument) {
         Contract contract = new Contract()
         contract.result = ResultNullness.NULLABLE_IF_ARG_NULLABLE
         contract.resultArgument = argument
-        contract
+        return contract
     }
 
     static Contract whenTrue(int argument) {
         Contract contract = new Contract()
         contract.nonNullWhenTrue.add(argument)
-        contract
+        return contract
     }
 
     static Contract whenFalse(int argument) {
         Contract contract = new Contract()
         contract.nonNullWhenFalse.add(argument)
-        contract
+        return contract
     }
 }

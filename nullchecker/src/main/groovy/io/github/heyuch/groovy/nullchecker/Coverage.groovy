@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
@@ -13,6 +14,7 @@ import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
  * {@link #snapshot()} is what the harness prints. The {@code @CompileStatic} count matters most
  * because those are the classes a missing registration silently skips.
  */
+@CompileStatic
 @PackageScope
 class Coverage {
 
@@ -26,7 +28,7 @@ class Coverage {
     }
 
     NullCheckCoverage snapshot() {
-        last
+        return last
     }
 
     void cover(ClassNode cn, PackageScopes scopes) {

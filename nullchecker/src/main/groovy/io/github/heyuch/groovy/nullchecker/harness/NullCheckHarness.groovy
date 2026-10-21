@@ -60,7 +60,7 @@ class NullCheckHarness {
      * @return true when the file should be compiled for checking
      */
     static boolean isCheckable(File file) {
-        file.isFile() && (file.name.endsWith('.groovy') || file.name == 'package-info.java')
+        return file.isFile() && (file.name.endsWith('.groovy') || file.name == 'package-info.java')
     }
 
     /**
@@ -80,7 +80,7 @@ class NullCheckHarness {
         RESOLUTION
 
         String getLabel() {
-            name().toLowerCase()
+            return name().toLowerCase()
         }
     }
 
@@ -108,7 +108,7 @@ class NullCheckHarness {
 
         @Override
         String toString() {
-            "${path}:${line}: ${message}"
+            return "${path}:${line}: ${message}".toString()
         }
     }
 
@@ -131,7 +131,7 @@ class NullCheckHarness {
         if (message.contains('@NonNull field')) {
             return Category.INITIALIZATION
         }
-        Category.RESOLUTION
+        return Category.RESOLUTION
     }
 
     /** Counts findings per category label, in a stable order. */
@@ -144,7 +144,7 @@ class NullCheckHarness {
             String label = (finding.category ?: Category.RESOLUTION).label
             counts[label] = counts[label] + 1
         }
-        counts
+        return counts
     }
 
     /** Findings whose category is one of {@code categories}. */
@@ -156,7 +156,7 @@ class NullCheckHarness {
                 selected.add(finding)
             }
         }
-        selected
+        return selected
     }
 
     /** Result of one compilation. */
@@ -172,7 +172,7 @@ class NullCheckHarness {
         NullCheckCoverage coverage = new NullCheckCoverage()
 
         boolean isClean() {
-            findings.isEmpty()
+            return findings.isEmpty()
         }
     }
 
@@ -184,7 +184,7 @@ class NullCheckHarness {
 
         @Override
         String toString() {
-            healthy ? "canary ok (${findings.size()} findings)" : "canary FAILED: ${detail}"
+            return (healthy ? "canary ok (${findings.size()} findings)" : "canary FAILED: ${detail}").toString()
         }
     }
 
@@ -235,7 +235,7 @@ class NullCheckHarness {
             }
             outcome.findings = result.findings
 
-            def required = result.findings.findAll { Finding f ->
+            List<Finding> required = result.findings.findAll { Finding f ->
                 f.path.endsWith(NullCheckCanary.REQUIRED_SAMPLE)
             }
             if (!required) {
@@ -327,7 +327,7 @@ class NullCheckHarness {
         }
         result.coverage = NullChecker.lastCoverage
         result.coverage.files = files.size()
-        result
+        return result
     }
 
     /**
@@ -373,7 +373,7 @@ class NullCheckHarness {
         message.readLines().each { String line ->
             // "<path>: <line>: <message>". Anchor on ".groovy: <digits>:" rather than
             // splitting greedily, because paths can themselves contain colons.
-            def matcher = (line.trim() =~ /^(.*\.groovy):\s*(\d+):\s*(.*)$/)
+            java.util.regex.Matcher matcher = (line.trim() =~ /^(.*\.groovy):\s*(\d+):\s*(.*)$/)
             if (matcher.matches()) {
                 String path = (String) matcher.group(1)
                 String resolved = known.find { String k -> k == path || k.endsWith(File.separator + path) }
@@ -384,13 +384,13 @@ class NullCheckHarness {
                         category: categoryOf(text))
             }
         }
-        out
+        return out
     }
 
     private static Finding errorToFinding(Object error, List<File> files) {
         String text = error.toString()
         List<Finding> parsed = parseFindings(text, files)
-        parsed ? parsed.first() : new Finding(path: '', line: 0, message: text.trim(),
+        return parsed ? parsed.first() : new Finding(path: '', line: 0, message: text.trim(),
                 category: categoryOf(text))
     }
 }

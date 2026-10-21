@@ -72,10 +72,9 @@ dependencies {
     codenarc 'org.codenarc:CodeNarc:3.5.0-groovy-4.0'
 }
 
-// Trial run: keep the report even when violations fail the task. The ruleset will be narrowed
-// after the first pass; ignoreFailures is removed once the baseline is clean.
+// The baseline is clean; a new violation fails the build.
 codenarc {
-    ignoreFailures = true
+    ignoreFailures = false
 }
 
 tasks.withType(org.gradle.api.plugins.quality.CodeNarc).configureEach {

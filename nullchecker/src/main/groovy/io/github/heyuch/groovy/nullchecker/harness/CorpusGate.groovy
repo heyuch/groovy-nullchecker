@@ -44,7 +44,7 @@ class CorpusGate {
         List<ModeResult> modes = []
 
         List<String> failures() {
-            modes.collectMany { ModeResult m -> m.failures }
+            return modes.collectMany { ModeResult m -> m.failures }
         }
     }
 
@@ -56,7 +56,7 @@ class CorpusGate {
         Set<String> uncoveredRules = []
 
         boolean isOk() {
-            failures.isEmpty() && uncoveredRules.isEmpty()
+            return failures.isEmpty() && uncoveredRules.isEmpty()
         }
     }
 
@@ -96,7 +96,7 @@ class CorpusGate {
                 default: throw new IllegalStateException("unknown manifest key '${key}'")
             }
         }
-        fixtures
+        return fixtures
     }
 
     /**
@@ -221,12 +221,12 @@ class CorpusGate {
         }
         report.uncoveredRules = (CorpusRules.RULES.keySet() + CorpusRules.GUARD_RULES.keySet()) -
                 report.ruleCoverage.keySet()
-        report
+        return report
     }
 
     /** Whether a file is a package-level declaration rather than a fixture. */
     static boolean isPackageInfo(File file) {
-        file.name == 'package-info.java' || file.name == 'package-info.groovy'
+        return file.name == 'package-info.java' || file.name == 'package-info.groovy'
     }
 
     /**
@@ -255,7 +255,7 @@ class CorpusGate {
             }
             dir = dir.parentFile
         }
-        found
+        return found
     }
 
     /** Human-readable one-line-per-fixture rendering. */
@@ -272,6 +272,6 @@ class CorpusGate {
             out.append("  UNCOVERED: ${report.uncoveredRules.sort().join(', ')}\n")
         }
         report.failures.each { String f -> out.append("  FAILURE: ${f}\n") }
-        out.toString()
+        return out.toString()
     }
 }

@@ -55,7 +55,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
      */
     @Override
     protected SourceUnit getSourceUnit() {
-        null
+        return null
     }
 
     /**
@@ -76,7 +76,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
             return exp
         }
         if (exp instanceof VariableExpression) {
-            def var = findTargetVariable(exp)
+            Variable var = findTargetVariable(exp)
             if (var instanceof FieldNode && var.hasInitialExpression()) {
                 return findConstExp(var.initialExpression, type)
             }
@@ -84,7 +84,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
                 return findConstExp(localConstVars.get(var), type)
             }
         }
-        null
+        return null
     }
 
     /**
@@ -94,13 +94,13 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
      * @return the underlying target variable
      */
     protected Variable findTargetVariable(VariableExpression ve) {
-        def accessedVariable = ve.accessedVariable
+        Variable accessedVariable = ve.accessedVariable
         if (accessedVariable != null && accessedVariable != ve) {
             if (accessedVariable instanceof VariableExpression) {
                 return findTargetVariable(accessedVariable)
             }
             return accessedVariable
         }
-        ve
+        return ve
     }
 }

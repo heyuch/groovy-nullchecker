@@ -70,14 +70,14 @@ class CorpusRules {
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {
-        RULES.containsKey(rule) || GUARD_RULES.containsKey(rule)
+        return RULES.containsKey(rule) || GUARD_RULES.containsKey(rule)
     }
 
     static boolean isStrictOnly(String rule) {
-        STRICT_ONLY_RULES.contains(rule)
+        return STRICT_ONLY_RULES.contains(rule)
     }
 
     static String fragmentFor(String rule) {
-        RULES[rule]
+        return RULES[rule]
     }
 }

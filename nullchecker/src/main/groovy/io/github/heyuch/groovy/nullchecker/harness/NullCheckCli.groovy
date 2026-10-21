@@ -310,7 +310,7 @@ ${result.raw}
             }
         }
 
-        failing ? 1 : 0
+        return failing ? 1 : 0
     }
 
     /**
@@ -338,7 +338,7 @@ ${result.raw}
             }
             selected.add(item)
         }
-        selected
+        return selected
     }
 
     /**
@@ -374,7 +374,7 @@ ${result.raw}
             }
             selected.add(name)
         }
-        selected
+        return selected
     }
 
     private static String value(List<String> argv, int index, String option, PrintStream err) {
@@ -382,6 +382,6 @@ ${result.raw}
             err.println("nullcheck: option ${option} needs a value")
             return null
         }
-        argv[index]
+        return argv[index]
     }
 }

@@ -1,8 +1,10 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 
 /** What a call hands to its closure: an element, a map entry, or a pair of key and value. */
+@CompileStatic
 @PackageScope
 class ClosureHint {
     boolean elementNullable

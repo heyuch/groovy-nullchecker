@@ -1,22 +1,18 @@
 package io.github.heyuch.groovy.nullchecker
 
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.expr.Expression
-import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
 
 import static io.github.heyuch.groovy.nullchecker.AstSupport.argumentIndex
 import static io.github.heyuch.groovy.nullchecker.AstSupport.booleanMember
 import static io.github.heyuch.groovy.nullchecker.AstSupport.findAnnotation
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isCollectionLike
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isMapLike
 import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMember
 import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMembers
-import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
-
 /**
  * Resolves what a call promises, from three sources in order of precedence: the project's
  * configuration, annotations on the method, and the built-in table for library methods.
@@ -29,6 +25,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
  * helpers it needs live in {@link AstSupport}, so it does not depend on the checker;
  * everything here is package-scoped, not public API.
  */
+@CompileStatic
 @PackageScope
 class ContractRegistry {
 
@@ -154,7 +151,7 @@ class ContractRegistry {
                 recognised = true
             }
         }
-        recognised ? contract : null
+        return recognised ? contract : null
     }
 
     /** Contracts declared by annotations on the method itself. */
@@ -174,7 +171,7 @@ class ContractRegistry {
                     if (index < 0) continue
                     (expected ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(index)
                 }
-                if (contract.nonNullWhenTrue || contract.nonNullWhenFalse) return contract
+                if (!contract.nonNullWhenTrue.isEmpty() || !contract.nonNullWhenFalse.isEmpty()) return contract
             }
         }
         AnnotationNode ensures = findAnnotation(target, 'EnsuresNonNull')
@@ -184,12 +181,12 @@ class ContractRegistry {
                 int index = argumentIndex(reference)
                 if (index >= 0) contract.nonNullAfterReturn.add(index)
             }
-            if (contract.nonNullAfterReturn) return contract
+            if (!contract.nonNullAfterReturn.isEmpty()) return contract
         }
         for (String annotation : NO_RETURN_ANNOS) {
             if (findAnnotation(target, annotation) != null) return Contract.never()
         }
-        null
+        return null
     }
 
     Contract contractFor(Expression callExpression, MethodNode target) {
@@ -202,7 +199,7 @@ class ContractRegistry {
         if (resolved == null) resolved = annotationContract(target)
         if (resolved == null) resolved = lookup(builtIns, target)
         cache.put(target, resolved ?: Contract.absent())
-        resolved
+        return resolved
     }
 
     /**
@@ -229,7 +226,7 @@ class ContractRegistry {
                 current.interfaces?.each { ClassNode implemented -> pending.add(implemented) }
             }
         }
-        table.get('#' + target.name)
+        return table.get('#' + target.name)
     }
 
     private Map<String, Contract> buildConfigContracts() {
@@ -249,7 +246,7 @@ class ContractRegistry {
                 contracts.put(entry.key, contract)
             }
         }
-        contracts
+        return contracts
     }
 
     private static Map<String, String> readContractEntries() {
@@ -263,7 +260,7 @@ class ContractRegistry {
             if (separator <= 0) continue
             entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
         }
-        entries
+        return entries
     }
 
     /**
@@ -277,10 +274,10 @@ class ContractRegistry {
      */
     boolean isNoReturnCall(Expression expression) {
         if (expression == null) return false
-        def target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
+        Object target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
         if (!(target instanceof MethodNode)) return false
         Contract contract = contractFor(expression, (MethodNode) target)
-        contract != null && contract.neverReturns
+        return contract != null && contract.neverReturns
     }
 
     /**
@@ -308,7 +305,7 @@ class ContractRegistry {
             }
             clauses.add(new ContractClause(arguments: arguments, result: result))
         }
-        clauses
+        return clauses
     }
 
     /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
@@ -324,6 +321,6 @@ class ContractRegistry {
                 entries.add(entry)
             }
         }
-        Collections.unmodifiableSet(entries)
+        return Collections.unmodifiableSet(entries)
     }
 }
