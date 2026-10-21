@@ -59,8 +59,9 @@ Status: in progress.
   `ControlFlowGraph`), with if/while/for/do/switch/break/continue/return/throw edges and
   `ControlFlowGraphSpec`. Strict `while`/`for` bodies now iterate to a flow-state fixed point,
   and duplicate findings are suppressed by the reporter (`flow_loop_report_once`).
-  Next: the `FlowState` worklist/transfer over the CFG, switch fall-through/break edges and
-  condition refinement on edges.
+  The generic `FlowAnalysis` worklist is also in place (join at predecessors, fixed-point
+  loop, `FlowAnalysisSpec`), but the nullness `FlowTransfer` is not wired yet. Next: that
+  transfer, switch fall-through/break edges and condition refinement on edges.
 - The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
 Acceptance: branch, no-else, zero/multi-iteration loop, break/continue and switch fixtures;

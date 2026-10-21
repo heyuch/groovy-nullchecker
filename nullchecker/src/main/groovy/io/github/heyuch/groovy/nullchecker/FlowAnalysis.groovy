@@ -1,0 +1,78 @@
+package io.github.heyuch.groovy.nullchecker
+
+import groovy.transform.CompileStatic
+import groovy.transform.PackageScope
+import org.jspecify.annotations.Nullable
+
+/**
+ * Forward worklist over a CFG. The transfer is supplied by the caller; this class owns the
+ * join-at-predecessors and fixed-point loop.
+ */
+@CompileStatic
+@PackageScope
+class FlowAnalysis {
+
+    private final ControlFlowGraph graph
+
+    private final FlowTransfer transfer
+
+    private final FlowState initial
+
+    private final Map<CfgNode, FlowState> inStates = new LinkedHashMap<CfgNode, FlowState>()
+
+    private final Map<CfgNode, FlowState> outStates = new LinkedHashMap<CfgNode, FlowState>()
+
+    FlowAnalysis(ControlFlowGraph graph, FlowTransfer transfer, FlowState initial) {
+        this.graph = graph
+        this.transfer = transfer
+        this.initial = initial
+    }
+
+    void run() {
+        Deque<CfgNode> work = new ArrayDeque<CfgNode>()
+        Set<CfgNode> queued = new LinkedHashSet<CfgNode>()
+        inStates.put(graph.entry, initial)
+        work.addLast(graph.entry)
+        queued.add(graph.entry)
+        int steps = 0
+        while (!work.isEmpty() && steps < 10000) {
+            CfgNode node = work.removeFirst()
+            queued.remove(node)
+            FlowState input = inStates.get(node)
+            if (input == null) {
+                continue
+            }
+            FlowState output = transfer.transfer(node, input)
+            FlowState previous = outStates.put(node, output)
+            if (previous?.sameAs(output)) {
+                continue
+            }
+            for (CfgEdge edge : node.outgoing) {
+                propagate(edge.target, output, work, queued)
+            }
+            steps++
+        }
+    }
+
+    private void propagate(CfgNode target, FlowState state, Deque<CfgNode> work, Set<CfgNode> queued) {
+        FlowState existing = inStates.get(target)
+        FlowState merged = FlowState.join(existing, state)
+        if (merged == null || merged.sameAs(existing)) {
+            return
+        }
+        inStates.put(target, merged)
+        if (!queued.contains(target)) {
+            work.addLast(target)
+            queued.add(target)
+        }
+    }
+
+    @Nullable FlowState inState(CfgNode node) {
+        return inStates.get(node)
+    }
+
+    @Nullable FlowState outState(CfgNode node) {
+        return outStates.get(node)
+    }
+
+}
