@@ -77,5 +77,10 @@ class Sample {
             }
             return new FlowState(locals, input.nonEmptyVars, input.lookupGuards)
         }
+
+        @Override
+        FlowState refine(CfgEdge edge, FlowState state) {
+            return state
+        }
     }
 }

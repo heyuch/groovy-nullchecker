@@ -43,12 +43,17 @@ class FlowAnalysis {
                 continue
             }
             FlowState output = transfer.transfer(node, input)
+            if (output == null) {
+                outStates.remove(node)
+                continue
+            }
             FlowState previous = outStates.put(node, output)
             if (previous?.sameAs(output)) {
                 continue
             }
             for (CfgEdge edge : node.outgoing) {
-                propagate(edge.target, output, work, queued)
+                FlowState refined = transfer.refine(edge, output)
+                propagate(edge.target, refined, work, queued)
             }
             steps++
         }

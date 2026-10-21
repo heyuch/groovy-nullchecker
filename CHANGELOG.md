@@ -28,8 +28,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   by intersection, and early-exit branches are excluded. This fixes the branch-order and
   early-return FP/FN shapes from `docs/NULLNESS-FLOW.md`. Strict `for`/`do-while`/`switch`
   state joins are also in place. Strict loop bodies iterate to a fixed flow state and the
-  reporter deduplicates repeated findings; the CFG worklist/transfer remains F2b. Strict corpus
-  fixtures and `FlowStateSpec` pin the behavior.
+  reporter deduplicates repeated findings. Strict methods now run through a statement-level
+  CFG worklist (`ControlFlowGraph` + `FlowAnalysis` + `NullnessFlowTransfer`); annotation mode
+  keeps the old visitor. Remaining F2 details are switch fall-through, for-loop variable facts
+  and tighter break/continue edges. Strict corpus fixtures and `FlowStateSpec` pin the behavior.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

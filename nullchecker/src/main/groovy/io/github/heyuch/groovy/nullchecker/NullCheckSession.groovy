@@ -67,8 +67,13 @@ class NullCheckSession {
             Set<Variable> initialNullable = method.parameters.findAll { Parameter parameter ->
                 hasNullableAnno(parameter)
             } as Set<Variable>
-            method.code?.visit(new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable,
-                    scopes, contracts, reporter, config.containerLookups))
+            NullCheckVisitor visitor = new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable,
+                    scopes, contracts, reporter, config.containerLookups)
+            if (config.strict) {
+                visitor.analyzeStrict()
+            } else {
+                method.code?.visit(visitor)
+            }
         }
     }
 

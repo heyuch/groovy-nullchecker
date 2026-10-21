@@ -115,6 +115,20 @@ class NullCheckVisitor extends CheckingVisitor {
         this.nullableVars = new HashSet<Variable>(initialNullable)
     }
 
+    boolean isNoReturnCall(Expression expression) {
+        return contracts.isNoReturnCall(expression)
+    }
+
+    /** Runs the strict method body through the CFG worklist. */
+    void analyzeStrict() {
+        if (method.code == null) {
+            return
+        }
+        ControlFlowGraph graph = ControlFlowGraph.build(method.code)
+        FlowAnalysis analysis = new FlowAnalysis(graph, new NullnessFlowTransfer(this), captureState())
+        analysis.run()
+    }
+
     private final Set<Variable> monotonicInitialized = new HashSet<>()
     private final Set<Variable> guardedVars = new HashSet<>()
 
@@ -635,7 +649,7 @@ class NullCheckVisitor extends CheckingVisitor {
      * Returns the sets of variables known to be non-null when the condition
      * evaluates true and when it evaluates false.
      */
-    private GuardFacts visitCondition(Expression condition) {
+    GuardFacts visitCondition(Expression condition) {
         return analyzeCondition(condition, true)
     }
 
@@ -880,7 +894,7 @@ class NullCheckVisitor extends CheckingVisitor {
         return result
     }
 
-    private void applyNonEmptyFacts(Set<Variable> vars) {
+    void applyNonEmptyFacts(Set<Variable> vars) {
         nonEmptyVars.addAll(vars)
     }
 
@@ -952,14 +966,14 @@ class NullCheckVisitor extends CheckingVisitor {
         return result
     }
 
-    private void applyFacts(Set<Variable> vars) {
+    void applyFacts(Set<Variable> vars) {
         for (Variable current : vars) {
             nullableVars.remove(current)
             guardedVars.add(current)
         }
     }
 
-    private FlowState captureState() {
+    FlowState captureState() {
         Map<Variable, Nullness> locals = new LinkedHashMap<Variable, Nullness>()
         for (Variable variable : nullableVars) {
             locals.put(variable, Nullness.MAYBE_NULL)
@@ -974,7 +988,7 @@ class NullCheckVisitor extends CheckingVisitor {
         return new FlowState(locals, nonEmptyVars, lookups)
     }
 
-    private void restoreState(FlowState state) {
+    void restoreState(FlowState state) {
         nullableVars.clear()
         guardedVars.clear()
         for (Map.Entry<Variable, Nullness> entry : state.locals.entrySet()) {
@@ -992,7 +1006,7 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
-    private void applyLookupFacts(Set<String> keys) {
+    void applyLookupFacts(Set<String> keys) {
         if (keys) {
             lookupGuards.push(new LinkedHashSet<String>(keys))
         }
