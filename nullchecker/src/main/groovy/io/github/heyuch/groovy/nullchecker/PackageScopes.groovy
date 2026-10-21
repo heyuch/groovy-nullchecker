@@ -124,7 +124,7 @@ class PackageScopes {
      * annotated element itself.
      */
     boolean isNonNullByDefault(ClassNode cn) {
-        return isNullDefaultInScope(cn, Collections.<String>emptySet())
+        return isNullDefaultInScope(cn, Collections.<String> emptySet())
     }
 
     /** Parameter defaults: "@NullMarked"-style plus the parameter-scoped annotations. */
@@ -164,7 +164,7 @@ class PackageScopes {
      * anywhere on it opts out entirely; package annotations are consulted next. Within one
      * level an opt-out beats a marking.
      *
-     * @param cn         class whose defaults are being resolved
+     * @param cn class whose defaults are being resolved
      * @param scopeAnnos additional annotation names that count for this scope
      * @return whether the scope's values are non-null by default
      */

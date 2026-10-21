@@ -46,7 +46,8 @@ import org.codehaus.groovy.control.SourceUnit
  * Base visitor support for type-checker extensions that need lightweight constant propagation
  * and access to the underlying variable represented by a {@link VariableExpression}.
  */
-@AutoFinal @CompileStatic
+@AutoFinal
+@CompileStatic
 class CheckingVisitor extends ClassCodeVisitorSupport {
 
     /**
@@ -61,7 +62,7 @@ class CheckingVisitor extends ClassCodeVisitorSupport {
     /**
      * Tracks local variables whose values are known constant expressions during the current visit.
      */
-    protected final Map<Expression,Expression> localConstVars = [:]
+    protected final Map<Expression, Expression> localConstVars = [:]
 
     /**
      * Resolves a constant expression of the requested type from an expression, following tracked

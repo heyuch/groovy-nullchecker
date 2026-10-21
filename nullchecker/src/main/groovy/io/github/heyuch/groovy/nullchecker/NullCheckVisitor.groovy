@@ -2,14 +2,9 @@ package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
-import static io.github.heyuch.groovy.nullchecker.AstSupport.*
-import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.AnnotatedNode
-import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
-import org.codehaus.groovy.ast.CodeVisitorSupport
-import org.codehaus.groovy.ast.ConstructorNode
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
@@ -17,13 +12,12 @@ import org.codehaus.groovy.ast.Variable
 import org.codehaus.groovy.ast.expr.BinaryExpression
 import org.codehaus.groovy.ast.expr.BooleanExpression
 import org.codehaus.groovy.ast.expr.CastExpression
+import org.codehaus.groovy.ast.expr.ClosureExpression
 import org.codehaus.groovy.ast.expr.ConstantExpression
-import org.codehaus.groovy.ast.expr.ConstructorCallExpression
 import org.codehaus.groovy.ast.expr.DeclarationExpression
 import org.codehaus.groovy.ast.expr.ElvisOperatorExpression
 import org.codehaus.groovy.ast.expr.EmptyExpression
 import org.codehaus.groovy.ast.expr.Expression
-import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MethodCall
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.NotExpression
@@ -34,26 +28,43 @@ import org.codehaus.groovy.ast.expr.TupleExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
-import org.codehaus.groovy.ast.stmt.CatchStatement
-import org.codehaus.groovy.ast.stmt.SynchronizedStatement
-import org.codehaus.groovy.ast.stmt.TryCatchStatement
-import org.codehaus.groovy.ast.stmt.ExpressionStatement
-import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.CatchStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
-import org.codehaus.groovy.ast.expr.ClosureExpression
+import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
+import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.Statement
+import org.codehaus.groovy.ast.stmt.SynchronizedStatement
 import org.codehaus.groovy.ast.stmt.ThrowStatement
+import org.codehaus.groovy.ast.stmt.TryCatchStatement
 import org.codehaus.groovy.ast.stmt.WhileStatement
 import org.codehaus.groovy.syntax.Types
-import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
-import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
+
+import static io.github.heyuch.groovy.nullchecker.AstSupport.canBeNull
+import static io.github.heyuch.groovy.nullchecker.AstSupport.declAnnoCarrier
+import static io.github.heyuch.groovy.nullchecker.AstSupport.getASSERTION_MESSAGE_TYPES
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasMonotonicAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullByDefaultAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullMapValue
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableElementType
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableTypeUse
+import static io.github.heyuch.groovy.nullchecker.AstSupport.inferredNullableTypeUse
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isMapLike
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isNullExpr
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isSafeNavResult
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isSubscript
+import static io.github.heyuch.groovy.nullchecker.AstSupport.lookupKey
+import static io.github.heyuch.groovy.nullchecker.AstSupport.mapEntryTypes
+import static io.github.heyuch.groovy.nullchecker.AstSupport.nullableProperty
+import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
 import static org.codehaus.groovy.syntax.Types.isAssignment
-
 /**
  * Applies the nullness rules to one method body.
  *
@@ -122,37 +133,44 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     @Override
-    void visitBinaryExpression(BinaryExpression expression) {
-        int op = expression.operation.type
+    void visitBinaryExpression(BinaryExpression expr) {
+        int op = expr.operation.type
         if (op == Types.LOGICAL_AND || op == Types.LOGICAL_OR) {
             // apply short-circuit guard semantics wherever the expression appears
-            visitCondition(expression)
+            visitCondition(expr)
             return
         }
-        super.visitBinaryExpression(expression)
-        if (isAssignment(expression.operation.type) && expression.leftExpression instanceof VariableExpression) {
-            Variable target = findTargetVariable((VariableExpression) expression.leftExpression)
+
+        super.visitBinaryExpression(expr)
+
+        Expression leftExpr = expr.leftExpression
+        Expression rightExpr = expr.rightExpression
+
+        if (isAssignment(expr.operation.type) && leftExpr instanceof VariableExpression) {
+            Variable target = findTargetVariable((VariableExpression) leftExpr)
             boolean fieldNonNull = target instanceof AnnotatedNode && hasNonNullAnno((AnnotatedNode) target)
             if (!fieldNonNull && target instanceof FieldNode && !hasNullableAnno((AnnotatedNode) target)) {
                 FieldNode field = (FieldNode) target
                 fieldNonNull = field.declaringClass != null &&
                     scopes.isFieldNonNullByDefault(field.declaringClass)
             }
-            if (fieldNonNull && isNullExpr(expression.rightExpression)) {
-                reporter.report("Cannot assign null to @NonNull variable '${expression.leftExpression.name}'", expression)
+            if (fieldNonNull && isNullExpr(rightExpr)) {
+                reporter.report("Cannot assign null to @NonNull variable '${leftExpr.name}'", expr)
             }
+
             // @MonotonicNonNull: once initialized with non-null, cannot assign null again
             if (target instanceof AnnotatedNode && hasMonotonicAnno((AnnotatedNode) target)) {
-                if (!isNullExpr(expression.rightExpression)) {
+                if (!isNullExpr(rightExpr)) {
                     monotonicInitialized.add(target)
                 } else if (monotonicInitialized.contains(target)) {
-                    reporter.report("Cannot assign null to @MonotonicNonNull variable '${expression.leftExpression.name}' after non-null assignment", expression)
+                    reporter.report("Cannot assign null to @MonotonicNonNull variable '${leftExpr.name}' after non-null assignment", expr)
                 }
             }
-            if (isNullExpr(expression.rightExpression)) {
+
+            if (isNullExpr(rightExpr)) {
                 nullableVars.add(target)
                 guardedVars.remove(target)
-            } else if (flowSensitive && (canBeNull(expression.rightExpression) || isKnownNullable(expression.rightExpression))) {
+            } else if (flowSensitive && (canBeNull(rightExpr) || isKnownNullable(rightExpr))) {
                 nullableVars.add(target)
                 guardedVars.remove(target)
             } else {
@@ -579,7 +597,7 @@ class NullCheckVisitor extends CheckingVisitor {
         if (!args.expressions) {
             return
         }
-        Contract contract = contracts.contractFor((Expression) condition, target)
+        Contract contract = contracts.contractFor(target)
         if (contract == null) {
             return
         }
@@ -714,7 +732,7 @@ class NullCheckVisitor extends CheckingVisitor {
         if (!(target instanceof MethodNode)) {
             return false
         }
-        Contract contract = contracts.contractFor((Expression) call, (MethodNode) target)
+        Contract contract = contracts.contractFor((MethodNode) target)
         if (contract == null) {
             return false
         }
@@ -799,7 +817,7 @@ class NullCheckVisitor extends CheckingVisitor {
             }
             return
         }
-        Contract contract = contracts.contractFor((Expression) call, (MethodNode) target)
+        Contract contract = contracts.contractFor((MethodNode) target)
         if (contract == null) {
             return
         }

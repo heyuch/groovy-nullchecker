@@ -10,8 +10,8 @@ import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 /**
  * What a run actually looked at, so {@code findings = 0} stays interpretable.
  *
- * <p>Counters are the run's, not the checker's: {@link #reset()} starts a new measurement and
- * {@link #snapshot()} is what the harness prints. The {@code @CompileStatic} count matters most
+ * <p>Counters are the run's, not the checker's: {@link Coverage#reset()} starts a new measurement and
+ * {@link Coverage#snapshot()} is what the harness prints. The {@code @CompileStatic} count matters most
  * because those are the classes a missing registration silently skips.
  */
 @CompileStatic

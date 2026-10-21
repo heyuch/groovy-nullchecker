@@ -31,10 +31,12 @@ package io.github.heyuch.groovy.nullchecker
 import groovy.transform.CompileDynamic
 
 
+import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
+
 /**
  * A compile-time type checker that detects potential null dereferences and null-safety violations
  * in code annotated with {@code @Nullable}, {@code @NonNull}, and {@code @MonotonicNonNull} annotations.
@@ -62,9 +64,9 @@ import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
  *         whether called explicitly ({@code x.getA().b}) or via property syntax ({@code x.a.b})</li>
  *     <li>Dereferencing a result whose inferred type carries a {@code @Nullable} type
  *         argument reaching it through a class or method level type variable, e.g.
- *         {@code get(0)}, the idiomatic {@code xs[0]} subscript, or {@code head()} on a
- *         {@code List<@Nullable String>}, and {@code get(key)} or {@code m[key]} on a
- *         {@code Map<String, @Nullable Integer>}</li>
+ * {@code get(0)}, the idiomatic {@code xs[0]} subscript, or {@code head()} on a
+ * {@code List<@Nullable String>}, and {@code get(key)} or {@code m[key]} on a
+ * {@code Map<String, @Nullable Integer>}</li>
  *     <li>Dereferencing a safe-navigation result without a further guard ({@code a?.b.c};
  *         use {@code a?.b?.c} instead)</li>
  *     <li>Passing other nullable expressions (safe-navigation results, {@code @Nullable}-returning
@@ -84,7 +86,7 @@ import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
  *     <li>Safe navigation: {@code ?.}</li>
  *     <li>Groovy-truth guards: {@code if (x)}, {@code if (!x) return}</li>
  *     <li>Boolean conjunctions and disjunctions with short-circuit semantics:
- *         {@code if (x != null && x.length() > 0)}, {@code if (x == null || x.isEmpty()) return}</li>
+ * {@code if (x != null && x.length() > 0)}, {@code if (x == null || x.isEmpty()) return}</li>
  *     <li>Type checks: {@code if (x instanceof Foo)}, {@code if (x !instanceof Foo) return}</li>
  *     <li>Utility methods: {@code Objects.nonNull(x)}, {@code Objects.isNull(x)}</li>
  *     <li>Assert statements: {@code assert x}, {@code assert x != null}</li>
@@ -93,7 +95,7 @@ import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
  *         afterwards: {@code Objects.requireNonNull(x)} and Guava-style {@code checkNotNull(x)}</li>
  *     <li>Test assertions: {@code assertNotNull(x)} (JUnit 4/5, TestNG, or similar —
  *         message parameters are recognized in any position) and fluent
- *         {@code assertThat(x).isNotNull()} chains (AssertJ, Truth, or similar)</li>
+ * {@code assertThat(x).isNotNull()} chains (AssertJ, Truth, or similar)</li>
  * </ul>
  * Like annotations, validator and assertion methods are matched by simple name,
  * so any library following the common naming conventions is recognized.
@@ -214,22 +216,60 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         // run() would leave the counters describing only the last class seen (observed
         // as "classes=1" for a 43-file project). The caller resets once per compilation
         // via resetCoverage() instead.
-        afterVisitClass { ClassNode cn ->
+        onClass { ClassNode cn ->
             session.cover(cn, reporter)
         }
         // Which rule families run is a caller decision, not a property of the code being
         // checked: a project that cannot satisfy a family yet should stop seeing it rather
         // than learn to ignore a wall of findings it has decided not to act on.
         if (config.nullnessCheck) {
-            afterVisitMethod { MethodNode method ->
+            onMethod { MethodNode method ->
                 session.check(method, reporter)
             }
         }
         if (config.strict && config.initializationCheck) {
-            afterVisitClass { ClassNode cn ->
+            onClass { ClassNode cn ->
                 session.checkInitialization(cn, reporter)
             }
         }
+        return null
+    }
+
+    /**
+     * Registers a class-visit handler.
+     *
+     * <p>The DSL exposes only {@code getProperty}/{@code invokeMethod}; {@code afterVisitClass}
+     * is an alias registered by name at runtime. This wrapper keeps the call site navigable and
+     * documents the dynamic contract in one place. It must not be named after the alias: a
+     * same-named method would intercept the DSL's own dynamic lookup.
+     */
+    private void onClass(Closure body) {
+        invokeMethod('afterVisitClass', [body] as Object[])
+    }
+
+    /** Registers a method-visit handler; see {@link #onClass}. */
+    private void onMethod(Closure body) {
+        invokeMethod('afterVisitMethod', [body] as Object[])
+    }
+
+    /**
+     * The DSL's type-checking context.
+     *
+     * <p>Also a dynamic property ({@code getProperty('context')}); the wrapper keeps
+     * {@code context.compilationUnit}/{@code context.source} navigable.
+     */
+    private Object getContext() {
+        return getProperty('context')
+    }
+
+    /**
+     * Reports a type error through the type-checking visitor.
+     *
+     * <p>{@code addStaticTypeError} is declared on {@code StaticTypeCheckingVisitor}, not on
+     * the DSL, so it is reached dynamically; this shim is the one place that says so.
+     */
+    private void reportTypeError(CharSequence message, ASTNode node) {
+        invokeMethod('addStaticTypeError', [message.toString(), node] as Object[])
     }
 
     private static NullCheckSession sessionFor(CompilationUnit unit, NullCheckConfig config, ClassLoader sourceLoader) {
@@ -248,7 +288,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     /** Reports into this DSL instance, so a finding lands on the current type-checking context. */
     private final NullCheckReporter reporter = new NullCheckReporter({ message, node ->
-        addStaticTypeError(message, node)
+        reportTypeError(message, node)
     })
 
     private static final Map<CompilationUnit, NullCheckSession> SESSIONS =

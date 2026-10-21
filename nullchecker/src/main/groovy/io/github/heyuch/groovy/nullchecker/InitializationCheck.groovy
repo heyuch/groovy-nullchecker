@@ -133,7 +133,7 @@ class InitializationCheck {
      * package/class-level {@code @NullMarked} default.
      *
      * <p>The definite-initialisation check needs this rather than
-     * {@link #hasNonNullAnno} alone, otherwise a package marked {@code @NullMarked}
+     * {@link AstSupport#hasNonNullAnno} alone, otherwise a package marked {@code @NullMarked}
      * would demand non-null returns and parameters but silently not require its fields
      * to be initialised -- the same marking meaning two different things depending on
      * which check happened to look.

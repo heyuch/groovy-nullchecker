@@ -13,6 +13,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.booleanMember
 import static io.github.heyuch.groovy.nullchecker.AstSupport.findAnnotation
 import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMember
 import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMembers
+
 /**
  * Resolves what a call promises, from three sources in order of precedence: the project's
  * configuration, annotations on the method, and the built-in table for library methods.
@@ -207,7 +208,7 @@ class ContractRegistry {
         return null
     }
 
-    Contract contractFor(Expression callExpression, MethodNode target) {
+    Contract contractFor(MethodNode target) {
         if (target == null) {
             return null
         }
@@ -318,7 +319,7 @@ class ContractRegistry {
         if (!(target instanceof MethodNode)) {
             return false
         }
-        Contract contract = contractFor(expression, (MethodNode) target)
+        Contract contract = contractFor((MethodNode) target)
         return contract != null && contract.neverReturns
     }
 
@@ -362,7 +363,7 @@ class ContractRegistry {
     private static Set<String> readGuardEntries(String property) {
         String raw = System.getProperty(property)
         if (raw == null || raw.trim().isEmpty()) {
-            return Collections.<String>emptySet()
+            return Collections.<String> emptySet()
         }
         Set<String> entries = new HashSet<String>()
         for (String part : raw.split(',')) {

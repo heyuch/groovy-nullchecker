@@ -10,6 +10,8 @@ import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
 
+import java.lang.annotation.Annotation
+
 /**
  * Registers the null checker so that it also covers {@code @CompileStatic} classes.
  *
@@ -76,7 +78,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         // A String is mandatory here: passing a Class or ClassExpression is silently
         // ignored by the transformation, which produces a green build that checked nothing.
         this.inner = new ASTTransformationCustomizer([extensions: [extension]],
-                (Class<? extends java.lang.annotation.Annotation>) annotation)
+                (Class<? extends Annotation>) annotation)
     }
 
     /**
