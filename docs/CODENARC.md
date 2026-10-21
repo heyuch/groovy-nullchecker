@@ -11,9 +11,16 @@ The trial ruleset is `config/codenarc/all.xml`; run it with:
 ./gradlew :nullchecker:codenarcMain -PcodenarcAll=true
 ```
 
-The committed `config/codenarc/codenarc.xml` enables **363 rules** and reports **0 violations**.
-It is generated from the same rule set minus the disabled rules below; the disabled list is the
-record of the triage.
+The committed `config/codenarc/codenarc.xml` enables **322 rules** and reports **0 violations**.
+It is generated from the same rule set minus the excluded categories and the disabled rules
+below; this file is the record of the triage.
+
+## Excluded categories
+
+| Category | Why |
+| --- | --- |
+| `groovyism` | The project intentionally writes Groovy in a Java-like style. All rules in this category are off: explicit collection instantiation, getter/setter style, GString/toString style, collect-call style, last-element style, and the rest. |
+| `grails` | This is not a Grails project. |
 
 ## Disabled rules
 
@@ -32,10 +39,6 @@ record of the triage.
 | `MisorderedStaticImports` | Import order not part of the baseline |
 | `LineLength` | No line limit in the baseline |
 | `BracesForForLoop` | Formatting duplicate; `ForStatementBraces` already enforces braces |
-| `UnnecessaryGetter` / `GetterMethodCouldBeProperty` / `UnnecessarySetter` | Groovy property style; some methods are intentional API or overrides |
-| `ExplicitArrayListInstantiation` / `ExplicitHashSetInstantiation` / `ExplicitLinkedHashMapInstantiation` | Groovy style preference, not a correctness rule |
-| `UnnecessaryGString` / `UnnecessaryToString` | Style preferences; explicit conversions are clearer here |
-| `UnnecessaryCollectCall` | Style preference; the iteration is intentional |
 | `UnnecessaryCast` | Groovy static typing often needs the cast |
 | `DuplicateStringLiteral` / `DuplicateNumberLiteral` | The repeated literals are messages/keys, not duplicated logic |
 | `FactoryMethodName` | `build…` here builds a map, not a factory; false positive |
@@ -66,7 +69,6 @@ baseline/threshold decision would gate on known structure rather than on a regre
 
 - `ConfusingMethodName`: `NullCheckSinks.current()` renamed to `currentSink()` (the field is
   `CURRENT`).
-- `UnnecessaryCallForLastElement`: `stack.get(stack.size() - 1)` became `stack.last()`.
 - `NoWildcardImports`: `ignoreStaticImports = true`; the `AstSupport.*` static imports are
   intentional and explicit imports would add noise.
 - `FieldName` / `VariableName`: type suffixes (`List`, `Map`, `Arr`, `Str`, `Count`) are
@@ -81,4 +83,5 @@ When CodeNarc is upgraded or a rule is reconsidered:
 1. regenerate `config/codenarc/all.xml` from the new bundled rulesets;
 2. run `./gradlew :nullchecker:codenarcMain -PcodenarcAll=true`;
 3. triage new hits into fix / disable with a reason here;
-4. regenerate `config/codenarc/codenarc.xml` and keep `codenarcMain` at zero.
+4. regenerate `config/codenarc/codenarc.xml`, keeping the `groovyism` and `grails` categories
+   excluded, and keep `codenarcMain` at zero.
