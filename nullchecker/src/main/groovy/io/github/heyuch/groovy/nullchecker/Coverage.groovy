@@ -1,11 +1,12 @@
 package io.github.heyuch.groovy.nullchecker
 
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno
+import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno
-import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 
 /**
  * What a run actually looked at, so {@code findings = 0} stays interpretable.

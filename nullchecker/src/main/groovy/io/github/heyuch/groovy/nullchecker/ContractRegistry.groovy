@@ -1,6 +1,10 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
+import static io.github.heyuch.groovy.nullchecker.AstSupport.argumentIndex
+import static io.github.heyuch.groovy.nullchecker.AstSupport.booleanMember
+import static io.github.heyuch.groovy.nullchecker.AstSupport.findAnnotation
+import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMember
+import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMembers
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
@@ -9,12 +13,7 @@ import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
-
-import static io.github.heyuch.groovy.nullchecker.AstSupport.argumentIndex
-import static io.github.heyuch.groovy.nullchecker.AstSupport.booleanMember
-import static io.github.heyuch.groovy.nullchecker.AstSupport.findAnnotation
-import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMember
-import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMembers
+import org.jspecify.annotations.Nullable
 
 /**
  * Resolves what a call promises, from three sources in order of precedence: the project's

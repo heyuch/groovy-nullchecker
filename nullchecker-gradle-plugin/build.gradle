@@ -6,6 +6,7 @@
 // time, so linking it here would be dead weight -- and it was the only reason this module
 // needed the checker published to mavenLocal before it could compile.
 plugins {
+    id 'com.diffplug.spotless'
     id 'groovy'
     id 'java-gradle-plugin'
     id 'maven-publish'
@@ -236,4 +237,17 @@ tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
 // rules and by the corpus/functional gates; SpotBugs stays on production bytecode.
 tasks.named('spotbugsTest') {
     enabled = false
+}
+
+
+// Basic Groovy formatting only: import order, semicolon removal, whitespace and final newline.
+// No greclipse: it is large and the project does not need a full formatter.
+spotless {
+    groovy {
+        target 'src/**/*.groovy'
+        importOrder()
+        removeSemicolons()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }

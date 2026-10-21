@@ -1,9 +1,8 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import org.jspecify.annotations.Nullable
 
 /**
  * The sink installed for the current thread, if any.

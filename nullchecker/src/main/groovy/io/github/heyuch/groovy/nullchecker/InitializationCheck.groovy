@@ -1,10 +1,15 @@
 package io.github.heyuch.groovy.nullchecker
 
+import static io.github.heyuch.groovy.nullchecker.AstSupport.*
+import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
+import static org.codehaus.groovy.syntax.Types.isAssignment
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.CodeVisitorSupport
 import org.codehaus.groovy.ast.ConstructorNode
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.expr.BinaryExpression
@@ -14,10 +19,6 @@ import org.codehaus.groovy.ast.expr.PropertyExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.Statement
-import org.codehaus.groovy.ast.CodeVisitorSupport
-import static io.github.heyuch.groovy.nullchecker.AstSupport.*
-import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
-import static org.codehaus.groovy.syntax.Types.isAssignment
 
 /**
  * The definite-initialisation rule: an explicitly non-null field must be assigned by the

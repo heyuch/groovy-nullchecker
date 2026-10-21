@@ -1,6 +1,27 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
+import static io.github.heyuch.groovy.nullchecker.AstSupport.canBeNull
+import static io.github.heyuch.groovy.nullchecker.AstSupport.declAnnoCarrier
+import static io.github.heyuch.groovy.nullchecker.AstSupport.getASSERTION_MESSAGE_TYPES
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasMonotonicAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullByDefaultAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullMapValue
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableAnno
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableElementType
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableTypeUse
+import static io.github.heyuch.groovy.nullchecker.AstSupport.inferredNullableTypeUse
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isMapLike
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isNullExpr
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isSafeNavResult
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isSubscript
+import static io.github.heyuch.groovy.nullchecker.AstSupport.lookupKey
+import static io.github.heyuch.groovy.nullchecker.AstSupport.mapEntryTypes
+import static io.github.heyuch.groovy.nullchecker.AstSupport.nullableProperty
+import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
+import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
+import static org.codehaus.groovy.syntax.Types.isAssignment
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
@@ -44,29 +65,7 @@ import org.codehaus.groovy.ast.stmt.TryCatchStatement
 import org.codehaus.groovy.ast.stmt.WhileStatement
 import org.codehaus.groovy.syntax.Types
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
-
-import static io.github.heyuch.groovy.nullchecker.AstSupport.canBeNull
-import static io.github.heyuch.groovy.nullchecker.AstSupport.declAnnoCarrier
-import static io.github.heyuch.groovy.nullchecker.AstSupport.getASSERTION_MESSAGE_TYPES
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasMonotonicAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullByDefaultAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullMapValue
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableElementType
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableTypeUse
-import static io.github.heyuch.groovy.nullchecker.AstSupport.inferredNullableTypeUse
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isMapLike
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isNullExpr
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isSafeNavResult
-import static io.github.heyuch.groovy.nullchecker.AstSupport.isSubscript
-import static io.github.heyuch.groovy.nullchecker.AstSupport.lookupKey
-import static io.github.heyuch.groovy.nullchecker.AstSupport.mapEntryTypes
-import static io.github.heyuch.groovy.nullchecker.AstSupport.nullableProperty
-import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
-import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
-import static org.codehaus.groovy.syntax.Types.isAssignment
+import org.jspecify.annotations.Nullable
 
 /**
  * Applies the nullness rules to one method body.

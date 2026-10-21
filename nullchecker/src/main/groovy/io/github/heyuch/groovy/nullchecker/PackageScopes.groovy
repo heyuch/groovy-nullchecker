@@ -1,6 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
+import static io.github.heyuch.groovy.nullchecker.AstSupport.*
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
@@ -8,7 +8,7 @@ import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.PackageNode
 import org.codehaus.groovy.control.CompilationUnit
-import static io.github.heyuch.groovy.nullchecker.AstSupport.*
+import org.jspecify.annotations.Nullable
 
 /**
  * Package-level nullness defaults for one compilation.

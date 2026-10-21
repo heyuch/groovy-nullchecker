@@ -1,7 +1,8 @@
 package io.github.heyuch.groovy.nullchecker
 
-import groovy.transform.CompileStatic
 import groovy.transform.CompilationUnitAware
+import groovy.transform.CompileStatic
+import java.lang.annotation.Annotation
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.classgen.GeneratorContext
 import org.codehaus.groovy.control.CompilationUnit
@@ -9,8 +10,6 @@ import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
-
-import java.lang.annotation.Annotation
 
 /**
  * Registers the null checker so that it also covers {@code @CompileStatic} classes.

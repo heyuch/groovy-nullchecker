@@ -1,9 +1,8 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.CompileStatic
 import io.github.heyuch.groovy.nullchecker.NullChecker
+import org.jspecify.annotations.Nullable
 
 /**
  * Command-line front end for the null checker.

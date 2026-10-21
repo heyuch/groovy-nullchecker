@@ -1,9 +1,8 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import org.jspecify.annotations.Nullable
 
 /**
  * What a call promises: its result, which arguments it narrows, and whether it returns.

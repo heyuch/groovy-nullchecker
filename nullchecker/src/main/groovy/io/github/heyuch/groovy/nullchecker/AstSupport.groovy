@@ -1,9 +1,8 @@
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import java.util.regex.Matcher
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.AnnotationNode
 import org.codehaus.groovy.ast.ClassHelper
@@ -25,8 +24,7 @@ import org.codehaus.groovy.ast.expr.TernaryExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.syntax.Types
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
-
-import java.util.regex.Matcher
+import org.jspecify.annotations.Nullable
 
 /**
  * Pure AST and type helpers shared by the checker, its visitor and the contract registry.

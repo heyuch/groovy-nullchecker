@@ -1,10 +1,10 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
-import java.nio.file.Files
 import io.github.heyuch.groovy.nullchecker.NullCheckCoverage
 import io.github.heyuch.groovy.nullchecker.NullCheckCustomizer
 import io.github.heyuch.groovy.nullchecker.NullChecker
+import java.nio.file.Files
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.MultipleCompilationErrorsException

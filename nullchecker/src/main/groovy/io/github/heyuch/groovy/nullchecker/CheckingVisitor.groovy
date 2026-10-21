@@ -32,8 +32,6 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.AutoFinal
 import groovy.transform.CompileStatic
 import org.codehaus.groovy.ast.ClassCodeVisitorSupport
@@ -43,6 +41,7 @@ import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.control.SourceUnit
+import org.jspecify.annotations.Nullable
 
 /**
  * Base visitor support for type-checker extensions that need lightweight constant propagation

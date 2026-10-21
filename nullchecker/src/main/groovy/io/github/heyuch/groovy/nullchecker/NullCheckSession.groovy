@@ -1,5 +1,8 @@
 package io.github.heyuch.groovy.nullchecker
 
+import static io.github.heyuch.groovy.nullchecker.AstSupport.*
+import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
+
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ASTNode
@@ -8,8 +11,6 @@ import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.Variable
 import org.codehaus.groovy.control.CompilationUnit
-import static io.github.heyuch.groovy.nullchecker.AstSupport.*
-import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 
 /**
  * Everything that belongs to one compilation: configuration, package scopes, the contract

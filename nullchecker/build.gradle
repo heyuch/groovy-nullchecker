@@ -15,6 +15,7 @@
 // 下面 base.archivesName 与 publication.artifactId 两处就是为这个差异钉住的。
 
 plugins {
+    id 'com.diffplug.spotless'
     id 'groovy'
     id 'java-library'
     id 'maven-publish'
@@ -417,4 +418,17 @@ nullcheck {
 
 tasks.named('check') {
     dependsOn tasks.named('nullcheck')
+}
+
+
+// Basic Groovy formatting only: import order, semicolon removal, whitespace and final newline.
+// No greclipse: it is large and the project does not need a full formatter.
+spotless {
+    groovy {
+        target 'src/**/*.groovy'
+        importOrder()
+        removeSemicolons()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }

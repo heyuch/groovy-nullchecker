@@ -14,6 +14,10 @@
 //   Cannot resolve external dependency com.gradleup.nmcp:nmcp-tasks:1.6.2
 //     because no repositories are defined
 // 第一次 release 就撞在这里。加 this 而不是并进 subprojects，是因为需要的正是根工程。
+plugins {
+    id 'com.diffplug.spotless' version '8.10.4' apply false
+}
+
 repositories {
     mavenCentral()
 }

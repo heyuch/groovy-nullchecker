@@ -45,6 +45,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   `package-info.java` files are `package-info.groovy` next to the sources they apply to, instead
   of sitting in `src/main/java` while governing `src/main/groovy`. `src/main/java` no longer
   contains sources; the `javadoc` jar is empty but still produced for Central.
+- **Spotless handles basic Groovy formatting.** Both modules use Spotless 8.10.4 with import
+  ordering, semicolon removal, trailing-whitespace trimming and a final newline. Greclipse is
+  deliberately not used: it is large and the project does not need a full re-formatter.
+  `spotlessCheck` is part of `check`; use `./gradlew spotlessApply` to fix.
 - **CodeNarc enables every rule that fits the project.** A trial of all 405 bundled rules found
   724 violations across 45 rules; 42 rules are disabled with reasons recorded in
   `docs/CODENARC.md` (conflicting style, intentional CLI/best-effort behaviour, and size/

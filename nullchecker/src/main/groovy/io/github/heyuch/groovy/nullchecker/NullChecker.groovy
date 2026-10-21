@@ -28,16 +28,14 @@
  */
 package io.github.heyuch.groovy.nullchecker
 
-import org.jspecify.annotations.Nullable
-
 import groovy.transform.CompileStatic
-
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.control.CompilationUnit
-import org.codehaus.groovy.transform.stc.TypeCheckingContext
 import org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport
+import org.codehaus.groovy.transform.stc.TypeCheckingContext
+import org.jspecify.annotations.Nullable
 
 /**
  * A compile-time type checker that detects potential null dereferences and null-safety violations
