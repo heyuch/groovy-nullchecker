@@ -57,3 +57,41 @@ collected. The conclusion is narrow: **on this workload the CFG work shows no me
 regression**. A loop-heavy or much larger codebase should re-run this comparison rather than
 generalizing from these numbers.
 
+## Expanded validation: nine modules
+
+The same external service was then checked across nine modules of different sizes and layers
+(domain, application, components, output): 4,372 Groovy files and 4,675 classes. No source was
+changed.
+
+Findings under the same configuration:
+
+| Mode | Findings | null | initialization | resolution |
+| --- | ---: | ---: | ---: | ---: |
+| annotation (strict off) | 400 | 86 | 0 | 314 |
+| strict | 1,201 | 886 | 1 | 314 |
+
+The resolution count is identical in both modes; strict adds 800 nullness findings. Message
+shapes in strict mode were dominated by `Potential null dereference: 'X' may be null` (805) and
+`... may return null` (81); 314 were resolution findings that are not nullness claims.
+
+0.5.0 and 0.6.0 reported the **same total on every module** (1,201 combined). The CFG work
+therefore did not add reports on this sample; it also did not remove the strict-mode findings
+that the older flow analysis already produced.
+
+Three alternating timing runs (warm daemon, no build/configuration cache) gave:
+
+| Version | Runs (s) | Median |
+| --- | --- | ---: |
+| 0.5.0 | 35.61, 52.07, 44.54 | 44.54 s |
+| 0.6.0 | 35.33, 43.96, 36.10 | 36.10 s |
+
+The medians favor 0.6.0 by about 8 s, but the range is wide and the series is short; this is not a
+claim that CFG made analysis faster. It is evidence that the expanded run did not show a
+regression.
+
+Practical reading: strict mode on a legacy, unannotated codebase is noisy (1,201 raw findings
+across nine modules), so adoption needs triage and contracts rather than treating the raw count
+as a defect count. Annotation mode reports 400, most of which are resolution rather than
+nullness. The CFG itself is not the source of the extra reports on this code.
+
+
