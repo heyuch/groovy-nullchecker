@@ -28,3 +28,32 @@ Observed wall time:
 
 The corpus includes the strict flow fixtures and the plugin's checker tests. A future CFG change
 must re-run these commands and record the delta rather than claiming "linear" from theory.
+
+## 0.5.0 vs 0.6.0 on an external service
+
+A six-module external Groovy service (251 files, 397 classes; anonymized) was checked with the
+same strict configuration, loading the published `0.5.0` and `0.6.0` plugin/checker pairs. No
+project source was changed.
+
+Method:
+
+- six output modules with sources, one `nullcheck` task per module;
+- same init-script guard/never-returns configuration for both versions;
+- `--no-build-cache --no-configuration-cache`, alternating versions;
+- one cold run per version discarded (the first `0.5.0` run included dependency resolution and
+  first compilation and was not comparable), then three warm runs each;
+- two series: with a warm Gradle daemon and with `--no-daemon` (JVM startup included).
+
+Warm results (wall time, real seconds):
+
+| Series | 0.5.0 median | 0.6.0 median | Delta |
+| --- | ---: | ---: | ---: |
+| warm daemon | 8.92 s | 9.04 s | +0.12 s (~1.3%) |
+| no daemon | 15.02 s | 15.08 s | +0.06 s (~0.4%) |
+
+Both versions reported the same 12 findings (10 null, 2 resolution). The deltas are within
+run-to-run variance and include Gradle configuration/startup; no isolated checker timer was
+collected. The conclusion is narrow: **on this workload the CFG work shows no measurable
+regression**. A loop-heavy or much larger codebase should re-run this comparison rather than
+generalizing from these numbers.
+
