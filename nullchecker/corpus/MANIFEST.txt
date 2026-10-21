@@ -153,6 +153,12 @@ rule=R05
 strict=any
 expect=2
 note=this.value narrows in the guard; the unguarded path and post-call path report
+
+strict/flow_closure_capture.groovy
+rule=R05
+strict=only
+expect=2
+note=closure may execute zero times; captured write joins with the pre-call state
 # ── R06: dereference of a literal null ──────────────────────────────────────
 positive/deref_null_literal.groovy
 rule=R06

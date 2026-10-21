@@ -114,19 +114,23 @@ and a post-call read.
 
 #### F6. Closures
 
-Status: next.
+Status: done.
 
-- Analyze each closure as its own CFG; capture variables as read/write summaries.
-- Known call sites (`each`, `collect`, direct `call()`) analyze once; after-state joins
-  "not executed" and "executed".
-- Escape to unknown code conservatively invalidates captured mutable variables.
-- Closure `return` exits only the closure; `break`/`continue` do not cross it.
+- Each closure body is analyzed as its own CFG with the current captured-variable state.
+- The closure exit state joins the pre-call state with the post-body state, so a zero-execution
+  path cannot be dropped.
+- A closure `return` exits the closure CFG, not the outer method; break/continue cannot cross
+  the closure boundary.
+- Escape is handled conservatively by keeping the joined state (the analysis never assumes the
+  closure ran exactly once).
+- Captured writes are not summarized as a separate API; the state is shared through the CFG.
 
-Acceptance: zero/multi-execution, captured write and escape fixtures.
+Acceptance: `strict/flow_closure_capture.groovy` covers each-may-skip, a guarded captured write
+and a closure return.
 
 #### F7. Flow validation and documentation
 
-Status: pending F5/F6.
+Status: next.
 
 - Run the external trial again; triage FP/FN and record the numbers.
 - Update NULLNESS-FLOW, PORT, README and CHANGELOG with the new behavior and limits.

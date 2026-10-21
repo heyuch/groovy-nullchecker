@@ -406,7 +406,17 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         closureContexts.add(hint)
         try {
-            super.visitClosureExpression(expression)
+            if (flowSensitive && expression.code != null) {
+                FlowState before = captureState()
+                ControlFlowGraph graph = ControlFlowGraph.build(expression.code)
+                FlowAnalysis analysis = new FlowAnalysis(graph, new NullnessFlowTransfer(this), before)
+                analysis.run()
+                FlowState after = analysis.exitState()
+                FlowState merged = FlowState.join(before, after)
+                restoreState(merged ?: before)
+            } else {
+                super.visitClosureExpression(expression)
+            }
         } finally {
             closureContexts.remove(closureContexts.size() - 1)
             nullableElements.clear()
