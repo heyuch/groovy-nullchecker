@@ -49,6 +49,27 @@ class StaticCanary {
             // Shapes the checker has crashed on, or could. They are expected to report
             // nothing; their purpose is to be *analysed*, so an internal failure shows up
             // here instead of in a consumer's first run.
+            // A static method call in a condition: containsKey narrowing only applies to
+            // instance calls, and treating every condition as a MethodCallExpression crashed
+            // here (StaticMethodCallExpression cast to MethodCallExpression).
+            'canary/StaticCallCanary.groovy': '''package canary
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class StaticCallCanary {
+    static boolean isPresent(String value) {
+        return value != null
+    }
+
+    static int size(String value) {
+        if (isPresent(value)) {
+            return value.length()
+        }
+        return 0
+    }
+}
+''',
             'canary/SpreadCanary.groovy': '''package canary
 
 import groovy.transform.CompileStatic

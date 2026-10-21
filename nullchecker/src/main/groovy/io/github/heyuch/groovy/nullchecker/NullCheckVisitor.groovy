@@ -577,7 +577,9 @@ class NullCheckVisitor extends CheckingVisitor {
             Object target = condition.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
             if (target instanceof MethodNode) {
                 applyContractGuard(target, (MethodCall) condition, facts)
-                applyContainsKeyGuard((MethodCallExpression) condition, facts)
+                if (condition instanceof MethodCallExpression) {
+                    applyContainsKeyGuard((MethodCallExpression) condition, facts)
+                }
             }
         }
         return facts
