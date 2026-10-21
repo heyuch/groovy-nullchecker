@@ -1,21 +1,29 @@
 package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.PackageScope
-import static io.github.heyuch.groovy.nullchecker.AstSupport.*
-import java.util.Arrays
 import org.codehaus.groovy.ast.AnnotationNode
-import org.codehaus.groovy.ast.ClassHelper
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
-import org.codehaus.groovy.ast.expr.ConstantExpression
 import org.codehaus.groovy.ast.expr.Expression
-import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.transform.stc.StaticTypesMarker
+
+import static io.github.heyuch.groovy.nullchecker.AstSupport.argumentIndex
+import static io.github.heyuch.groovy.nullchecker.AstSupport.booleanMember
+import static io.github.heyuch.groovy.nullchecker.AstSupport.findAnnotation
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isCollectionLike
+import static io.github.heyuch.groovy.nullchecker.AstSupport.isMapLike
+import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMember
+import static io.github.heyuch.groovy.nullchecker.AstSupport.stringMembers
+import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
 
 /**
  * Resolves what a call promises, from three sources in order of precedence: the project's
  * configuration, annotations on the method, and the built-in table for library methods.
+ *
+ * <p>One instance per compilation: the declared configuration and the resolved contracts are
+ * instance state, so two compilations cannot see each other's answers. Only the pure parsing
+ * helpers are static.
  *
  * <p>Extracted from {@link NullChecker} so the resolution rules read as one unit. The AST
  * helpers it needs live in {@link AstSupport}, so it does not depend on the checker;
@@ -45,40 +53,23 @@ class ContractRegistry {
     private static final Set<String> PARTIAL_COLLECTION_METHODS = Collections.unmodifiableSet(
             ['find', 'findResult', 'max', 'min'] as Set<String>)
 
-    private static Set<String> guardsTrue = Collections.emptySet()
+    private final Set<String> guardsTrue
 
-    private static Set<String> guardsFalse = Collections.emptySet()
+    private final Set<String> guardsFalse
 
-    private static Set<String> neverReturns = Collections.emptySet()
+    private final Set<String> neverReturns
 
-    private static Map<String, Contract> configured = [:]
+    private final Map<String, Contract> configured
 
-    private static final Map<MethodNode, Contract> cache = new IdentityHashMap<>()
+    private final Map<MethodNode, Contract> cache = new IdentityHashMap<>()
 
-    /** Re-reads the configured contracts; call once per compilation. */
-    static void prepare() {
+    /** Reads the project's declarations; one instance per compilation. */
+    ContractRegistry() {
         guardsTrue = readGuardEntries(GUARD_TRUE_PROPERTY)
         guardsFalse = readGuardEntries(GUARD_FALSE_PROPERTY)
         neverReturns = readGuardEntries(NEVER_RETURNS_PROPERTY)
         configured = buildConfigContracts()
     }
-
-    /** Drops the resolved contracts, so a new compilation cannot see a stale answer. */
-    static void reset() {
-        configured = [:]
-        cache.clear()
-    }
-
-    /** How a call's result relates to nullness. */
-    /**
-     * What a call promises: its result, which arguments it narrows, and whether it returns.
-     *
-     * <p>One model for every source. Annotations ({@code @Contract}, {@code @EnsuresNonNullIf},
-     * {@code @EnsuresNonNull}, {@code @NoReturn}), the project's configuration, and the
-     * built-in table for library methods all resolve to this, in that order of precedence
-     * (configuration first, then annotations, then built-ins). Keeping one model is what makes
-     * a configured contract and an annotated one behave identically.
-     */
     /**
      * Parses a JetBrains contract string into the model.
      *
@@ -134,7 +125,7 @@ class ContractRegistry {
     }
 
     /** Contracts declared by annotations on the method itself. */
-    private static Contract annotationContract(MethodNode target) {
+    private Contract annotationContract(MethodNode target) {
         AnnotationNode jetbrains = findAnnotation(target, 'Contract')
         if (jetbrains != null) {
             Contract parsed = contractFromJetBrains(stringMember(jetbrains, 'value'))
@@ -175,7 +166,7 @@ class ContractRegistry {
      * find} may find nothing, {@code max} cannot answer an empty collection. The table is the
      * last source, so a project can override any entry through {@code contracts}.
      */
-    private static Contract builtInContract(Expression callExpression, MethodNode target) {
+    private Contract builtInContract(Expression callExpression, MethodNode target) {
         String owner = target.declaringClass?.name
         String name = target.name
         if (owner == 'java.util.Objects') {
@@ -215,7 +206,7 @@ class ContractRegistry {
         null
     }
 
-    static Contract contractFor(Expression callExpression, MethodNode target) {
+    Contract contractFor(Expression callExpression, MethodNode target) {
         if (target == null) return null
         Contract cached = cache.get(target)
         if (cached != null) {
@@ -232,7 +223,7 @@ class ContractRegistry {
      * Contracts declared by the project, matched by {@code declaringClass#method} and by the
      * same key on any superclass or interface.
      */
-    private static Contract configuredContract(MethodNode target) {
+    private Contract configuredContract(MethodNode target) {
         if (configured.isEmpty()) return null
         ClassNode owner = target.declaringClass
         if (owner == null) return null
@@ -250,7 +241,7 @@ class ContractRegistry {
         null
     }
 
-    private static Map<String, Contract> buildConfigContracts() {
+    private Map<String, Contract> buildConfigContracts() {
         Map<String, Contract> contracts = new LinkedHashMap<String, Contract>()
         for (String key : guardsTrue) {
             contracts.put(key, Contract.fact(true))
@@ -293,7 +284,7 @@ class ContractRegistry {
      * project's own {@code neverReturns} list. A single failing branch such as
      * {@code "null -> fail"} is not enough: the call still returns for other arguments.
      */
-    private static boolean isNoReturnCall(Expression expression) {
+    boolean isNoReturnCall(Expression expression) {
         if (expression == null) return false
         def target = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
         if (!(target instanceof MethodNode)) return false

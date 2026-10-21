@@ -265,7 +265,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
         PORT_CLASS_LOADERS = null
         AstSupport.resetCaches()
-        ContractRegistry.reset()
+        contracts = new ContractRegistry()
     }
 
     /**
@@ -303,12 +303,10 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
             PORT_CLASS_LOADERS = null
             AstSupport.resetCaches()
-            ContractRegistry.reset()
-            ContractRegistry.prepare()
+            contracts = new ContractRegistry()
         } else if (unit == null) {
             PORT_PACKAGE_ANNOS = collectPackageAnnotations()
-            ContractRegistry.reset()
-            ContractRegistry.prepare()
+            contracts = new ContractRegistry()
         }
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
         // checked class -- measured: 50 run() calls for 43 sources -- so resetting in
@@ -487,6 +485,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
 
     private static Object PORT_CACHE_UNIT
+
+    private static ContractRegistry contracts = new ContractRegistry()
 
     private static List<ClassLoader> PORT_CLASS_LOADERS
 
@@ -986,7 +986,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
             private void applyContractGuard(MethodNode target, Expression condition, GuardFacts facts) {
                 def callArgs = condition.arguments
                 if (!(callArgs instanceof TupleExpression) || !callArgs.expressions) return
-                Contract contract = ContractRegistry.contractFor(condition, target)
+                Contract contract = contracts.contractFor(condition, target)
                 if (contract == null) return
                 for (int index : contract.nonNullWhenTrue) {
                     if (index >= callArgs.expressions.size()) continue
@@ -1091,7 +1091,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                 MethodCallExpression call = (MethodCallExpression) expression
                 def target = call.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
                 if (!(target instanceof MethodNode)) return false
-                Contract contract = ContractRegistry.contractFor(call, (MethodNode) target)
+                Contract contract = contracts.contractFor(call, (MethodNode) target)
                 if (contract == null) return false
                 // The switch turns off the built-in family; an explicit contract still applies.
                 if (contract.builtIn && !PORT_CONTAINER_LOOKUPS) return false
@@ -1154,7 +1154,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
                     }
                     return
                 }
-                Contract contract = ContractRegistry.contractFor(call, (MethodNode) target)
+                Contract contract = contracts.contractFor(call, (MethodNode) target)
                 if (contract == null) return
                 for (int index : contract.nonNullAfterReturn) {
                     if (index >= args.expressions.size()) continue
@@ -1624,7 +1624,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         if (statement == null) return false
         if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) return true
         if (statement instanceof BreakStatement || statement instanceof ContinueStatement) return true
-        if (statement instanceof ExpressionStatement) return ContractRegistry.isNoReturnCall(statement.expression)
+        if (statement instanceof ExpressionStatement) return contracts.isNoReturnCall(statement.expression)
         if (statement instanceof BlockStatement) {
             for (Statement child : statement.statements) {
                 if (cannotCompleteNormally(child)) return true
