@@ -26,6 +26,11 @@ Limitation: the non-empty fact currently comes from those two conventional helpe
 project-specific helper with another name still needs a future non-empty guard declaration;
 `guardNotNullWhenTrue` only proves non-null, not non-empty.
 
+`first()`/`head()` do **not** need this treatment: Groovy throws `NoSuchElementException` on an
+empty collection, so a normal return is already non-null (unless the element type itself is
+nullable). `any`/`every` are boolean, and `find`/`findResult` stay nullable because the predicate
+can still miss. N24 pins those semantics.
+
 ## Gradle plugin: compile mode
 
 ### 3. Compile mode injects `@TypeChecked` into dynamic code
@@ -87,6 +92,18 @@ noisy. Tests are covered by CodeNarc's basic rules and the corpus/functional gat
 Direction: a test-specific filter that keeps the meaningful patterns, if it becomes valuable.
 
 Priority: low.
+
+### 8. Java Stream/Optional unwrapping is not modelled
+
+`Stream.findFirst()` / `findAny()` return `Optional<T>`, which is itself non-null, but
+`orElse(null)`, `orElseGet { null }`, `map` and `flatMap` can produce a nullable value. The
+checker has no Optional built-ins, so unwrapping can hide a null.
+
+Direction: register `Optional.orElse` as nullable-if-argument-nullable (`orElseGet` unknown,
+`orElseThrow`/`get` non-null), and keep `findFirst`/`findAny` non-null. This is Java interop,
+not a Groovy collection guard.
+
+Priority: low/medium (only when the project uses Java streams).
 
 ## Real-world trial (anonymized)
 

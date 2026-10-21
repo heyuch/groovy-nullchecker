@@ -167,6 +167,12 @@ rule=N23
 strict=never
 expect=none
 note=max/min on a collection proved non-empty by a guard
+negative/first_head_any.groovy
+rule=N24
+strict=never
+expect=none
+note=first/head throw on empty; any is boolean
+
 
 
 negative/spread_property_result.groovy

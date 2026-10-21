@@ -68,6 +68,7 @@ class CorpusRules {
             N21: 'a call that never returns makes the code after it unreachable',
             N22: 'container lookups narrow on containsKey and stay silent when they cannot miss',
             N23: 'max/min on a collection proved non-empty stays non-null',
+            N24: 'first/head throw on empty and any is boolean, so none is nullable',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {
