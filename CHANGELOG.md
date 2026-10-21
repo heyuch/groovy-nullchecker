@@ -33,7 +33,8 @@ versions follow [Semantic Versioning](https://semver.org/).
   keeps the old visitor. F2 is complete: switch fall-through is modelled and for-each variables
   receive the collection's nullable element facts. F3 adds try/catch/finally edges, non-null
   catch parameters and finally joins (abrupt exits through finally are still conservative).
-  Strict corpus fixtures and `FlowStateSpec` pin the behavior.
+  Findings are deduplicated and sorted at the report boundary; `docs/PERF.md` records the
+  current flow-analysis baseline. Strict corpus fixtures and `FlowStateSpec` pin the behavior.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

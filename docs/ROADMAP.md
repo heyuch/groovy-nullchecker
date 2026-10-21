@@ -88,18 +88,17 @@ Acceptance: `strict/flow_try_catch.groovy` covers try/catch/finally state joins.
 
 #### F4. Diagnostics, deduplication and budget
 
-Status: next (deduplication is already in the reporter; collection from CFG nodes, sorting and
-the performance baseline remain).
+Status: done.
 
-- Collect findings per CFG node, deduplicate by `(file, start, end, message)`, then sort.
-- Keep the `Potential null dereference` prefix and `null` category.
-- Record a performance baseline for a single file, the corpus and `check`; set a budget before
-  Phase 2.
-- Ensure unreachable nodes produce no findings.
+- Findings are emitted by the flow transfer, deduplicated by message + source position in the
+  reporter, and sorted by file/line/message at the harness boundary.
+- The `Potential null dereference` prefix and the `null` category are unchanged.
+- `docs/PERF.md` records a baseline for \`compileGroovy\` and the checker test suite.
+- Unreachable CFG nodes are never visited by the worklist, so they produce no findings.
 
 #### F5. Finite access paths
 
-Status: pending F4.
+Status: next.
 
 - Add `x`, `this.f`, `x.f`, depth <= 2.
 - Kill rules on assignment, field write and unknown calls; conservative field invalidation.

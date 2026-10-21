@@ -314,14 +314,14 @@ class NullCheckHarness {
             if (errors) {
                 result.collectedOnly = true
                 result.raw = errors.collect { Object e -> e.toString() }.join('\n')
-                result.findings = errors.collect { Object e -> errorToFinding(e, files) }
+                result.findings = sortFindings(errors.collect { Object e -> errorToFinding(e, files) })
             } else {
                 result.raw = 'no findings'
             }
         } catch (MultipleCompilationErrorsException e) {
             result.threw = true
             result.raw = e.message
-            result.findings = parseFindings(e.message, files)
+            result.findings = sortFindings(parseFindings(e.message, files))
         }
         // Groovy swallows an exception raised inside a type-checking extension: the
         // compilation still finishes, usually with no errors, so the run looks clean.
@@ -365,6 +365,23 @@ class NullCheckHarness {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("could not configure ${extension}", e)
         }
+    }
+
+    /** Stable report order: file, line, then message. */
+    static List<Finding> sortFindings(List<Finding> findings) {
+        List<Finding> sorted = new ArrayList<Finding>(findings)
+        sorted.sort { Finding left, Finding right ->
+            int byPath = left.path.compareTo(right.path)
+            if (byPath != 0) {
+                return byPath
+            }
+            int byLine = Integer.compare(left.line, right.line)
+            if (byLine != 0) {
+                return byLine
+            }
+            return left.message.compareTo(right.message)
+        }
+        return sorted
     }
 
     /**
