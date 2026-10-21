@@ -160,20 +160,6 @@ import static org.codehaus.groovy.syntax.Types.isAssignment
  */
 class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
-    /**
-     * Defaults that apply to parameters only. {@code @NonNullApi} is Spring's package-level
-     * marking and covers returns as well, so it appears in both sets.
-     */
-    private static final Set<String> PARAMETER_DEFAULT_ANNOS = Collections.unmodifiableSet([
-            'ParametersAreNonnullByDefault', 'ParametersAreNonNullByDefault', 'NonNullApi'] as Set)
-
-    /** Defaults that apply to return values only. */
-    private static final Set<String> RETURN_DEFAULT_ANNOS = Collections.unmodifiableSet([
-            'ReturnValuesAreNonnullByDefault', 'NonNullApi'] as Set)
-
-    /** Defaults that apply to fields only. */
-    private static final Set<String> FIELD_DEFAULT_ANNOS = Collections.unmodifiableSet(['NonNullFields'] as Set)
-
     /** Static-compilation markers, counted for coverage only. */
     private static final Set<String> COMPILE_STATIC_ANNOS = Collections.unmodifiableSet(['CompileStatic', 'CompileDynamic'] as Set)
     /** Rule family: nullness of values (dereference, return, assignment, argument). */
@@ -260,10 +246,7 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** Drops per-compilation caches, so a new compilation cannot see a stale answer. */
     static void resetCaches() {
         PORT_CACHE_UNIT = null
-        PORT_PACKAGE_ANNOS = [:]
-        PORT_PACKAGE_ANNO_BY_CLASS.clear()
-        PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
-        PORT_CLASS_LOADERS = null
+        scopes = null
         AstSupport.resetCaches()
         contracts = new ContractRegistry()
     }
@@ -298,14 +281,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         def unit = context?.compilationUnit
         if (unit != null && !unit.is(PORT_CACHE_UNIT)) {
             PORT_CACHE_UNIT = unit
-            PORT_PACKAGE_ANNOS = collectPackageAnnotations()
-            PORT_PACKAGE_ANNO_BY_CLASS.clear()
-            PORT_PACKAGE_ANNO_BY_PACKAGE.clear()
-            PORT_CLASS_LOADERS = null
+            scopes = new PackageScopes(unit, context?.source?.classLoader)
             AstSupport.resetCaches()
             contracts = new ContractRegistry()
         } else if (unit == null) {
-            PORT_PACKAGE_ANNOS = collectPackageAnnotations()
+            scopes = new PackageScopes(null, context?.source?.classLoader)
             contracts = new ContractRegistry()
         }
         // Coverage is deliberately NOT reset here. Groovy instantiates this DSL once per
@@ -468,8 +448,6 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * <p>Populated before any class is visited, so the answer does not depend on whether
      * {@code package-info} happens to be compiled before or after its package's classes.
      */
-    private static Map<String, List<String>> PORT_PACKAGE_ANNOS = [:]
-
     /**
      * Per-compilation caches for package-annotation lookups.
      *
@@ -479,53 +457,12 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * same package is resolved thousands of times -- measured as the largest single cost in
      * the checker. Both maps are cleared when a new compilation unit is seen.
      */
-    private static final Map<String, List<String>> PORT_PACKAGE_ANNO_BY_CLASS = [:]
-
-    private static final Map<String, List<String>> PORT_PACKAGE_ANNO_BY_PACKAGE = [:]
-
 
     private static Object PORT_CACHE_UNIT
 
     private static ContractRegistry contracts = new ContractRegistry()
 
-    private static List<ClassLoader> PORT_CLASS_LOADERS
-
-    /**
-     * Scans the compilation unit for {@code package-info} classes and records the
-     * simple names of their annotations.
-     *
-     * <p>The annotations are read from the {@code package-info} class's
-     * <em>{@code PackageNode}</em>, not from the class node itself: for a
-     * {@code package-info}, Groovy parses {@code @Foo package a.b;} onto the package
-     * and leaves the synthetic class node unannotated. Verified on Groovy 4.0.30 --
-     * {@code cn.annotations} is empty while {@code cn.package.annotations} holds the
-     * annotation.
-     *
-     * <p>An instance method because it reads the DSL's {@code context}, which is exposed
-     * only on the instance.
-     *
-     * @return package name to annotation simple names
-     */
-    private Map<String, List<String>> collectPackageAnnotations() {
-        Map<String, List<String>> found = [:]
-        try {
-            def unit = context?.compilationUnit
-            unit?.AST?.classes?.each { ClassNode cn ->
-                if (cn.name.endsWith('.package-info')) {
-                    def pkg = cn.package
-                    String pkgName = normalisePackageName(pkg?.name) ?:
-                            cn.name.substring(0, cn.name.length() - '.package-info'.length())
-                    if (pkgName) {
-                        found[pkgName] = pkg?.annotations*.classNode*.nameWithoutPackage ?: []
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            // Best effort: an unreachable AST must not break the check itself, it only
-            // means package defaults are unavailable and class-level marking applies.
-        }
-        found
-    }
+    private static PackageScopes scopes
 
     private CheckingVisitor makeVisitor(boolean flowSensitive, MethodNode method) {
         boolean classNonNullByDefault = method.declaringClass != null &&
@@ -1409,191 +1346,24 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
 
     private static final Map<AnnotatedNode, Set<String>> PORT_TYPE_ANNO_NAMES = new IdentityHashMap<>()
 
-    /**
-     * Determines whether a class is non-null-by-default, honouring JSpecify-style
-     * nearest-scope-wins semantics: the class and each enclosing (outer) class are consulted from
-     * innermost to outermost, then the package. At each scope an {@code @NullUnmarked}
-     * opt-out short-circuits to {@code false} and an {@code @NullMarked}/{@code @NonNullByDefault}
-     * marking to {@code true}; scopes with neither are transparent so the search continues outward.
-     *
-     * <p>The package scope is resolved from three sources, because no single one covers
-     * every case:
-     * <ol>
-     *   <li>{@link #PORT_PACKAGE_ANNOS}, collected from a source {@code package-info}
-     *       in this compilation. Required because Groovy 4 hands each source class its
-     *       own {@code PackageNode}, so a source {@code package-info}'s annotations are
-     *       not visible on the package node of the classes it applies to.</li>
-     *   <li>{@code classNode.package.annotations}. Populated in some situations, but
-     *       verified <em>not</em> populated on Groovy 4.0.30 when the {@code
-     *       package-info.class} merely sits on the classpath next to a class compiled
-     *       in this run, so it cannot be relied on alone.</li>
-     *   <li>A reflective lookup of {@code <pkg>.package-info}, which recovers the
-     *       package annotations for a precompiled dependency. Limited to
-     *       runtime-retained annotations, since it goes through the JVM's package
-     *       object; the common nullness annotations (JSpecify, JSR-305, JetBrains,
-     *       Checker Framework) all are runtime-retained.</li>
-     * </ol>
-     *
-     * <p>Scope is deliberately the exact package: a package annotation does <em>not</em>
-     * apply to subpackages, matching JSpecify's rule that a marking applies to the
-     * annotated element itself.
-     */
     private boolean isNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, Collections.emptySet())
+        scopes.isNonNullByDefault(cn)
     }
 
-    /** Parameter defaults: "@NullMarked"-style plus the parameter-scoped annotations. */
     private boolean isParameterNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, PARAMETER_DEFAULT_ANNOS)
+        scopes.isParameterNonNullByDefault(cn)
     }
 
-    /** Return-value defaults: "@NullMarked"-style plus the return-scoped annotations. */
     private boolean isReturnValueNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, RETURN_DEFAULT_ANNOS)
+        scopes.isReturnValueNonNullByDefault(cn)
     }
 
-    /** Field defaults: "@NullMarked"-style plus the field-scoped annotations. */
     private boolean isFieldNonNullByDefault(ClassNode cn) {
-        isNullDefaultInScope(cn, FIELD_DEFAULT_ANNOS)
+        scopes.isFieldNonNullByDefault(cn)
     }
 
-    /** Any default at all, whatever it covers; used for the coverage counter. */
     private boolean isAnyNonNullByDefault(ClassNode cn) {
-        Set<String> anyScope = new HashSet<String>(PARAMETER_DEFAULT_ANNOS)
-        anyScope.addAll(RETURN_DEFAULT_ANNOS)
-        anyScope.addAll(FIELD_DEFAULT_ANNOS)
-        isNullDefaultInScope(cn, anyScope)
-    }
-
-    /**
-     * Resolves whether a non-null default applies to one scope.
-     *
-     * <p>A default is not one switch but three: JSR-305 and Spring split it into parameters
-     * ({@code @ParametersAreNonnullByDefault}), return values
-     * ({@code @ReturnValuesAreNonnullByDefault}) and fields ({@code @NonNullFields}), while
-     * {@code @NullMarked}/{@code @NonNullByDefault} cover all three. A single boolean could
-     * not express that, which is why the parameter-scoped annotations were honoured on a
-     * class but silently ignored on a package.
-     *
-     * <p>Precedence: the class chain is consulted innermost-first and an {@code @NullUnmarked}
-     * anywhere on it opts out entirely; package annotations are consulted next. Within one
-     * level an opt-out beats a marking.
-     *
-     * @param cn         class whose defaults are being resolved
-     * @param scopeAnnos additional annotation names that count for this scope
-     * @return whether the scope's values are non-null by default
-     */
-    private boolean isNullDefaultInScope(ClassNode cn, Set<String> scopeAnnos) {
-        Set<String> accepted = new HashSet<String>(NONNULL_BY_DEFAULT_ANNOS)
-        accepted.addAll(scopeAnnos)
-        for (ClassNode c = cn; c != null; c = c.outerClass) {
-            if (hasNullUnmarkedAnno(c)) return false
-            if (declaresAny(c, accepted)) return true
-        }
-        List<String> pkgAnnos = packageAnnotationNames(cn)
-        if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) return false
-        pkgAnnos.any { String n -> accepted.contains(n) }
-    }
-
-    /**
-     * The simple names of the annotations declared on a class's package, from every source
-     * that can carry them: a source {@code package-info} in this compilation, the package
-     * node, and a precompiled {@code package-info.class} on the classpath.
-     */
-    private List<String> packageAnnotationNames(ClassNode cn) {
-        String cacheKey = cn?.name
-        if (cacheKey != null) {
-            List<String> cached = PORT_PACKAGE_ANNO_BY_CLASS.get(cacheKey)
-            if (cached != null) return cached
-        }
-        List<String> names = new ArrayList<String>()
-        String pkgName = normalisePackageName(cn?.package?.name)
-        List<String> fromSource = pkgName == null ? null : PORT_PACKAGE_ANNOS[pkgName]
-        if (fromSource != null) {
-            names.addAll(fromSource)
-        }
-        def pkg = cn?.package
-        if (pkg != null) {
-            names.addAll(pkg.annotations*.classNode*.nameWithoutPackage ?: [])
-        }
-        List<String> fromClasspath = pkgName == null ? null : lookupPackageAnnotations(pkgName)
-        if (fromClasspath != null) {
-            names.addAll(fromClasspath)
-        }
-        if (cacheKey != null) {
-            PORT_PACKAGE_ANNO_BY_CLASS.put(cacheKey, names)
-        }
-        names
-    }
-
-    /**
-     * Reads a precompiled package's annotations through the JVM package object.
-     *
-     * <p>Only runtime-retained annotations are visible this way, which covers the
-     * common nullness annotations. A {@code package-info.class} in a dependency that
-     * uses CLASS retention cannot be seen at all; that limitation is documented.
-     *
-     * <p>Every plausible classloader is tried before giving up; see
-     * {@link #candidateClassLoaders()} for why one is not enough.
-     *
-     * @param packageName fully qualified package name
-     * @return annotation simple names, or {@code null} when no package class is loadable
-     */
-    private List<String> lookupPackageAnnotations(String packageName) {
-        if (PORT_PACKAGE_ANNO_BY_PACKAGE.containsKey(packageName)) {
-            return PORT_PACKAGE_ANNO_BY_PACKAGE.get(packageName)
-        }
-        String resource = packageName + '.package-info'
-        for (ClassLoader loader : candidateClassLoaders()) {
-            try {
-                Class<?> pkgClass = Class.forName(resource, false, loader)
-                List<String> names = pkgClass.getPackage()?.annotations*.annotationType()*.simpleName
-                if (names) {
-                    PORT_PACKAGE_ANNO_BY_PACKAGE.put(packageName, names)
-                    return names
-                }
-            } catch (Throwable ignored) {
-                // this loader cannot see it; try the next one
-            }
-        }
-        PORT_PACKAGE_ANNO_BY_PACKAGE.put(packageName, null)
-        null
-    }
-
-    /**
-     * Classloaders that might see the analysed project's classpath, most specific first.
-     *
-     * <p>Several are needed because no single one is right in every setup. Under Gradle
-     * the checker is loaded by the build's classloader, while the project's own classes
-     * (and its {@code package-info.class}) are visible only to the compiler worker's
-     * Groovy classloader -- so using the checker's own classloader alone finds nothing in
-     * exactly the configuration most users have.
-     */
-    private List<ClassLoader> candidateClassLoaders() {
-        if (PORT_CLASS_LOADERS != null) {
-            return PORT_CLASS_LOADERS
-        }
-        List<ClassLoader> loaders = []
-        try {
-            loaders << context?.compilationUnit?.transformLoader
-        } catch (Throwable ignored) {
-            // not reachable in this setup
-        }
-        try {
-            loaders << context?.source?.classLoader
-        } catch (Throwable ignored) {
-            // not reachable in this setup
-        }
-        loaders << Thread.currentThread().contextClassLoader
-        loaders << NullChecker.classLoader
-        loaders = loaders.findAll { ClassLoader l -> l != null }.unique()
-        PORT_CLASS_LOADERS = loaders
-        loaders
-    }
-
-    /** Strips the trailing dot some Groovy versions leave on {@code PackageNode#getName()}. */
-    private static String normalisePackageName(String name) {
-        name == null ? null : name.replaceAll(/\.$/, '')
+        scopes.isAnyNonNullByDefault(cn)
     }
 
     /**
