@@ -141,8 +141,8 @@ class NullCheckExtension {
      * runs as its own compilation, which can still measure a project that does not compile.
      *
      * <p>Compile mode analyses Groovy sources only (Java sources are not compiled by
-     * {@code compileGroovy}), does not run the canary, and requires the project's Groovy to be
-     * 4.0.x. It injects static checking only into classes/methods already marked
+     * {@code compileGroovy}), registers a separate {@code nullcheckCanary} when {@code canary}
+     * is on, and requires the project's Groovy to be 4.0.x. It injects static checking only into classes/methods already marked
      * {@code @CompileStatic}, {@code @TypeChecked} or {@code @NullCheck}; dynamic classes compile
      * untouched, so their unresolved calls are not turned into compiler errors. See the README
      * for the trade-offs.

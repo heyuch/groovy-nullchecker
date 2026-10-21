@@ -19,6 +19,13 @@ Limitation: only receiver **variables** are tracked. A nullable property in the 
 chain (for example an annotated `Details details` field) is still judged by its declaration;
 tracking access paths is part of the CFG work, not this fix.
 
+### Compile mode has a canary
+
+Compile mode registers a `nullcheckCanary` task that runs the checker CLI on a generated
+`@CompileStatic` sample with an `@Nullable` field. It expects exit code 1 (a finding) and
+`nullcheck` depends on it when `canary = true`. A broken checker can no longer make compile-mode
+findings look clean.
+
 ### Compile mode is static-only
 
 `compileCheck` now injects the extension only into `@CompileStatic` / `@TypeChecked` / `@NullCheck`
@@ -47,16 +54,6 @@ nullable). `any`/`every` are boolean, and `find`/`findResult` stay nullable beca
 can still miss. N24 pins those semantics.
 
 ## Gradle plugin: compile mode
-
-### 4. Compile mode has no canary
-
-The standalone run proves it can still see a violation before trusting a result. Compile mode
-only has coverage and internal-error sidecars; it warns when `canary = true` is ignored.
-
-Direction: a small standalone canary task (one sample) that `nullcheck` depends on, or a
-stronger coverage invariant that proves declarations were actually visited.
-
-Priority: medium.
 
 ### 5. Duplicate finding classification
 

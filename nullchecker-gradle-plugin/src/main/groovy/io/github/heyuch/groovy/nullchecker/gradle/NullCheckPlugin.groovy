@@ -30,8 +30,9 @@ import org.gradle.api.tasks.compile.GroovyCompile
  * <p>Setting {@code nullcheck { compileCheck = true }} opts into the other mode: the checker
  * is added to the compiler worker's classpath, a generated configuration script registers it,
  * and findings are collected into a file instead of compiler errors. That removes the second
- * compilation, at the cost of losing the report for code that does not compile and the canary;
- * the default stays standalone for those reasons.
+ * compilation, at the cost of losing the report for code that does not compile. A separate
+ * {@code nullcheckCanary} task preserves the self-check when {@code canary} is on; the default
+ * stays standalone for broken-code reports.
  *
  * <p>The checker is resolved from the project's own repositories, so {@code mavenLocal()}
  * must be present until the artifact is published publicly. If it cannot be resolved the
@@ -195,8 +196,56 @@ class NullCheckPlugin implements Plugin<Project> {
         javaExec.args = args
 
         if (extension.canary.get()) {
-            project.logger.warn('nullcheck: compileCheck mode does not run the canary; ' +
-                    'set nullcheck.canary = false to silence this warning')
+            TaskProvider<JavaExec> canary = project.tasks.register('nullcheckCanary', JavaExec) { JavaExec task ->
+                task.group = 'verification'
+                task.description = 'Prove the checker still reports a known-bad sample before compile-mode findings are trusted'
+                task.mainClass.set(CLI_CLASS)
+                task.classpath = project.files(tool)
+                task.ignoreExitValue = true
+                File canaryDir = new File(buildDir, 'nullcheck/canary')
+                File canaryFile = new File(canaryDir, 'Canary.groovy')
+                File canaryAnnotation = new File(canaryDir, 'Nullable.groovy')
+                task.args = [canaryDir.absolutePath, '--report',
+                             new File(canaryDir, 'canary.txt').absolutePath,
+                             '--fail-on', 'null']
+                task.doFirst {
+                    canaryDir.mkdirs()
+                    canaryAnnotation.setText('''package canary
+
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target([ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER,
+        ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE])
+@interface Nullable {
+}
+''', 'UTF-8')
+                    canaryFile.setText('''package canary
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class Canary {
+    private @Nullable String value
+
+    int run() {
+        return value.length()
+    }
+}
+''', 'UTF-8')
+                }
+                task.doLast {
+                    int code = task.executionResult.get().exitValue
+                    if (code != 1) {
+                        throw new GradleException("nullcheck: canary expected one nullness finding " +
+                                "(exit 1), got exit ${code}; the checker is not working")
+                    }
+                }
+            }
+            javaExec.dependsOn(canary)
         }
     }
 

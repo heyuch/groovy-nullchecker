@@ -131,8 +131,8 @@ nullcheck {
 - **编译失败就没有报告**：`nullcheck` 依赖 `compileGroovy`，源码编译不过时任务不会运行；
   "先量一下坏代码"的场景请用默认模式；
 - **不检查 Java 源码**：`compileGroovy` 只编译 Groovy；`package-info.java` 仍会作为编译输入被读取；
-- **不跑 canary**：默认模式的 canary 会编译一个必然违规的样本，证明检查器真能看见问题；
-  编译内模式没有这一步，默认仍会打印一条警告。若需要这层保护，保持默认模式或把它作为单独的 CI 步骤；
+- **canary 是独立的 `nullcheckCanary` 任务**：它编译一个内置的、必然违规的样本；只有退出码
+  为 1（确实报出 finding）才继续，`nullcheck` 依赖它。关闭 `canary` 时不注册该任务；
 - **要求项目 Groovy 是 4.0.x**：检查器运行在项目自己的编译器里，不再固定 4.0.30；
 - **只注入静态类**：compile mode 只对 `@CompileStatic` / `@TypeChecked` / `@NullCheck` 的类
   （或其中带这些注解的方法）注入扩展；动态类不被注入，因此动态代码里解析不了的调用不会再被

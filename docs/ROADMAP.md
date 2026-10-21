@@ -154,17 +154,21 @@ Acceptance: met by the mixed fixture and the existing failOnError gate test.
 
 #### P2. Compile-mode canary (#4)
 
-Status: next.
+Status: done.
 
-- Add a small standalone canary task that `nullcheck` depends on, or an equally strong coverage
-  invariant.
-- A checker that visits nothing must not look clean.
+- Compile mode registers `nullcheckCanary`, a standalone CLI run on a generated
+  `@CompileStatic` sample with an `@Nullable` field.
+- It expects exit code 1 (a finding); `nullcheck` depends on it when `canary = true`.
+- A checker that visits nothing can no longer make compile mode look clean.
+
+Acceptance: the compile-mode functional tests run the canary; a failed self-check fails the
+build.
 
 ### 3. Checker interop
 
 #### C1. Java `Optional` / Stream unwrapping (#8)
 
-Status: pending.
+Status: next.
 
 - `Optional.orElse`: nullable if its argument is nullable.
 - `orElseGet`: unknown/nullable; `orElseThrow` and `get`: non-null.
