@@ -162,7 +162,14 @@ class NullCheckPlugin implements Plugin<Project> {
                         "${TOOL_GROUP}:${TOOL_NAME}:${extension.toolVersion.get()}".toString()))
 
         scriptFile.parentFile.mkdirs()
-        scriptFile.setText(compileScript(extension, findingsFile), 'UTF-8')
+        File existingScript = compile.get().groovyOptions.configurationScript
+        String userScript = ''
+        if (existingScript != null && existingScript.absolutePath != scriptFile.absolutePath) {
+            // The property holds one file. Wrap the project's own script instead of replacing
+            // it: evaluate() runs it with the same binding, so it still sees `configuration`.
+            userScript = "evaluate(new File('${escape(existingScript.absolutePath)}'))\n"
+        }
+        scriptFile.setText(userScript + compileScript(extension, findingsFile), 'UTF-8')
 
         compile.configure { GroovyCompile task ->
             task.classpath = project.files(task.classpath, checker)

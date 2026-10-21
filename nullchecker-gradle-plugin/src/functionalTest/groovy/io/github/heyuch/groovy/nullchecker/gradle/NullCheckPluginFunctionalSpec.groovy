@@ -245,6 +245,27 @@ class Clean {
         result.output.contains('findings=0')
     }
 
+    def 'compile mode keeps a project configuration script'() {
+        given:
+        writeSettings()
+        File marker = new File(testProjectDir, 'custom-ran.txt')
+        new File(testProjectDir, 'custom.groovy').text =
+                "new File('${marker.absolutePath}').text = 'yes'\n"
+        writeBuild('''nullcheck { compileCheck = true }
+tasks.named('compileGroovy') {
+    groovyOptions.configurationScript = file('custom.groovy')
+}
+''')
+        writeAnnotation()
+        writeClean()
+
+        when:
+        run('nullcheck')
+
+        then:
+        marker.isFile()
+    }
+
     def 'gates the build when failOnError is enabled'() {
         given:
         writeSettings()

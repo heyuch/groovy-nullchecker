@@ -134,7 +134,8 @@ nullcheck {
 - **不跑 canary**：默认模式的 canary 会编译一个必然违规的样本，证明检查器真能看见问题；
   编译内模式没有这一步，默认仍会打印一条警告。若需要这层保护，保持默认模式或把它作为单独的 CI 步骤；
 - **要求项目 Groovy 是 4.0.x**：检查器运行在项目自己的编译器里，不再固定 4.0.30；
-- 会覆盖项目已有的 `groovyOptions.configurationScript`（少见，若需要请合并）；
+- 不覆盖项目已有的 `groovyOptions.configurationScript`：插件生成的是包装脚本，先 `evaluate` 用户脚本，
+  再注册检查器。若脚本是在插件的 `afterEvaluate` 之后才设置，插件看不到，仍可能被替换；
 - 检查器会出现在该任务**编译 classpath**上（不是 runtime，也不是发布依赖），以便类型检查扩展能被加载。
 
 ## 输出怎么读
