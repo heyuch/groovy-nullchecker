@@ -55,6 +55,12 @@ positive/validation_notblank_argument.groovy [strict]|@NotBlank rejects null bef
 positive/validation_notempty_return.groovy [annotations]|@NotEmpty rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
 positive/validation_notempty_return.groovy [strict]|@NotEmpty rejects null before checking content, so it is a non-null contract; upstream only knows NotNull
 
+# ── Richer report text (same finding, clearer reason) ───────────────────────
+positive/nonnull_param_nullable.groovy [annotations]|the port appends the nullable source to the message; upstream only names the parameter
+positive/nonnull_param_nullable.groovy [strict]|same richer argument message in strict mode
+positive/nonnull_return_nullable_value.groovy [annotations]|the port appends the nullable source to the message; upstream only names the method
+positive/nonnull_return_nullable_value.groovy [strict]|same richer return message in strict mode
+
 # ── Safe-navigation receiver narrowing (intended addition) ──────────────────
 negative/guards_safe_navigation.groovy [annotations]|a safe-navigation chain compared with null or an enum constant narrows its receiver variables; upstream does not model the chain
 negative/guards_safe_navigation.groovy [strict]|same safe-navigation narrowing in strict mode; upstream does not model the chain

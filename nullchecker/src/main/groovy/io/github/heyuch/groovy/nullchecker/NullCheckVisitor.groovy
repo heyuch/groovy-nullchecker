@@ -415,7 +415,8 @@ class NullCheckVisitor extends CheckingVisitor {
             if (isNullExpr(statement.expression)) {
                 reporter.report("Cannot return null from @NonNull method '${method.name}'", statement)
             } else if (isKnownNullable(statement.expression)) {
-                reporter.report("Cannot return @Nullable value from @NonNull method '${method.name}'", statement)
+                String reason = nullableReason(statement.expression)
+                reporter.report("Cannot return @Nullable value from @NonNull method '${method.name}': ${reason}", statement)
             }
         }
     }
@@ -1099,10 +1100,50 @@ class NullCheckVisitor extends CheckingVisitor {
                 if (isNullExpr(arg)) {
                     reporter.report("Cannot pass null to @NonNull parameter '${params[i].name}' of '${targetMethod.name}'", (ASTNode) call)
                 } else if (isKnownNullable(arg)) {
-                    reporter.report("Cannot pass @Nullable value to @NonNull parameter '${params[i].name}' of '${targetMethod.name}'", (ASTNode) call)
+                    String reason = nullableReason(arg)
+                    reporter.report("Cannot pass @Nullable value to @NonNull parameter '${params[i].name}' of '${targetMethod.name}': ${reason}", (ASTNode) call)
                 }
             }
         }
+    }
+
+    /** Explains why a report says the value may be null. */
+    private String nullableReason(Expression expression) {
+        if (expression instanceof VariableExpression) {
+            Variable target = findTargetVariable(expression)
+            if (target instanceof AnnotatedNode && hasNullableAnno(target)) {
+                return "variable '${expression.name}' is declared @Nullable"
+            }
+            if (isNullableElement(expression, target)) {
+                return "variable '${expression.name}' is a nullable collection element"
+            }
+            if (flowSensitive && nullableVars.contains(target)) {
+                return "variable '${expression.name}' was assigned a nullable value"
+            }
+        }
+        if (isSafeNavResult(expression)) {
+            return "safe-navigation result '${expression.text}' may be null"
+        }
+        if (isNullableEntryCall(expression)) {
+            return "map entry '${expression.text}' may be missing"
+        }
+        if (expression instanceof MethodCallExpression && isNullableContainerLookup(expression)) {
+            return "lookup '${expression.text}' may return null"
+        }
+        if (isSubscript(expression)) {
+            String kind = isNullableMapSubscript(expression) ? 'map lookup' : 'subscript'
+            return "${kind} '${expression.text}' may return null"
+        }
+        if (expression instanceof PropertyExpression) {
+            return "property '${expression.text}' may be null"
+        }
+        if (expression instanceof MethodCallExpression || expression instanceof StaticMethodCallExpression) {
+            Object targetMethod = expression.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
+            if (targetMethod instanceof MethodNode) {
+                return "method '${((MethodNode) targetMethod).name}()' returns @Nullable"
+            }
+        }
+        return "'${expression.text}' may be null"
     }
 
     /**

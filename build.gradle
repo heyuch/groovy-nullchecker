@@ -39,6 +39,86 @@ subprojects {
     }
 }
 
+// ── 文档里的当前版本 ──────────────────────────────────────────────────────
+//
+// README/examples 必须展示当前版本，而版本号的唯一来源是 gradle.properties。
+// syncDocsVersion rewrites those references; checkDocsVersion (wired into check)
+// fails when a release was prepared without running it. CHANGELOG and BACKLOG
+// are deliberately excluded: their versions are historical facts.
+def currentVersion = project.property('nullcheckerVersion').toString()
+def versionedDocs = [
+        'README.md',
+        'README.zh-CN.md',
+        'docs/PUBLISHING.md',
+        'examples/consumer-plugin-demo/README.md',
+        'examples/consumer-plugin-demo/build.gradle',
+        'examples/consumer-strict-demo/README.md',
+        'examples/consumer-strict-demo/build.gradle',
+]
+def versionPatterns = [
+        [regex: /(io\.github\.heyuch:groovy-nullchecker:)\d+\.\d+\.\d+/, replacement: '$1' + currentVersion],
+        [regex: /(io\.github\.heyuch\.groovy-nullchecker:)\d+\.\d+\.\d+/, replacement: '$1' + currentVersion],
+        [regex: /(groovy-nullchecker-)\d+\.\d+\.\d+(?=(?:-sources|-javadoc)?\.jar)/, replacement: '$1' + currentVersion],
+        [regex: /(nullchecker-)\d+\.\d+\.\d+(?=\.(?:jar|pom|module))/, replacement: '$1' + currentVersion],
+        [regex: /(id 'io\.github\.heyuch\.groovy-nullchecker' version ')\d+\.\d+\.\d+(')/, replacement: '$1' + currentVersion + '$2'],
+        [regex: /(toolVersion\s*=\s*')\d+\.\d+\.\d+(')/, replacement: '$1' + currentVersion + '$2'],
+]
+def renderDocVersions = { String text ->
+    String result = text
+    versionPatterns.each { Map pattern ->
+        result = result.replaceAll((String) pattern.regex, (String) pattern.replacement)
+    }
+    return result
+}
+
+tasks.register('syncDocsVersion') {
+    group = 'documentation'
+    description = 'Rewrite the current version in README/examples from gradle.properties'
+    doLast {
+        List<String> changed = []
+        versionedDocs.each { String path ->
+            File file = rootProject.file(path)
+            if (!file.isFile()) {
+                return
+            }
+            String original = file.getText('UTF-8')
+            String updated = renderDocVersions(original)
+            if (updated != original) {
+                file.setText(updated, 'UTF-8')
+                changed.add(path)
+            }
+        }
+        if (changed) {
+            logger.lifecycle("syncDocsVersion: updated ${changed.join(', ')} (${currentVersion})")
+        } else {
+            logger.lifecycle("syncDocsVersion: already current (${currentVersion})")
+        }
+    }
+}
+
+tasks.register('checkDocsVersion') {
+    group = 'verification'
+    description = 'Fails when README/examples still reference a different version'
+    doLast {
+        List<String> stale = []
+        versionedDocs.each { String path ->
+            File file = rootProject.file(path)
+            if (!file.isFile()) {
+                return
+            }
+            String original = file.getText('UTF-8')
+            if (renderDocVersions(original) != original) {
+                stale.add(path)
+            }
+        }
+        if (stale) {
+            throw new GradleException(
+                    "docs version is stale; run ./gradlew syncDocsVersion: ${stale.join(', ')}")
+        }
+        logger.lifecycle("checkDocsVersion: current (${currentVersion})")
+    }
+}
+
 // ── 发布用的分发目录 ──────────────────────────────────────────────────────
 //
 // 把 release 要附带的文件集中到一个目录，文件名直接说清楚它是什么、怎么用。

@@ -432,3 +432,8 @@ spotless {
         endWithNewline()
     }
 }
+
+
+tasks.named('check') {
+    dependsOn rootProject.tasks.named('checkDocsVersion')
+}

@@ -5,7 +5,18 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Report reasons for nullable values.** A return or argument report now explains where the
+  nullability comes from, e.g. `Cannot return @Nullable value from @NonNull method
+  'fragmentFor': map lookup 'RULES[rule]' may return null`, instead of only naming the target.
+
 ### Changed
+
+- **Documentation versions are generated from `gradle.properties`.** `syncDocsVersion` updates
+  README, publishing docs and the consumer examples; `checkDocsVersion` (wired into `check`)
+  fails when a release version was not propagated. Historical CHANGELOG/BACKLOG entries are
+  excluded.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

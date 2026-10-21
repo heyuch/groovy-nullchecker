@@ -28,6 +28,10 @@ that does not exist. There is nothing to keep in sync by hand any more.
 ## Before publishing
 
 ```bash
+# Refresh README/examples from gradle.properties, then run the gate.
+# check (via checkDocsVersion) fails if the docs still carry a different version.
+./gradlew syncDocsVersion
+
 # Both halves of the gate: the checker's corpus gate, and the plugin's TestKit functional tests.
 # functionalTest resolves the checker from mavenLocal, so that task installs it first; a clean
 # checkout runs this in one go.
@@ -37,6 +41,21 @@ that does not exist. There is nothing to keep in sync by hand any more.
 # One divergence is expected and documented in PORT.md §4.1; anything else is a regression.
 ./gradlew dualRun
 ```
+
+## Documentation versions
+
+`README.md`, `README.zh-CN.md`, `docs/PUBLISHING.md` and the consumer examples show the current
+version in coordinates, plugin ids, jar names and `toolVersion`. They are rewritten from the
+single source, `gradle.properties` → `nullcheckerVersion`:
+
+```bash
+./gradlew syncDocsVersion   # update the files
+./gradlew checkDocsVersion  # fail if anything is still stale
+```
+
+`checkDocsVersion` is part of `check`, so a release that bumps the version without refreshing the
+docs fails before publishing. `CHANGELOG.md` and `docs/BACKLOG.md` are deliberately excluded:
+their versions are historical records, not current installation instructions.
 
 ## Publish to the local Maven repository
 
