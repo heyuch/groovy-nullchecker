@@ -75,6 +75,12 @@ spotless {
         replaceRegex('tool version',
                 /(toolVersion\s*=\s*')\d+\.\d+\.\d+(')/,
                 '$1' + currentVersion + '$2')
+        replaceRegex('local repository path',
+                /(nullchecker\/)\d+\.\d+\.\d+(?=\/)/,
+                '$1' + currentVersion)
+        replaceRegex('documented fixed version',
+                /(?<=版本固定为 `)\d+\.\d+\.\d+/,
+                currentVersion)
     }
 }
 

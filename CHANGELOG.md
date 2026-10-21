@@ -3,10 +3,18 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-21
 
 ### Added
 
+- **Static-only compile mode.** `compileCheck` now injects the checker only into
+  `@CompileStatic` / `@TypeChecked` / `@NullCheck` classes or methods, so mixed static/dynamic
+  projects build green while standalone mode still reports dynamic resolution findings.
+- **Compile-mode canary.** A `nullcheckCanary` task runs the checker on a known-bad sample and
+  must see one finding before `nullcheck` trusts the collected results.
+- **Optional/Stream contracts.** `Optional.orElse` follows its argument's nullness,
+  `orElseGet` is conservatively nullable, and `get` / `orElseThrow` / `Stream.findFirst` /
+  `findAny` are non-null.
 - **Report reasons for nullable values.** A return or argument report now explains where the
   nullability comes from, e.g. `Cannot return @Nullable value from @NonNull method
   'fragmentFor': map lookup 'RULES[rule]' may return null`, instead of only naming the target.
@@ -39,6 +47,12 @@ versions follow [Semantic Versioning](https://semver.org/).
   analyzes each closure body through its own CFG and joins the zero-execution path. F7 re-ran
   the external trial (251 files, 397 classes, 12 findings) with no new flow-only false-positive
   shape. Strict corpus fixtures and `FlowStateSpec` pin the behavior.
+
+- **Finding classification has one owner.** `NullCheckCategories` supplies the labels and
+  message mapping used by the core, CLI and harness.
+
+- **SpotBugs analyses test bytecode.** `spotbugsTest` is enabled in both modules with a narrow
+  Spock dynamic-dispatch filter.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a
