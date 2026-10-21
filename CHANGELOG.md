@@ -13,10 +13,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Documentation versions are generated from `gradle.properties`.** `syncDocsVersion` updates
-  README, publishing docs and the consumer examples; `checkDocsVersion` (wired into `check`)
-  fails when a release version was not propagated. Historical CHANGELOG/BACKLOG entries are
-  excluded.
+- **Documentation versions are generated from `gradle.properties`.** Spotless's root `docs`
+  format rewrites README, publishing docs and the consumer examples during `spotlessApply`.
+  Historical CHANGELOG/BACKLOG entries are excluded, and this is not a stale gate: `check` does
+  not fail merely because the docs were not refreshed.
 
 - **Dogfood moved to `0.5.0`.** The self-check now applies the published plugin and checker
   `0.5.0`. It found one real issue: `CorpusRules.fragmentFor` returned the nullable result of a

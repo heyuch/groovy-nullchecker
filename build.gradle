@@ -15,7 +15,7 @@
 //     because no repositories are defined
 // 第一次 release 就撞在这里。加 this 而不是并进 subprojects，是因为需要的正是根工程。
 plugins {
-    id 'com.diffplug.spotless' version '8.10.4' apply false
+    id 'com.diffplug.spotless' version '8.10.4'
 }
 
 repositories {
@@ -41,81 +41,40 @@ subprojects {
 
 // ── 文档里的当前版本 ──────────────────────────────────────────────────────
 //
-// README/examples 必须展示当前版本，而版本号的唯一来源是 gradle.properties。
-// syncDocsVersion rewrites those references; checkDocsVersion (wired into check)
-// fails when a release was prepared without running it. CHANGELOG and BACKLOG
-// are deliberately excluded: their versions are historical facts.
+// README/examples must show the current version, and gradle.properties is the only
+// source of truth. This is a Spotless text format rather than a custom task: running
+// `spotlessApply` rewrites those references along with the source formatting.
+// CHANGELOG and BACKLOG are deliberately excluded; their versions are historical.
 def currentVersion = project.property('nullcheckerVersion').toString()
-def versionedDocs = [
-        'README.md',
-        'README.zh-CN.md',
-        'docs/PUBLISHING.md',
-        'examples/consumer-plugin-demo/README.md',
-        'examples/consumer-plugin-demo/build.gradle',
-        'examples/consumer-strict-demo/README.md',
-        'examples/consumer-strict-demo/build.gradle',
-]
-def versionPatterns = [
-        [regex: /(io\.github\.heyuch:groovy-nullchecker:)\d+\.\d+\.\d+/, replacement: '$1' + currentVersion],
-        [regex: /(io\.github\.heyuch\.groovy-nullchecker:)\d+\.\d+\.\d+/, replacement: '$1' + currentVersion],
-        [regex: /(groovy-nullchecker-)\d+\.\d+\.\d+(?=(?:-sources|-javadoc)?\.jar)/, replacement: '$1' + currentVersion],
-        [regex: /(nullchecker-)\d+\.\d+\.\d+(?=\.(?:jar|pom|module))/, replacement: '$1' + currentVersion],
-        [regex: /(id 'io\.github\.heyuch\.groovy-nullchecker' version ')\d+\.\d+\.\d+(')/, replacement: '$1' + currentVersion + '$2'],
-        [regex: /(toolVersion\s*=\s*')\d+\.\d+\.\d+(')/, replacement: '$1' + currentVersion + '$2'],
-]
-def renderDocVersions = { String text ->
-    String result = text
-    versionPatterns.each { Map pattern ->
-        result = result.replaceAll((String) pattern.regex, (String) pattern.replacement)
-    }
-    return result
-}
 
-tasks.register('syncDocsVersion') {
-    group = 'documentation'
-    description = 'Rewrite the current version in README/examples from gradle.properties'
-    doLast {
-        List<String> changed = []
-        versionedDocs.each { String path ->
-            File file = rootProject.file(path)
-            if (!file.isFile()) {
-                return
-            }
-            String original = file.getText('UTF-8')
-            String updated = renderDocVersions(original)
-            if (updated != original) {
-                file.setText(updated, 'UTF-8')
-                changed.add(path)
-            }
-        }
-        if (changed) {
-            logger.lifecycle("syncDocsVersion: updated ${changed.join(', ')} (${currentVersion})")
-        } else {
-            logger.lifecycle("syncDocsVersion: already current (${currentVersion})")
-        }
-    }
-}
+spotless {
+    format 'docs', {
+        target 'README.md',
+                'README.zh-CN.md',
+                'docs/PUBLISHING.md',
+                'examples/consumer-plugin-demo/README.md',
+                'examples/consumer-plugin-demo/build.gradle',
+                'examples/consumer-strict-demo/README.md',
+                'examples/consumer-strict-demo/build.gradle'
 
-tasks.register('checkDocsVersion') {
-    group = 'verification'
-    description = 'Fails when README/examples still reference a different version'
-    doLast {
-        List<String> stale = []
-        versionedDocs.each { String path ->
-            File file = rootProject.file(path)
-            if (!file.isFile()) {
-                return
-            }
-            String original = file.getText('UTF-8')
-            if (renderDocVersions(original) != original) {
-                stale.add(path)
-            }
-        }
-        if (stale) {
-            throw new GradleException(
-                    "docs version is stale; run ./gradlew syncDocsVersion: ${stale.join(', ')}")
-        }
-        logger.lifecycle("checkDocsVersion: current (${currentVersion})")
+        replaceRegex('checker coordinate',
+                /(io\.github\.heyuch:groovy-nullchecker:)\d+\.\d+\.\d+/,
+                '$1' + currentVersion)
+        replaceRegex('plugin marker coordinate',
+                /(io\.github\.heyuch\.groovy-nullchecker:)\d+\.\d+\.\d+/,
+                '$1' + currentVersion)
+        replaceRegex('checker jar name',
+                /(groovy-nullchecker-)\d+\.\d+\.\d+(?=(?:-sources|-javadoc)?\.jar)/,
+                '$1' + currentVersion)
+        replaceRegex('consumer jar name',
+                /(nullchecker-)\d+\.\d+\.\d+(?=\.(?:jar|pom|module))/,
+                '$1' + currentVersion)
+        replaceRegex('plugin id version',
+                /(id 'io\.github\.heyuch\.groovy-nullchecker' version ')\d+\.\d+\.\d+(')/,
+                '$1' + currentVersion + '$2')
+        replaceRegex('tool version',
+                /(toolVersion\s*=\s*')\d+\.\d+\.\d+(')/,
+                '$1' + currentVersion + '$2')
     }
 }
 
