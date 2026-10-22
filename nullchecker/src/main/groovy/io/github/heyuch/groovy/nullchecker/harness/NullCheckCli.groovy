@@ -26,6 +26,7 @@ class NullCheckCli {
 
     static final String USAGE = '''usage: NullCheckCli [options] <files or dirs>
   --strict              enable flow-sensitive (strict) analysis
+  --marked-only         only check @NullMarked classes/packages (progressive adoption)
   --support <dir>       directory of shared stub sources
   --extension <fqcn>    type-checking extension to run
   --report <file>       write the raw compiler output here
@@ -77,6 +78,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
      */
     static int run(List<String> argv, PrintStream out, PrintStream err) {
         boolean strict = false
+        boolean markedOnly = false
         boolean quiet = false
         boolean canary = true
         String support = null
@@ -100,6 +102,9 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     return 0
                 case '--strict':
                     strict = true
+                    break
+                case '--marked-only':
+                    markedOnly = true
                     break
                 case '--quiet':
                 case '-q':
@@ -198,6 +203,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         System.setProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
         System.setProperty('groovy.nullchecker.contracts', contracts.join(';'))
         System.setProperty('groovy.nullchecker.checks', checks.join(','))
+        System.setProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
 
         List<File> files = []
         List<String> missing = []

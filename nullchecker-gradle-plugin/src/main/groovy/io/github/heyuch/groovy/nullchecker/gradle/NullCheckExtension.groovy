@@ -149,6 +149,12 @@ class NullCheckExtension {
      */
     final Property<Boolean> compileCheck
 
+    /**
+     * Analyse only classes in scope of {@code @NullMarked} (class or exact package). This is the
+     * progressive-adoption switch: legacy code stays untouched until a class/package opts in.
+     */
+    final Property<Boolean> markedOnly
+
     NullCheckExtension(Project project) {
         this.extension = project.objects.property(String)
         this.strict = project.objects.property(Boolean)
@@ -166,6 +172,7 @@ class NullCheckExtension {
         this.contracts = project.objects.mapProperty(String, String)
         this.toolVersion = project.objects.property(String)
         this.compileCheck = project.objects.property(Boolean)
+        this.markedOnly = project.objects.property(Boolean)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
         strict.convention(false)
@@ -184,5 +191,6 @@ class NullCheckExtension {
         contracts.convention([:])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
         compileCheck.convention(false)
+        markedOnly.convention(false)
     }
 }

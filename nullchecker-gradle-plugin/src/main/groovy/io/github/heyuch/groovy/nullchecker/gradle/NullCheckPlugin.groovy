@@ -263,6 +263,7 @@ class Canary {
 
 System.setProperty('groovy.nullchecker.findingsFile', '${escape(findingsFile.absolutePath)}')
 System.setProperty('groovy.nullchecker.strict', '${extension.strict.get()}')
+System.setProperty('groovy.nullchecker.markedonly', '${extension.markedOnly.get()}')
 System.setProperty('groovy.nullchecker.checks', '${escape(checks.join(','))}')
 System.setProperty('groovy.nullchecker.containerlookups', '${extension.containerLookups.get()}')
 System.setProperty('groovy.nullchecker.guards.true', '${escape(extension.guardNotNullWhenTrue.get().join(','))}')
@@ -323,6 +324,9 @@ configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extens
         List<String> args = []
         if (extension.strict.get()) {
             args << '--strict'
+        }
+        if (extension.markedOnly.get()) {
+            args << '--marked-only'
         }
         if (!extension.canary.get()) {
             args << '--no-canary'

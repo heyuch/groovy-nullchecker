@@ -144,6 +144,27 @@ class PackageScopes {
         return isNullDefaultInScope(cn, FIELD_DEFAULT_ANNOS)
     }
 
+    /**
+     * Whether this class opted into progressive checking via {@code @NullMarked} on the class
+     * (or an enclosing class) or on the exact package. {@code @NullUnmarked} wins at any level.
+     */
+    boolean isNullMarked(ClassNode cn) {
+        Set<String> nullMarked = ['NullMarked'] as Set<String>
+        for (ClassNode c = cn; c != null; c = c.outerClass) {
+            if (hasNullUnmarkedAnno(c)) {
+                return false
+            }
+            if (declaresAny(c, nullMarked)) {
+                return true
+            }
+        }
+        List<String> pkgAnnos = packageAnnotationNames(cn)
+        if (pkgAnnos.any { String n -> NULL_UNMARKED_ANNOS.contains(n) }) {
+            return false
+        }
+        return pkgAnnos.contains('NullMarked')
+    }
+
     /** Any default at all, whatever it covers; used for the coverage counter. */
     boolean isAnyNonNullByDefault(ClassNode cn) {
         Set<String> anyScope = new HashSet<String>(PARAMETER_DEFAULT_ANNOS)

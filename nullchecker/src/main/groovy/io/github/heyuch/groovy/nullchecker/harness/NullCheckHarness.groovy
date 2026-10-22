@@ -214,7 +214,9 @@ class NullCheckHarness {
             // choice of rule families: with nullness disabled the canary would report nothing
             // and the tool would refuse to run at all.
             String savedChecks = System.getProperty(NullChecker.CHECKS_PROPERTY)
+            String savedMarkedOnly = System.getProperty(NullChecker.MARKED_ONLY_PROPERTY)
             System.setProperty(NullChecker.CHECKS_PROPERTY, NullChecker.CHECKS_ALL)
+            System.clearProperty(NullChecker.MARKED_ONLY_PROPERTY)
             Result result
             try {
                 result = check(samples, extension, false)
@@ -223,6 +225,11 @@ class NullCheckHarness {
                     System.clearProperty(NullChecker.CHECKS_PROPERTY)
                 } else {
                     System.setProperty(NullChecker.CHECKS_PROPERTY, savedChecks)
+                }
+                if (savedMarkedOnly == null) {
+                    System.clearProperty(NullChecker.MARKED_ONLY_PROPERTY)
+                } else {
+                    System.setProperty(NullChecker.MARKED_ONLY_PROPERTY, savedMarkedOnly)
                 }
             }
             outcome.findings = result.findings

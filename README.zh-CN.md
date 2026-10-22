@@ -695,6 +695,7 @@ nullcheck {
     strict      = true                        // 可选
     failOn      = ['null', 'initialization']   // 默认；'all' 让 resolution 也失败
     initializationCheck = true                 // 默认；false 去掉未初始化字段报告
+    markedOnly  = false                        // true：只检查 @NullMarked 类/包
     targets     = ['src/main/groovy', 'src/main/java']
 }
 ```

@@ -50,6 +50,61 @@ public @interface Nullable {
 '''
     }
 
+    /** Marks a class for progressive checking. */
+    private void writeMarkedAnnotation() {
+        File dir = new File(testProjectDir, 'src/main/java/demo')
+        dir.mkdirs()
+        new File(dir, 'NullMarked.java').text = '''package demo;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.PACKAGE})
+public @interface NullMarked {
+}
+'''
+    }
+
+    private void writeMarkedViolation() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'MarkedViolation.groovy').text = '''package demo
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+@NullMarked
+class MarkedViolation {
+    private @Nullable String value
+
+    int bad() {
+        return value.length()
+    }
+}
+'''
+    }
+
+    private void writeUnmarkedViolation() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'UnmarkedViolation.groovy').text = '''package demo
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class UnmarkedViolation {
+    private @Nullable String value
+
+    int bad() {
+        return value.length()
+    }
+}
+'''
+    }
+
     /** A @NonNull annotation, so the initialisation rule has something to check. */
     private void writeNonNull() {
         File dir = new File(testProjectDir, 'src/main/java/demo')
@@ -212,6 +267,24 @@ class Clean {
         and: 'the self-check and coverage are reported, so the number is interpretable'
         result.output.contains('canary')
         result.output.contains('coverage')
+    }
+
+    def 'markedOnly checks marked classes and skips unmarked ones'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { markedOnly = true }')
+        writeAnnotation()
+        writeMarkedAnnotation()
+        writeMarkedViolation()
+        writeUnmarkedViolation()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then:
+        result.output.contains('MarkedViolation.groovy')
+        !result.output.contains('UnmarkedViolation.groovy')
+        result.output.contains('findings   = 1')
     }
 
     def 'compile mode collects findings during compileGroovy and reports them afterwards'() {

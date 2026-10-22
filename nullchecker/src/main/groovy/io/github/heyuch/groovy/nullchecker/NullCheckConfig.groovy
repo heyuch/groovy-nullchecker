@@ -30,6 +30,8 @@ class NullCheckConfig {
 
     static final String CONTAINER_LOOKUPS_PROPERTY = 'groovy.nullchecker.containerlookups'
 
+    static final String MARKED_ONLY_PROPERTY = 'groovy.nullchecker.markedonly'
+
     final boolean strict
 
     final boolean nullnessCheck
@@ -38,11 +40,16 @@ class NullCheckConfig {
 
     final boolean containerLookups
 
-    NullCheckConfig(boolean strict, boolean nullnessCheck, boolean initializationCheck, boolean containerLookups) {
+    /** When true, only @NullMarked classes/packages are analysed. */
+    final boolean markedOnly
+
+    NullCheckConfig(boolean strict, boolean nullnessCheck, boolean initializationCheck,
+                    boolean containerLookups, boolean markedOnly) {
         this.strict = strict
         this.nullnessCheck = nullnessCheck
         this.initializationCheck = initializationCheck
         this.containerLookups = containerLookups
+        this.markedOnly = markedOnly
     }
 
     static NullCheckConfig read(Map<String, Object> options) {
@@ -52,8 +59,10 @@ class NullCheckConfig {
         Set<String> checks = readChecks()
         boolean containerLookups = !'false'.equalsIgnoreCase(
                 System.getProperty(CONTAINER_LOOKUPS_PROPERTY, 'true'))
+        boolean markedOnly = options?.markedOnly == true ||
+                'true'.equalsIgnoreCase(System.getProperty(MARKED_ONLY_PROPERTY))
         return new NullCheckConfig(strict, checks.contains(CHECK_NULL),
-                checks.contains(CHECK_INITIALIZATION), containerLookups)
+                checks.contains(CHECK_INITIALIZATION), containerLookups, markedOnly)
     }
 
     /**

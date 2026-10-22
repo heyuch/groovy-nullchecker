@@ -59,6 +59,7 @@ nullcheck {
     compileCheck = false          // true：在 compileGroovy 内检查，省掉一次独立编译
     failOnError = true            // 有"失败类"发现就让构建失败（默认 false，只报告）
     failOn      = ['null', 'initialization']   // 哪些分类算失败；'all' 连解析错误一起失败
+    markedOnly          = false    // true：只检查 @NullMarked 的类/包
     nullnessCheck       = true     // 默认开启：空指针/返回/传参/赋值
     initializationCheck = true     // 默认开启；关掉后完全不报"字段未初始化"
     strict      = true            // 流敏感：也分析未注解代码
@@ -90,6 +91,7 @@ nullcheck {
 | `compileCheck` | `false` | `true`：把检查器挂进 `compileGroovy`，复用同一次编译；见下文"编译内检查" |
 | `failOnError` | `false` | 有"失败类"发现时是否让构建失败。**建议先保持 false 摸底** |
 | `failOn` | `['null', 'initialization']` | 哪些分类算失败。`resolution`（静态检查解析不了的动态代码）默认只报告不失败；`['all']` 恢复"任何发现都失败" |
+| `markedOnly` | `false` | 只检查 `@NullMarked` 作用域内的类：类上有 `@NullMarked`，或类所在**精确包**的 `package-info` 有 `@NullMarked`。`@NullUnmarked` 优先。用于 legacy 项目渐进式接入 |
 | `nullnessCheck` | `true` | 空值规则族（解引用 / 返回 / 传参 / 赋值） |
 | `initializationCheck` | `true` | "字段必须初始化"规则族。**这是"报不报"，不是"失不失败"**：关掉后该类发现完全不进报告。两个都关会被拒绝——什么都不查不能看起来像干净 |
 | `guardNotNullWhenTrue` | `[]` | 返回 true 即保证参数 0 非空的方法，`类全名#方法名` |
@@ -104,6 +106,24 @@ nullcheck {
 | `toolVersion` | `0.6.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
+
+### 渐进式接入（`markedOnly = true`）
+
+```groovy
+nullcheck {
+    markedOnly = true
+}
+```
+
+只有以下作用域会被检查：
+
+- 类（或外层类）标注 `@NullMarked`；
+- 类所在**精确包**的 `package-info` 标注 `@NullMarked`；
+- 任意层出现 `@NullUnmarked` 会取消该范围。
+
+未标记的类不会被检查，也不会进入 coverage/finding 统计；适合先给少数叶子包加
+`@NullMarked`，再逐步扩大。CLI 对应 `--marked-only`，程序化 API 对应
+`groovy.nullchecker.markedonly=true`。
 
 ### 编译内检查（`compileCheck = true`）
 

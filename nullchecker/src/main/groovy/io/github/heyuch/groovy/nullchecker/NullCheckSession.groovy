@@ -43,6 +43,10 @@ class NullCheckSession {
         this.coverage = new Coverage()
     }
 
+    boolean isMarked(ClassNode cn) {
+        return cn != null && scopes.isNullMarked(cn)
+    }
+
     void cover(ClassNode cn, NullCheckReporter reporter) {
         reporter.guard("coverage of ${cn.name}") {
             coverage.cover(cn, scopes)

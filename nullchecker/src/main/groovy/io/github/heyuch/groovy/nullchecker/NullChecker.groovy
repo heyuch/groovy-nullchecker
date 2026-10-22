@@ -148,6 +148,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     /** System property that enables {@code strict} mode process-wide. */
     static final String STRICT_PROPERTY = NullCheckConfig.STRICT_PROPERTY
 
+    static final String MARKED_ONLY_PROPERTY = NullCheckConfig.MARKED_ONLY_PROPERTY
+
     /**
      * Environment variable that enables {@code strict} mode process-wide.
      *
@@ -217,19 +219,25 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
         // as "classes=1" for a 43-file project). The caller resets once per compilation
         // via resetCoverage() instead.
         onClass { ClassNode cn ->
-            session.cover(cn, reporter)
+            if (!config.markedOnly || session.isMarked(cn)) {
+                session.cover(cn, reporter)
+            }
         }
         // Which rule families run is a caller decision, not a property of the code being
         // checked: a project that cannot satisfy a family yet should stop seeing it rather
         // than learn to ignore a wall of findings it has decided not to act on.
         if (config.nullnessCheck) {
             onMethod { MethodNode method ->
-                session.check(method, reporter)
+                if (!config.markedOnly || session.isMarked(method.declaringClass)) {
+                    session.check(method, reporter)
+                }
             }
         }
         if (config.strict && config.initializationCheck) {
             onClass { ClassNode cn ->
-                session.checkInitialization(cn, reporter)
+                if (!config.markedOnly || session.isMarked(cn)) {
+                    session.checkInitialization(cn, reporter)
+                }
             }
         }
         return null

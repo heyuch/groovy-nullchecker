@@ -14,6 +14,11 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Progressive adoption with `markedOnly`.** When enabled, only classes in scope of
+  `@NullMarked` (class/enclosing class, or exact package) are analysed; `@NullUnmarked` opts
+  out. Unmarked classes are skipped, so legacy projects can migrate package by package.
+  Available as the plugin `markedOnly` property and CLI `--marked-only`.
+
 - **Static-only compile mode.** `compileCheck` now injects the checker only into
   `@CompileStatic` / `@TypeChecked` / `@NullCheck` classes or methods, so mixed static/dynamic
   projects build green while standalone mode still reports dynamic resolution findings.

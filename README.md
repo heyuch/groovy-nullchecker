@@ -680,8 +680,14 @@ fail, as earlier versions did.
 nullcheck {
     nullnessCheck       = true    // default
     initializationCheck = false   // stop reporting uninitialised fields
+    markedOnly          = true    // only @NullMarked classes/packages
 }
 ```
+
+`markedOnly` is the progressive-adoption switch: a class is checked only when it (or an
+enclosing class) is `@NullMarked`, or its exact package's `package-info` is `@NullMarked`.
+`@NullUnmarked` opts out. Unmarked classes are skipped entirely, so a legacy package can be
+brought in one leaf package at a time. CLI: `--marked-only`.
 
 That is not the same as `failOn`: disabling a family removes its findings from the report,
 which is what a project needs when it has decided it cannot satisfy the initialisation
@@ -752,6 +758,7 @@ nullcheck {
     strict      = true                        // optional
     failOn      = ['null', 'initialization']   // default; 'all' to fail on resolution too
     initializationCheck = true                 // default; false drops uninitialised-field reports
+    markedOnly  = false                        // true: only @NullMarked classes/packages
     targets     = ['src/main/groovy', 'src/main/java']
 }
 ```
