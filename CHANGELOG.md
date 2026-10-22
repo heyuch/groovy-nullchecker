@@ -3,7 +3,16 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] - 2026-10-22
+
+### Added
+
+- **Progressive adoption with `markedOnly`.** When enabled, only classes in scope of
+  `@NullMarked` (class/enclosing class, or exact package) are analysed; `@NullUnmarked` opts
+  out. Unmarked classes are skipped, so legacy projects can migrate package by package.
+  Available as the plugin `markedOnly` property and CLI `--marked-only`.
+  `markedOnly` filters checker findings; core compiler resolution errors from unmarked classes
+  are still reported (they are not nullness claims and are not fail-on by default).
 
 ### Changed
 
@@ -13,11 +22,6 @@ versions follow [Semantic Versioning](https://semver.org/).
 ## [0.6.0] - 2026-10-21
 
 ### Added
-
-- **Progressive adoption with `markedOnly`.** When enabled, only classes in scope of
-  `@NullMarked` (class/enclosing class, or exact package) are analysed; `@NullUnmarked` opts
-  out. Unmarked classes are skipped, so legacy projects can migrate package by package.
-  Available as the plugin `markedOnly` property and CLI `--marked-only`.
 
 - **Static-only compile mode.** `compileCheck` now injects the checker only into
   `@CompileStatic` / `@TypeChecked` / `@NullCheck` classes or methods, so mixed static/dynamic

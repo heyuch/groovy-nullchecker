@@ -7,7 +7,7 @@
 //   ./gradlew publishToMavenLocal
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.6.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.7.0'
 }
 
 repositories {
@@ -30,5 +30,5 @@ nullcheck {
     // Other knobs, all optional:
     //   strict      = true                         // also analyse unannotated code
     //   targets     = ['src/main/groovy', 'src/main/java']
-    //   toolVersion = '0.6.0'
+    //   toolVersion = '0.7.0'
 }
