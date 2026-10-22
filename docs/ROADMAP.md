@@ -206,7 +206,7 @@ Status: done (0.7.0 released).
 - `gradle.properties` is `0.7.0`; the tag and GitHub Release are `v0.7.0`.
 - `clean check`, `dualRun`, `dist`, the release workflow and the plugin functional suite passed.
 - GitHub Release assets and the Gradle Plugin Portal publication are live.
-- Maven Central now serves `0.6.0`; the dogfood plugin and `toolVersion` are bumped to `0.6.0` (the 0.7.0 bump follows once Central propagates).
+- Maven Central now serves `0.7.0`; the dogfood plugin and `toolVersion` are bumped to `0.7.0`.
 
 #### R2. Documentation
 
