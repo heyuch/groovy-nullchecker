@@ -193,6 +193,12 @@ class NullCheckPlugin implements Plugin<Project> {
             args.addAll(['--fail-on', extension.failOn.get().join(',')])
         }
         args.addAll(['--report', reportFile.absolutePath])
+        if (extension.reportToStdout.get()) {
+            args << '--report-stdout'
+        }
+        if (extension.reportToStderr.get()) {
+            args << '--report-stderr'
+        }
         javaExec.args = args
 
         if (extension.canary.get()) {
@@ -327,6 +333,12 @@ configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extens
         }
         if (extension.markedOnly.get()) {
             args << '--marked-only'
+        }
+        if (extension.reportToStdout.get()) {
+            args << '--report-stdout'
+        }
+        if (extension.reportToStderr.get()) {
+            args << '--report-stderr'
         }
         if (!extension.canary.get()) {
             args << '--no-canary'

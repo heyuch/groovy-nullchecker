@@ -692,7 +692,8 @@ the affected class is skipped instead of aborting the module; if nothing can be 
 CLI reports an incomplete resolution finding. The switch filters checker findings and does not inject
 `@TypeChecked` into unmarked dynamic classes. Groovy's own resolution errors from classes that
 already use `@CompileStatic`/`@TypeChecked` still appear (not fail-on by default); hiding those
-would require a report-layer filter. CLI: `--marked-only`.
+would require a report-layer filter. CLI: `--marked-only`. Report destinations can be combined: `--report file.txt
+--report-stdout --report-stderr` write the same full text to each target.
 
 That is not the same as `failOn`: disabling a family removes its findings from the report,
 which is what a project needs when it has decided it cannot satisfy the initialisation
@@ -764,6 +765,8 @@ nullcheck {
     failOn      = ['null', 'initialization']   // default; 'all' to fail on resolution too
     initializationCheck = true                 // default; false drops uninitialised-field reports
     markedOnly  = false                        // true: only @NullMarked classes/packages
+    reportToStdout = false                    // also write the full report to stdout
+    reportToStderr = false                    // also write the full report to stderr
     targets     = ['src/main/groovy', 'src/main/java']
 }
 ```

@@ -1,6 +1,8 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy.nullchecker.NullCheckReport
+import io.github.heyuch.groovy.nullchecker.NullCheckReportWriter
 import io.github.heyuch.groovy.nullchecker.NullChecker
 import org.jspecify.annotations.Nullable
 
@@ -29,7 +31,9 @@ class NullCheckCli {
   --marked-only         only check @NullMarked classes/packages (progressive adoption)
   --support <dir>       directory of shared stub sources
   --extension <fqcn>    type-checking extension to run
-  --report <file>       write the raw compiler output here
+  --report <file>       write the full report here
+  --report-stdout       also write the full report to stdout
+  --report-stderr       also write the full report to stderr
   --fail-on <list>      categories that fail the run (default: null,initialization;
                         use "all" for every category, including resolution errors)
   --checks <list>       rule families to run: null, initialization, or all (default: all).
@@ -83,6 +87,8 @@ but does not fail the run by default, because it is not a nullness claim.'''
         boolean canary = true
         String support = null
         String report = null
+        boolean reportStdout = false
+        boolean reportStderr = false
         String extension = System.getProperty('nullchecker.extension') ?: DEFAULT_EXTENSION
         List<String> failOn = new ArrayList<String>(NullCheckHarness.DEFAULT_FAIL_ON)
         List<String> guardsTrue = new ArrayList<String>()
@@ -130,6 +136,12 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     if (report == null) {
                         return 2
                     }
+                    break
+                case '--report-stdout':
+                    reportStdout = true
+                    break
+                case '--report-stderr':
+                    reportStderr = true
                     break
                 case '--checks':
                     String checkSpec = value(argv, ++i, arg, err)
@@ -318,20 +330,31 @@ but does not fail the run by default, because it is not a nullness claim.'''
             }
         }
 
-        if (report) {
-            File target = new File(report)
-            target.parentFile?.mkdirs()
-            target.setText("""groovy=${GroovySystem.version}
-extension=${extension}
-strict=${strict}
-files=${files.size()}
-findings=${result.findings.size()}
-coverage=${result.coverage}
-
-${result.raw}
-""", 'UTF-8')
-            if (!quiet) {
-                out.println "report     = ${target.absolutePath}"
+        if (report || reportStdout || reportStderr) {
+            List<String> findingLines = result.findings.collect { NullCheckHarness.Finding f ->
+                NullCheckReportWriter.findingLine(f.path, f.line, f.category.label, f.message)
+            }
+            NullCheckReport reportData = new NullCheckReport(
+                    groovyVersion: GroovySystem.version,
+                    extension: extension,
+                    strict: strict,
+                    files: files.size(),
+                    coverage: result.coverage.toString(),
+                    failOn: failOn,
+                    findings: findingLines,
+                    raw: result.raw)
+            if (report) {
+                File target = new File(report)
+                NullCheckReportWriter.write(target.toPath(), reportData)
+                if (!quiet) {
+                    out.println "report     = ${target.absolutePath}"
+                }
+            }
+            if (reportStdout) {
+                out.print(NullCheckReportWriter.render(reportData))
+            }
+            if (reportStderr) {
+                err.print(NullCheckReportWriter.render(reportData))
             }
         }
 

@@ -1,7 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
-import java.nio.file.Files
 
 /**
  * Reads the findings file written by the compile-time collection mode.
@@ -21,6 +20,8 @@ class NullCheckFindingsCli {
     static void main(String[] args) {
         String findingsPath = null
         String reportPath = null
+        boolean reportStdout = false
+        boolean reportStderr = false
         List<String> failOn = [NullCheckFinding.NULL, NullCheckFinding.INITIALIZATION]
         for (int i = 0; i < args.length; i++) {
             String argument = args[i]
@@ -30,6 +31,10 @@ class NullCheckFindingsCli {
                 failOn = args[++i].split(',').collect { String part -> part.trim().toLowerCase(Locale.ROOT) }
             } else if (argument == '--report' && i + 1 < args.length) {
                 reportPath = args[++i]
+            } else if (argument == '--report-stdout') {
+                reportStdout = true
+            } else if (argument == '--report-stderr') {
+                reportStderr = true
             } else {
                 System.err.println("nullcheck: unknown argument ${argument}")
                 System.exit(2)
@@ -73,17 +78,24 @@ class NullCheckFindingsCli {
         }
         println "nullcheck: findings=${findings.size()}"
 
-        if (reportPath != null) {
-            File report = new File(reportPath)
-            File parent = report.getParentFile()
-            if (parent != null) {
-                Files.createDirectories(parent.toPath())
+        if (reportPath != null || reportStdout || reportStderr) {
+            List<String> findingLines = findings.collect { NullCheckFinding finding ->
+                NullCheckReportWriter.findingLine(finding.file, finding.line,
+                        finding.category, finding.message)
             }
-            StringBuilder text = new StringBuilder()
-            for (NullCheckFinding finding : findings) {
-                text.append("${finding.file}:${finding.line}: [${finding.category}] ${finding.message}\n")
+            NullCheckReport report = new NullCheckReport(
+                    coverage: "classes=${visited.size()}",
+                    failOn: failOn,
+                    findings: findingLines)
+            if (reportPath != null) {
+                NullCheckReportWriter.write(new File(reportPath).toPath(), report)
             }
-            report.setText(text.toString(), 'UTF-8')
+            if (reportStdout) {
+                print(NullCheckReportWriter.render(report))
+            }
+            if (reportStderr) {
+                System.err.print(NullCheckReportWriter.render(report))
+            }
         }
 
         boolean failing = findings.any { NullCheckFinding finding ->

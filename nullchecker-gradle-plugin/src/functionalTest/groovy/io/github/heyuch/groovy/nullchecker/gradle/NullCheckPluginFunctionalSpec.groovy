@@ -300,6 +300,27 @@ class Clean {
         result.output.contains('coverage')
     }
 
+    def 'reportToStdout and reportToStderr emit the full report'() {
+        given:
+        writeSettings()
+        writeBuild('''nullcheck {
+    reportToStdout = true
+    reportToStderr = true
+}
+''')
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then:
+        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        result.output.contains('groovy=')
+        result.output.contains('findings=1')
+        result.output.contains('Violation.groovy')
+    }
+
     def 'compile mode keeps private closure calls bound to the declaring class'() {
         given:
         writeSettings()

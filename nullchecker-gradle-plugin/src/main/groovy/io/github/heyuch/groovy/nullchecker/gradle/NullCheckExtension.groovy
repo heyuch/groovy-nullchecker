@@ -155,6 +155,12 @@ class NullCheckExtension {
      */
     final Property<Boolean> markedOnly
 
+    /** Also write the full report to the task's stdout. */
+    final Property<Boolean> reportToStdout
+
+    /** Also write the full report to the task's stderr. */
+    final Property<Boolean> reportToStderr
+
     NullCheckExtension(Project project) {
         this.extension = project.objects.property(String)
         this.strict = project.objects.property(Boolean)
@@ -173,6 +179,8 @@ class NullCheckExtension {
         this.toolVersion = project.objects.property(String)
         this.compileCheck = project.objects.property(Boolean)
         this.markedOnly = project.objects.property(Boolean)
+        this.reportToStdout = project.objects.property(Boolean)
+        this.reportToStderr = project.objects.property(Boolean)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
         strict.convention(false)
@@ -192,5 +200,7 @@ class NullCheckExtension {
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
         compileCheck.convention(false)
         markedOnly.convention(false)
+        reportToStdout.convention(false)
+        reportToStderr.convention(false)
     }
 }

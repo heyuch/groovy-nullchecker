@@ -3,6 +3,7 @@ package io.github.heyuch.groovy.nullchecker
 import groovy.transform.CompilationUnitAware
 import groovy.transform.CompileStatic
 import java.lang.annotation.Annotation
+import java.util.regex.Matcher
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.CodeVisitorSupport
 import org.codehaus.groovy.ast.ConstructorNode
@@ -174,7 +175,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     private static String typeName(LinkageError failure) {
         String text = failure.message ?: failure.class.name
-        java.util.regex.Matcher matcher = (text =~ /([\w.$]+\/[\w.$]+)/)
+        Matcher matcher = (text =~ /([\w.$]+\/[\w.$]+)/)
         if (matcher.find()) {
             return matcher.group(1).replace('/', '.')
         }
@@ -250,11 +251,11 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     /** The compile-mode gate: only classes that opted into static checking are analysed. */
     private static boolean isStaticClass(ClassNode classNode) {
-        if (io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno(classNode, STATIC_ANNOS) || io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno(classNode)) {
+        if (AstSupport.hasAnno(classNode, STATIC_ANNOS) || AstSupport.hasNullCheckAnno(classNode)) {
             return true
         }
         for (MethodNode method : classNode.methods) {
-            if (io.github.heyuch.groovy.nullchecker.AstSupport.hasAnno(method, STATIC_ANNOS) || io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno(method)) {
+            if (AstSupport.hasAnno(method, STATIC_ANNOS) || AstSupport.hasNullCheckAnno(method)) {
                 return true
             }
         }

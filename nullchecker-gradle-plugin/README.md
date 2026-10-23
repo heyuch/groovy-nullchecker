@@ -101,7 +101,9 @@ nullcheck {
 | `contracts` | `[:]` | 项目声明的契约，`类全名#方法: '契约串'`（JetBrains 语法）。**优先于注解和内置表**，可用来纠正库的错误声明或覆盖内置规则 |
 | `strict` | `false` | 打开后报告量会明显上升 |
 | `targets` | `['src/main/groovy', 'src/main/java']` | 两个都要，否则 `package-info.java` 里的包级默认看不见。**不存在的根只会警告并跳过**（纯 Groovy 项目没有 `src/main/java`）；但**如果所有根都不存在**则报错退出，避免把根写错变成"扫了 0 个文件" |
-| `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 原始报告落盘位置 |
+| `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 完整报告落盘位置 |
+| `reportToStdout` | `false` | 同时把同一份完整报告写到任务 stdout |
+| `reportToStderr` | `false` | 同时把同一份完整报告写到任务 stderr |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
 | `toolVersion` | `0.7.1` | 解析不到的版本会**明确失败**，不会静默变绿 |
 

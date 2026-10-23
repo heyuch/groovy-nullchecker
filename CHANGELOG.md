@@ -14,6 +14,13 @@ versions follow [Semantic Versioning](https://semver.org/).
   analysed, the CLI reports an incomplete resolution finding instead of a General error or a
   silent zero.
 
+### Added
+
+- **Text report targets: file, stdout and stderr.** `NullCheckReportWriter` renders one stable
+  report used by both CLIs. Add `--report-stdout` / `--report-stderr` (CLI) or
+  `reportToStdout` / `reportToStderr` (plugin); all targets receive the same metadata, findings,
+  coverage and raw text.
+
 ### Changed
 
 - **`markedOnly` does not inject type checking into unmarked dynamic classes.** They no longer
