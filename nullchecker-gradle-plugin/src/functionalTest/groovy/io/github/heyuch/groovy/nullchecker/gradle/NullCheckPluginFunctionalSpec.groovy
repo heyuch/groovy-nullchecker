@@ -68,6 +68,37 @@ public @interface NullMarked {
 '''
     }
 
+    /** Regression: compile-mode injection used to change closure dispatch in @CompileStatic. */
+    private void writeClosureRepro() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'ClosureRepro.groovy').text = '''package demo
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class ClosureRepro {
+    String execute() {
+        Closure<String> configurer = { -> resolvePrimaryKeySelectField() }
+        return configurer.call()
+    }
+
+    private String resolvePrimaryKeySelectField() {
+        return 'policy_no'
+    }
+}
+
+class ClosureReproChild extends ClosureRepro {
+}
+
+class ClosureMain {
+    static void main(String[] args) {
+        println new ClosureReproChild().execute()
+    }
+}
+'''
+    }
+
     private void writeMarkedViolation() {
         File dir = new File(testProjectDir, 'src/main/groovy/demo')
         dir.mkdirs()
@@ -267,6 +298,26 @@ class Clean {
         and: 'the self-check and coverage are reported, so the number is interpretable'
         result.output.contains('canary')
         result.output.contains('coverage')
+    }
+
+    def 'compile mode keeps private closure calls bound to the declaring class'() {
+        given:
+        writeSettings()
+        writeBuild('''nullcheck { compileCheck = true }
+tasks.register('runRepro', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'demo.ClosureMain'
+    dependsOn classes
+}
+''')
+        writeClosureRepro()
+
+        when:
+        BuildResult result = run('runRepro')
+
+        then:
+        result.task(':runRepro').outcome == TaskOutcome.SUCCESS
+        result.output.contains('policy_no')
     }
 
     def 'markedOnly checks marked classes and skips unmarked ones'() {

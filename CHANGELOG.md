@@ -3,7 +3,16 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.1] - 2026-10-23
+
+### Fixed
+
+- **Compile mode no longer breaks private calls from closures on subclass instances.**
+  Injecting `@TypeChecked` into an already `@CompileStatic` class changed closure dispatch to
+  a runtime indy call; `new ReproChild().execute()` then failed with
+  `MissingMethodException` for the private method. Compile mode now injects
+  `@CompileStatic(extensions = ...)` for classes that are already static, preserving the
+  compiler's static accessor. Covered by a TestKit regression using a four-class repro.
 
 ### Changed
 

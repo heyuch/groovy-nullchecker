@@ -59,6 +59,9 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     private final ASTTransformationCustomizer inner
 
+    /** Keeps already-static classes static; adding @TypeChecked changes closure dispatch. */
+    private final ASTTransformationCustomizer staticInner
+
     private final boolean staticOnly
 
     NullCheckCustomizer() {
@@ -88,6 +91,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         // ignored by the transformation, which produces a green build that checked nothing.
         this.inner = new ASTTransformationCustomizer([extensions: [extension]],
                 (Class<? extends Annotation>) annotation)
+        this.staticInner = new ASTTransformationCustomizer([extensions: [extension]], CompileStatic)
     }
 
     /**
@@ -100,6 +104,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
     @Override
     void setCompilationUnit(CompilationUnit unit) {
         inner.setCompilationUnit(unit)
+        staticInner.setCompilationUnit(unit)
     }
 
     @Override
@@ -107,7 +112,16 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         if (staticOnly && !isStaticClass(classNode)) {
             return
         }
+        if (isCompileStatic(classNode)) {
+            staticInner.call(source, context, classNode)
+            return
+        }
         inner.call(source, context, classNode)
+    }
+
+    /** A class that already asked for @CompileStatic must stay static during injection. */
+    private static boolean isCompileStatic(ClassNode classNode) {
+        return AstSupport.hasAnno(classNode, ['CompileStatic'] as Set<String>)
     }
 
     /** The compile-mode gate: only classes that opted into static checking are analysed. */
