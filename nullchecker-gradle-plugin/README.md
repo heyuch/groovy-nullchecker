@@ -125,6 +125,10 @@ nullcheck {
 `@NullMarked`，再逐步扩大。CLI 对应 `--marked-only`，程序化 API 对应
 `groovy.nullchecker.markedonly=true`。
 
+当某个类的引用签名类型在 classpath 缺失时，checker 会在注入前跳过该类并输出
+`skipped ... unresolved signature` note；如果整个编译没有可分析类，会报告一条
+`no classes were analysed` 的 resolution finding，而不是直接 General error。
+
 注意：`markedOnly` 过滤的是 checker 的 nullness 报告。未标记的动态类不会被注入
 `@TypeChecked`，因此不会由 checker 引入 resolution；但类自身已经标注
 `@CompileStatic` / `@TypeChecked` 时，Groovy 自己仍会做类型检查并产生 resolution，

@@ -299,6 +299,11 @@ class NullCheckHarness {
         NullChecker.resetCoverage()
         NullChecker.resetInternalErrors()
         NullChecker.resetCaches()
+        NullCheckCustomizer.takeNotes()
+        File notesFile = File.createTempFile('nullchecker-notes', '')
+        Files.deleteIfExists(notesFile.toPath())
+        String previousNotesFile = System.getProperty(NullCheckCustomizer.NOTES_PROPERTY)
+        System.setProperty(NullCheckCustomizer.NOTES_PROPERTY, notesFile.absolutePath)
         try {
             unit.compile(Phases.INSTRUCTION_SELECTION)
             List errors = (List) (unit.errorCollector?.errors ?: [])
@@ -314,6 +319,18 @@ class NullCheckHarness {
             result.raw = e.message
             result.findings = sortFindings(parseFindings(e.message, files))
         }
+        if (previousNotesFile == null) {
+            System.clearProperty(NullCheckCustomizer.NOTES_PROPERTY)
+        } else {
+            System.setProperty(NullCheckCustomizer.NOTES_PROPERTY, previousNotesFile)
+        }
+        List<String> notes = notesFile.isFile() ? notesFile.readLines('UTF-8') : []
+        Files.deleteIfExists(notesFile.toPath())
+        for (String note : notes) {
+            result.findings << new Finding(path: files.first().absolutePath, line: 0,
+                    message: note, category: Category.RESOLUTION)
+        }
+        result.findings = sortFindings(result.findings)
         // Groovy swallows an exception raised inside a type-checking extension: the
         // compilation still finishes, usually with no errors, so the run looks clean.
         // See NullChecker#guarded. A recorded failure means part of the tree was never
@@ -326,6 +343,13 @@ class NullCheckHarness {
         }
         result.coverage = NullChecker.lastCoverage
         result.coverage.files = files.size()
+        if (result.coverage.classes == 0 && result.findings.isEmpty() && !files.isEmpty()) {
+            result.findings << new Finding(path: files.first().absolutePath, line: 0,
+                    message: 'no classes were analysed; a referenced type or signature may be ' +
+                            'unresolved, so this result is incomplete',
+                    category: Category.RESOLUTION)
+        }
+        result.findings = sortFindings(result.findings)
         return result
     }
 

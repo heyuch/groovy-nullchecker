@@ -4,7 +4,12 @@ import groovy.transform.CompilationUnitAware
 import groovy.transform.CompileStatic
 import java.lang.annotation.Annotation
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.CodeVisitorSupport
+import org.codehaus.groovy.ast.ConstructorNode
 import org.codehaus.groovy.ast.MethodNode
+import org.codehaus.groovy.ast.expr.ConstructorCallExpression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
+import org.codehaus.groovy.ast.expr.StaticMethodCallExpression
 import org.codehaus.groovy.classgen.GeneratorContext
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilePhase
@@ -69,6 +74,10 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     private @Nullable PackageScopes markedScopes
 
+    static final String NOTES_PROPERTY = 'groovy.nullchecker.notesFile'
+
+    private static final ThreadLocal<List<String>> NOTES = new ThreadLocal<List<String>>()
+
     NullCheckCustomizer() {
         this('io.github.heyuch.groovy.nullchecker.NullChecker')
     }
@@ -121,11 +130,96 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         if (isMarkedOnly() && !isMarked(classNode)) {
             return
         }
+        if (hasUnresolvedReference(classNode)) {
+            note("skipped ${classNode.name}: a referenced type's signature cannot be resolved")
+            return
+        }
         if (isCompileStatic(classNode)) {
             staticInner.call(source, context, classNode)
             return
         }
         inner.call(source, context, classNode)
+    }
+
+    /** Resolve receiver signatures before injecting; a missing type must skip the class, not abort. */
+    private static boolean hasUnresolvedReference(ClassNode classNode) {
+        ReferenceProbe probe = new ReferenceProbe()
+        try {
+            for (MethodNode method : classNode.methods) {
+                method.code?.visit(probe)
+            }
+            for (ConstructorNode constructor : classNode.declaredConstructors) {
+                constructor.code?.visit(probe)
+            }
+        } catch (LinkageError ignored) {
+            return true
+        }
+        return probe.unresolved
+    }
+
+    private static void note(String text) {
+        List<String> notes = NOTES.get()
+        if (notes == null) {
+            notes = new ArrayList<String>()
+            NOTES.set(notes)
+        }
+        notes.add(text)
+        String path = System.getProperty(NOTES_PROPERTY)
+        if (path) {
+            File file = new File(path)
+            file.parentFile?.mkdirs()
+            file.append(text + '\n', 'UTF-8')
+        }
+        System.err.println("nullcheck: ${text}")
+    }
+
+    static List<String> takeNotes() {
+        List<String> notes = NOTES.get()
+        NOTES.remove()
+        return notes ?: new ArrayList<String>()
+    }
+
+    /** Walks calls and asks the decompiler for the receiver type's members. */
+    private static class ReferenceProbe extends CodeVisitorSupport {
+
+        boolean unresolved
+
+        @Override
+        void visitMethodCallExpression(MethodCallExpression call) {
+            if (!unresolved) {
+                try {
+                    call.objectExpression.type.methods
+                } catch (LinkageError ignored) {
+                    unresolved = true
+                }
+            }
+            super.visitMethodCallExpression(call)
+        }
+
+        @Override
+        void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
+            if (!unresolved) {
+                try {
+                    call.ownerType.methods
+                } catch (LinkageError ignored) {
+                    unresolved = true
+                }
+            }
+            super.visitStaticMethodCallExpression(call)
+        }
+
+        @Override
+        void visitConstructorCallExpression(ConstructorCallExpression call) {
+            if (!unresolved) {
+                try {
+                    call.type.declaredConstructors
+                } catch (LinkageError ignored) {
+                    unresolved = true
+                }
+            }
+            super.visitConstructorCallExpression(call)
+        }
+
     }
 
     /** Progressive mode: do not inject type checking into classes outside @NullMarked. */
