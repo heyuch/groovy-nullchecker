@@ -74,9 +74,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     private @Nullable PackageScopes markedScopes
 
-    static final String NOTES_PROPERTY = 'groovy.nullchecker.notesFile'
-
-    private static final ThreadLocal<List<String>> NOTES = new ThreadLocal<List<String>>()
+    static final String UNRESOLVED_PROPERTY = 'groovy.nullchecker.unresolvedFile'
 
     NullCheckCustomizer() {
         this('io.github.heyuch.groovy.nullchecker.NullChecker')
@@ -131,7 +129,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
             return
         }
         if (hasUnresolvedReference(classNode)) {
-            note("skipped ${classNode.name}: a referenced type's signature cannot be resolved")
+            reportUnresolved(source, classNode)
             return
         }
         if (isCompileStatic(classNode)) {
@@ -157,26 +155,20 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         return probe.unresolved
     }
 
-    private static void note(String text) {
-        List<String> notes = NOTES.get()
-        if (notes == null) {
-            notes = new ArrayList<String>()
-            NOTES.set(notes)
+    private static void reportUnresolved(SourceUnit source, ClassNode classNode) {
+        String message = "Cannot resolve a referenced type in '${classNode.name}'; " +
+                'the class was not analysed'
+        NullCheckSink sink = NullCheckSinks.currentSink()
+        if (sink != null) {
+            sink.report(NullCheckFinding.of(source.name, classNode.lineNumber, message))
+            return
         }
-        notes.add(text)
-        String path = System.getProperty(NOTES_PROPERTY)
+        String path = System.getProperty(UNRESOLVED_PROPERTY)
         if (path) {
             File file = new File(path)
             file.parentFile?.mkdirs()
-            file.append(text + '\n', 'UTF-8')
+            file.append("${source.name}\t${classNode.lineNumber}\t${message}\n", 'UTF-8')
         }
-        System.err.println("nullcheck: ${text}")
-    }
-
-    static List<String> takeNotes() {
-        List<String> notes = NOTES.get()
-        NOTES.remove()
-        return notes ?: new ArrayList<String>()
     }
 
     /** Walks calls and asks the decompiler for the receiver type's members. */

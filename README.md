@@ -687,9 +687,9 @@ nullcheck {
 `markedOnly` is the progressive-adoption switch: a class is checked only when it (or an
 enclosing class) is `@NullMarked`, or its exact package's `package-info` is `@NullMarked`.
 `@NullUnmarked` opts out. Unmarked classes are skipped entirely, so a legacy package can be
-brought in one leaf package at a time. A referenced signature type that cannot be resolved skips the class with a note instead of
-aborting the module; if nothing can be analysed, the CLI reports an incomplete resolution
-finding. The switch filters checker findings and does not inject
+brought in one leaf package at a time. A referenced signature type that cannot be resolved is reported as a resolution finding and
+the affected class is skipped instead of aborting the module; if nothing can be analysed, the
+CLI reports an incomplete resolution finding. The switch filters checker findings and does not inject
 `@TypeChecked` into unmarked dynamic classes. Groovy's own resolution errors from classes that
 already use `@CompileStatic`/`@TypeChecked` still appear (not fail-on by default); hiding those
 would require a report-layer filter. CLI: `--marked-only`.

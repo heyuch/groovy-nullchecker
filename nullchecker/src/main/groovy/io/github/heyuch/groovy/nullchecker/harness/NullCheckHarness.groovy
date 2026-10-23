@@ -299,11 +299,10 @@ class NullCheckHarness {
         NullChecker.resetCoverage()
         NullChecker.resetInternalErrors()
         NullChecker.resetCaches()
-        NullCheckCustomizer.takeNotes()
-        File notesFile = File.createTempFile('nullchecker-notes', '')
-        Files.deleteIfExists(notesFile.toPath())
-        String previousNotesFile = System.getProperty(NullCheckCustomizer.NOTES_PROPERTY)
-        System.setProperty(NullCheckCustomizer.NOTES_PROPERTY, notesFile.absolutePath)
+        File unresolvedFile = File.createTempFile('nullchecker-unresolved', '')
+        Files.deleteIfExists(unresolvedFile.toPath())
+        String previousUnresolvedFile = System.getProperty(NullCheckCustomizer.UNRESOLVED_PROPERTY)
+        System.setProperty(NullCheckCustomizer.UNRESOLVED_PROPERTY, unresolvedFile.absolutePath)
         try {
             unit.compile(Phases.INSTRUCTION_SELECTION)
             List errors = (List) (unit.errorCollector?.errors ?: [])
@@ -319,16 +318,19 @@ class NullCheckHarness {
             result.raw = e.message
             result.findings = sortFindings(parseFindings(e.message, files))
         }
-        if (previousNotesFile == null) {
-            System.clearProperty(NullCheckCustomizer.NOTES_PROPERTY)
+        if (previousUnresolvedFile == null) {
+            System.clearProperty(NullCheckCustomizer.UNRESOLVED_PROPERTY)
         } else {
-            System.setProperty(NullCheckCustomizer.NOTES_PROPERTY, previousNotesFile)
+            System.setProperty(NullCheckCustomizer.UNRESOLVED_PROPERTY, previousUnresolvedFile)
         }
-        List<String> notes = notesFile.isFile() ? notesFile.readLines('UTF-8') : []
-        Files.deleteIfExists(notesFile.toPath())
-        for (String note : notes) {
-            result.findings << new Finding(path: files.first().absolutePath, line: 0,
-                    message: note, category: Category.RESOLUTION)
+        List<String> unresolved = unresolvedFile.isFile() ? unresolvedFile.readLines('UTF-8') : []
+        Files.deleteIfExists(unresolvedFile.toPath())
+        for (String row : unresolved) {
+            List<String> parts = row.split('\t', 3) as List<String>
+            if (parts.size() == 3) {
+                result.findings << new Finding(path: parts[0], line: Integer.parseInt(parts[1]),
+                        message: parts[2], category: Category.RESOLUTION)
+            }
         }
         result.findings = sortFindings(result.findings)
         // Groovy swallows an exception raised inside a type-checking extension: the
