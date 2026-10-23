@@ -126,7 +126,7 @@ nullcheck {
 `groovy.nullchecker.markedonly=true`。
 
 当某个类的引用签名类型在 classpath 缺失时，checker 会在注入前跳过该类，并在报告里
-输出一条 resolution finding（例如 `Cannot resolve a referenced type in ...`）；如果整个
+输出一条 resolution finding（例如 `Cannot resolve referenced type 'demo.types.Doc' in ...`）；如果整个
 编译没有可分析类，也会报告一条 `no classes were analysed` 的 resolution finding，而不是
 直接 General error。
 

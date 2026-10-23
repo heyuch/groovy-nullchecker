@@ -9,8 +9,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 - **A missing signature type no longer aborts the whole module.** Before injection, the
   customizer probes receiver signatures; if a referenced type cannot be resolved it skips that
-  class and reports a resolution finding. If no class can be analysed, the CLI reports an
-  incomplete resolution finding instead of a General error or a silent zero.
+  class and reports a resolution finding with the missing type, e.g. `Cannot resolve referenced
+  type 'demo.types.Doc' in 'demo.app.App'; the class was not analysed`. If no class can be
+  analysed, the CLI reports an incomplete resolution finding instead of a General error or a
+  silent zero.
 
 ### Changed
 

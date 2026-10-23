@@ -128,8 +128,9 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         if (isMarkedOnly() && !isMarked(classNode)) {
             return
         }
-        if (hasUnresolvedReference(classNode)) {
-            reportUnresolved(source, classNode)
+        String unresolved = unresolvedReference(classNode)
+        if (unresolved != null) {
+            reportUnresolved(source, classNode, unresolved)
             return
         }
         if (isCompileStatic(classNode)) {
@@ -140,7 +141,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
     }
 
     /** Resolve receiver signatures before injecting; a missing type must skip the class, not abort. */
-    private static boolean hasUnresolvedReference(ClassNode classNode) {
+    private static @Nullable String unresolvedReference(ClassNode classNode) {
         ReferenceProbe probe = new ReferenceProbe()
         try {
             for (MethodNode method : classNode.methods) {
@@ -149,15 +150,15 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
             for (ConstructorNode constructor : classNode.declaredConstructors) {
                 constructor.code?.visit(probe)
             }
-        } catch (LinkageError ignored) {
-            return true
+        } catch (LinkageError failure) {
+            return typeName(failure)
         }
-        return probe.unresolved
+        return probe.unresolved ? probe.missingType : null
     }
 
-    private static void reportUnresolved(SourceUnit source, ClassNode classNode) {
-        String message = "Cannot resolve a referenced type in '${classNode.name}'; " +
-                'the class was not analysed'
+    private static void reportUnresolved(SourceUnit source, ClassNode classNode, String missingType) {
+        String message = "Cannot resolve referenced type '${missingType}' in " +
+                "'${classNode.name}'; the class was not analysed"
         NullCheckSink sink = NullCheckSinks.currentSink()
         if (sink != null) {
             sink.report(NullCheckFinding.of(source.name, classNode.lineNumber, message))
@@ -171,18 +172,30 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         }
     }
 
+    private static String typeName(LinkageError failure) {
+        String text = failure.message ?: failure.class.name
+        java.util.regex.Matcher matcher = (text =~ /([\w.$]+\/[\w.$]+)/)
+        if (matcher.find()) {
+            return matcher.group(1).replace('/', '.')
+        }
+        return text
+    }
+
     /** Walks calls and asks the decompiler for the receiver type's members. */
     private static class ReferenceProbe extends CodeVisitorSupport {
 
         boolean unresolved
+
+        @Nullable String missingType
 
         @Override
         void visitMethodCallExpression(MethodCallExpression call) {
             if (!unresolved) {
                 try {
                     call.objectExpression.type.methods
-                } catch (LinkageError ignored) {
+                } catch (LinkageError failure) {
                     unresolved = true
+                    missingType = typeName(failure)
                 }
             }
             super.visitMethodCallExpression(call)
@@ -193,8 +206,9 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
             if (!unresolved) {
                 try {
                     call.ownerType.methods
-                } catch (LinkageError ignored) {
+                } catch (LinkageError failure) {
                     unresolved = true
+                    missingType = typeName(failure)
                 }
             }
             super.visitStaticMethodCallExpression(call)
@@ -205,8 +219,9 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
             if (!unresolved) {
                 try {
                     call.type.declaredConstructors
-                } catch (LinkageError ignored) {
+                } catch (LinkageError failure) {
                     unresolved = true
+                    missingType = typeName(failure)
                 }
             }
             super.visitConstructorCallExpression(call)
