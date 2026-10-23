@@ -3,7 +3,7 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.2] - 2026-10-23
 
 ### Fixed
 
@@ -27,10 +27,6 @@ versions follow [Semantic Versioning](https://semver.org/).
   produce checker-introduced resolution findings, but classes already annotated with
   `@CompileStatic`/`@TypeChecked` are still type-checked by Groovy itself; suppressing those
   resolution findings requires report-layer filtering.
-
-
-
-### Changed
 
 - **Dogfood moved to `0.7.1`.** Central serves the patch release, so the self-check plugin and
   `nullcheck.toolVersion` are bumped from `0.7.0`.
