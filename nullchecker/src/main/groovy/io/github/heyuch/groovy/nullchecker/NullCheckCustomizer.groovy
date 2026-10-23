@@ -11,6 +11,7 @@ import org.codehaus.groovy.control.CompilePhase
 import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
 import org.codehaus.groovy.control.customizers.CompilationCustomizer
+import org.jspecify.annotations.Nullable
 
 /**
  * Registers the null checker so that it also covers {@code @CompileStatic} classes.
@@ -64,6 +65,10 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
 
     private final boolean staticOnly
 
+    private @Nullable CompilationUnit unit
+
+    private @Nullable PackageScopes markedScopes
+
     NullCheckCustomizer() {
         this('io.github.heyuch.groovy.nullchecker.NullChecker')
     }
@@ -103,6 +108,7 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
      */
     @Override
     void setCompilationUnit(CompilationUnit unit) {
+        this.unit = unit
         inner.setCompilationUnit(unit)
         staticInner.setCompilationUnit(unit)
     }
@@ -112,11 +118,28 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         if (staticOnly && !isStaticClass(classNode)) {
             return
         }
+        if (isMarkedOnly() && !isMarked(classNode)) {
+            return
+        }
         if (isCompileStatic(classNode)) {
             staticInner.call(source, context, classNode)
             return
         }
         inner.call(source, context, classNode)
+    }
+
+    /** Progressive mode: do not inject type checking into classes outside @NullMarked. */
+    private static boolean isMarkedOnly() {
+        return 'true'.equalsIgnoreCase(System.getProperty(NullCheckConfig.MARKED_ONLY_PROPERTY))
+    }
+
+    private boolean isMarked(ClassNode classNode) {
+        PackageScopes scopes = markedScopes
+        if (scopes == null) {
+            scopes = new PackageScopes(unit, null)
+            markedScopes = scopes
+        }
+        return scopes.isNullMarked(classNode)
     }
 
     /** A class that already asked for @CompileStatic must stay static during injection. */

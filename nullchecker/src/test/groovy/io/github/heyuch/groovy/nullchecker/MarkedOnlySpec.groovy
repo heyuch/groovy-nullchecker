@@ -77,6 +77,15 @@ class UnmarkedClass {
 }
 '''
 
+    static final String UNMARKED_UNRESOLVED = '''package fixtures
+
+class UnmarkedUnresolved {
+    void bad() {
+        MissingTemplates.render()
+    }
+}
+'''
+
     static final String PACKAGE_INFO = '''@fixtures.NullMarked
 package fixtures.pkg
 '''
@@ -124,6 +133,7 @@ class PackageUnmarked {
         write('Nullable.groovy', NULLABLE)
         write('MarkedClass.groovy', MARKED_CLASS)
         write('UnmarkedClass.groovy', UNMARKED_CLASS)
+        write('UnmarkedUnresolved.groovy', UNMARKED_UNRESOLVED)
         write('pkg/package-info.groovy', PACKAGE_INFO)
         write('pkg/PackageClass.groovy', PACKAGE_CLASS)
         write('pkg/PackageUnmarked.groovy', PACKAGE_UNMARKED)
@@ -144,6 +154,7 @@ class PackageUnmarked {
 
         then:
         countNulls(result) == 2
+        countResolution(result) == 0
     }
 
     def 'without markedOnly the same sources are all checked'() {
@@ -152,6 +163,7 @@ class PackageUnmarked {
 
         then:
         countNulls(result) > 2
+        countResolution(result) > 0
     }
 
     private NullCheckHarness.Result check() {
@@ -161,6 +173,7 @@ class PackageUnmarked {
                 new File(dir, 'Nullable.groovy'),
                 new File(dir, 'MarkedClass.groovy'),
                 new File(dir, 'UnmarkedClass.groovy'),
+                new File(dir, 'UnmarkedUnresolved.groovy'),
                 new File(dir, 'pkg/package-info.groovy'),
                 new File(dir, 'pkg/PackageClass.groovy'),
                 new File(dir, 'pkg/PackageUnmarked.groovy'),
@@ -169,8 +182,15 @@ class PackageUnmarked {
     }
 
     private static int countNulls(NullCheckHarness.Result result) {
-        return NullCheckHarness.findingsIn(result.findings,
-                [NullCheckHarness.Category.NULL.label]).size()
+        return count(result, NullCheckHarness.Category.NULL)
+    }
+
+    private static int countResolution(NullCheckHarness.Result result) {
+        return count(result, NullCheckHarness.Category.RESOLUTION)
+    }
+
+    private static int count(NullCheckHarness.Result result, NullCheckHarness.Category category) {
+        return NullCheckHarness.findingsIn(result.findings, [category.label]).size()
     }
 
     private void write(String name, String content) {

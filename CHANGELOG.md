@@ -7,6 +7,15 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`markedOnly` does not inject type checking into unmarked dynamic classes.** They no longer
+  produce checker-introduced resolution findings, but classes already annotated with
+  `@CompileStatic`/`@TypeChecked` are still type-checked by Groovy itself; suppressing those
+  resolution findings requires report-layer filtering.
+
+
+
+### Changed
+
 - **Dogfood moved to `0.7.1`.** Central serves the patch release, so the self-check plugin and
   `nullcheck.toolVersion` are bumped from `0.7.0`.
 

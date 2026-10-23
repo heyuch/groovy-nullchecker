@@ -125,9 +125,11 @@ nullcheck {
 `@NullMarked`，再逐步扩大。CLI 对应 `--marked-only`，程序化 API 对应
 `groovy.nullchecker.markedonly=true`。
 
-注意：`markedOnly` 过滤的是 checker 的 nullness 报告，不会吞掉 Groovy 静态类型检查器
-对未标记类产生的 **resolution** 错误；后者默认只报告、不让构建失败，但设置
-`failOn = ['all']` 时会参与失败判定。
+注意：`markedOnly` 过滤的是 checker 的 nullness 报告。未标记的动态类不会被注入
+`@TypeChecked`，因此不会由 checker 引入 resolution；但类自身已经标注
+`@CompileStatic` / `@TypeChecked` 时，Groovy 自己仍会做类型检查并产生 resolution，
+checker 无法在注入前跳过。后者默认只报告、不让构建失败，但设置 `failOn = ['all']`
+时会参与失败判定；要完全静音，只能在报告层再做一次按 marked 范围的过滤。
 
 ### 编译内检查（`compileCheck = true`）
 
