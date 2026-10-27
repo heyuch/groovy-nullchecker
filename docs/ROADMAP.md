@@ -28,7 +28,7 @@ is only reconsidered after the method-local work is complete and a real project 
 - Phase 0 is deliberately a snapshot over the existing sets, not yet the per-variable
   `Nullness` map described in NULLNESS-FLOW.
 - `dualRun` is informational; upstream parity is not a release gate.
-- The latest published release is `0.7.2`.
+- The latest published release is `0.7.3`.
 
 ## Order
 
@@ -201,12 +201,12 @@ Status: pending, low priority.
 
 #### R1. Version and release
 
-Status: done (0.7.2 released).
+Status: done (0.7.3 released).
 
-- `gradle.properties` is `0.7.2`; the tag and GitHub Release are `v0.7.2`.
+- `gradle.properties` is `0.7.3`; the tag and GitHub Release are `v0.7.3`.
 - `clean check`, `dualRun`, `dist`, the release workflow and the plugin functional suite passed.
 - GitHub Release assets and the Gradle Plugin Portal publication are live.
-- Maven Central now serves `0.7.2`; the dogfood plugin and `toolVersion` are bumped to `0.7.2`.
+- Maven Central now serves `0.7.3`; the dogfood plugin and `toolVersion` are bumped to `0.7.3`.
 
 #### R2. Documentation
 

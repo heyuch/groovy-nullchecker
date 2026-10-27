@@ -52,7 +52,7 @@ longer become compiler errors; mixed static/dynamic projects can use compile mod
 
 ### Dogfood runs the current release
 
-The self-check now uses the published plugin and checker `0.7.2`. It immediately found one real
+The self-check now uses the published plugin and checker `0.7.3`. It immediately found one real
 issue in `CorpusRules.fragmentFor`: the map lookup was nullable under `@NullMarked`. The method
 now declares `@Nullable`, which is what its callers already handle.
 
