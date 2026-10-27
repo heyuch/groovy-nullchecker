@@ -280,6 +280,9 @@ class NullCheckVisitor extends CheckingVisitor {
     /** What the closure body currently being visited receives; innermost last. */
     private final List<ClosureHint> closureContexts = new ArrayList<>()
 
+    /** Non-zero while visiting a closure body; a return there is not the method's return. */
+    private int closureDepth
+
     /** Iteration methods whose first closure parameter is the element. */
     private static final Set<String> ELEMENT_ITERATION_METHODS = [
             'each', 'collect', 'collectMany', 'collectEntries', 'find', 'findAll', 'findResult',
@@ -405,6 +408,7 @@ class NullCheckVisitor extends CheckingVisitor {
             }
         }
         closureContexts.add(hint)
+        closureDepth++
         try {
             if (flowSensitive && expression.code != null) {
                 FlowState before = captureState()
@@ -418,6 +422,7 @@ class NullCheckVisitor extends CheckingVisitor {
                 super.visitClosureExpression(expression)
             }
         } finally {
+            closureDepth--
             closureContexts.remove(closureContexts.size() - 1)
             nullableElements.clear()
             nullableElements.addAll(savedElements)
@@ -537,7 +542,7 @@ class NullCheckVisitor extends CheckingVisitor {
 
     void visitReturnStatement(ReturnStatement statement) {
         super.visitReturnStatement(statement)
-        if (methodNonNull) {
+        if (methodNonNull && closureDepth == 0) {
             if (isNullExpr(statement.expression)) {
                 reporter.report("Cannot return null from @NonNull method '${method.name}'", statement)
             } else if (isKnownNullable(statement.expression)) {

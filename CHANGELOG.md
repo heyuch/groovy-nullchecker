@@ -3,7 +3,15 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.3] - 2026-10-27
+
+### Fixed
+
+- **A bare return inside a closure is no longer treated as the enclosing method's return.**
+  `@NullMarked`/`@NonNull` methods that call `forEach`/`each` with an early `return` in the
+  closure no longer report `Cannot return null from @NonNull method`. The closure depth is
+  tracked while visiting the body, so a method-level return check applies only outside
+  closures.
 
 ### Changed
 

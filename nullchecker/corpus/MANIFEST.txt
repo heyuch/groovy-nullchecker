@@ -195,6 +195,12 @@ expect=some
 note=initialised by some constructors but not all
 
 # ── Negative corpus: the guards, which must never produce a finding ──────────
+negative/closure_bare_return.groovy
+rule=R01
+strict=any
+expect=none
+note=a closure return exits the closure, not the enclosing @NonNull method
+
 negative/guards_null_comparison.groovy
 rule=N01
 strict=never
