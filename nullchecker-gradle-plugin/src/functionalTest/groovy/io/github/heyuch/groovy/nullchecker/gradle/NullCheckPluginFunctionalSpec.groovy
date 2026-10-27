@@ -186,6 +186,7 @@ class Uninitialised {
 pluginManagement {
     repositories {
         mavenLocal()
+        mavenCentral()
         gradlePluginPortal()
     }
 }
