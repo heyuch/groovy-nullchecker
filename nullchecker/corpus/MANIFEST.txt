@@ -160,6 +160,12 @@ strict=only
 expect=2
 note=closure may execute zero times; captured write joins with the pre-call state
 
+positive/closure_return_null.groovy
+rule=R05
+strict=only
+expect=some
+note=direct local closure returning null makes c.call() nullable
+
 positive/optional_or_else.groovy
 rule=R05
 strict=any
@@ -195,6 +201,24 @@ expect=some
 note=initialised by some constructors but not all
 
 # ── Negative corpus: the guards, which must never produce a finding ──────────
+negative/closure_nested_return.groovy
+rule=R05
+strict=any
+expect=none
+note=a nested closure return is not the outer closure's return
+
+negative/closure_escaped_return.groovy
+rule=R05
+strict=any
+expect=none
+note=an escaping closure's return summary is not trusted
+
+negative/closure_return_nonnull.groovy
+rule=R05
+strict=any
+expect=none
+note=direct local closure returning a value is non-null
+
 negative/closure_bare_return.groovy
 rule=R01
 strict=any

@@ -28,6 +28,7 @@ import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.AnnotatedNode
 import org.codehaus.groovy.ast.ClassNode
+import org.codehaus.groovy.ast.CodeVisitorSupport
 import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
@@ -161,9 +162,13 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         // Uninitialized non-primitive declaration (e.g. "String x") is implicitly null
         boolean implicitlyNull = decl.rightExpression instanceof EmptyExpression && !isPrimitiveType(ve.type)
-        if (hasNullableAnno(annotated) || isNullExpr(decl.rightExpression) || (flowSensitive && (implicitlyNull || canBeNull(decl.rightExpression) || isKnownNullable(decl.rightExpression)))) {
+        if (hasNullableAnno(annotated) || isNullExpr(decl.rightExpression) ||
+                (flowSensitive && (implicitlyNull || canBeNull(decl.rightExpression) ||
+                        isKnownNullable(decl.rightExpression))) ||
+                (!flowSensitive && isClosureReturnNullable(decl.rightExpression))) {
             nullableVars.add(ve)
         }
+        trackClosure(ve, decl.rightExpression)
     }
 
     @Override
@@ -225,6 +230,7 @@ class NullCheckVisitor extends CheckingVisitor {
             } else {
                 nullableVars.remove(target)
             }
+            trackClosure(target, rightExpr)
         }
     }
 
@@ -240,6 +246,7 @@ class NullCheckVisitor extends CheckingVisitor {
         } finally {
             closureHints.remove(closureHints.size() - 1)
         }
+        clearEscapedClosures(call.arguments)
         if (!call.safe && !call.implicitThis) {
             checkDereference(call.objectExpression, call)
         }
@@ -282,6 +289,12 @@ class NullCheckVisitor extends CheckingVisitor {
 
     /** Non-zero while visiting a closure body; a return there is not the method's return. */
     private int closureDepth
+
+    /** Direct local closure variables and the closure literal they were assigned. */
+    private final Map<Variable, ClosureExpression> closureVariables = new LinkedHashMap<>()
+
+    /** Whether each closure literal can return null; identity keyed by the AST node. */
+    private final Map<ClosureExpression, Boolean> closureNullability = new IdentityHashMap<>()
 
     /** Iteration methods whose first closure parameter is the element. */
     private static final Set<String> ELEMENT_ITERATION_METHODS = [
@@ -379,6 +392,7 @@ class NullCheckVisitor extends CheckingVisitor {
 
     @Override
     void visitClosureExpression(ClosureExpression expression) {
+        closureReturnsNullable(expression)
         ClosureHint hint = currentHint(closureHints)
         Set<Variable> savedElements = new HashSet<>(nullableElements)
         Map<Variable, MapEntryTypes> savedEntries = new LinkedHashMap<>(entryVariables)
@@ -428,6 +442,110 @@ class NullCheckVisitor extends CheckingVisitor {
             nullableElements.addAll(savedElements)
             entryVariables.clear()
             entryVariables.putAll(savedEntries)
+        }
+    }
+
+    /** Whether a direct closure literal or a tracked local closure variable can return null. */
+    private boolean isClosureReturnNullable(Expression expression) {
+        if (!(expression instanceof MethodCallExpression)) {
+            return false
+        }
+        MethodCallExpression call = (MethodCallExpression) expression
+        if (call.methodAsString != 'call') {
+            return false
+        }
+        ClosureExpression closure = closureFor(call.objectExpression)
+        return closure != null && closureReturnsNullable(closure)
+    }
+
+    private @Nullable ClosureExpression closureFor(Expression expression) {
+        Expression candidate = expression
+        while (candidate instanceof CastExpression) {
+            candidate = ((CastExpression) candidate).expression
+        }
+        if (candidate instanceof ClosureExpression) {
+            return (ClosureExpression) candidate
+        }
+        if (candidate instanceof VariableExpression) {
+            return closureVariables.get(findTargetVariable((VariableExpression) candidate))
+        }
+        return null
+    }
+
+    /**
+     * A closure return summary. Only returns at this closure's own level count; a return inside
+     * a nested closure exits that nested closure.
+     */
+    private boolean closureReturnsNullable(ClosureExpression expression) {
+        Boolean cached = closureNullability.get(expression)
+        if (cached != null) {
+            return cached.booleanValue()
+        }
+        closureNullability.put(expression, Boolean.FALSE)
+        boolean[] found = [false]
+        CodeVisitorSupport probe = new CodeVisitorSupport() {
+
+            @Override
+            void visitReturnStatement(ReturnStatement statement) {
+                if (isNullExpr(statement.expression) || isKnownNullable(statement.expression)) {
+                    found[0] = true
+                }
+            }
+
+            @Override
+            void visitClosureExpression(ClosureExpression nested) {
+                // nested closures have their own return context
+            }
+
+        }
+        expression.code?.visit(probe)
+        found[0] = found[0] ?: implicitClosureReturnIsNullable(expression)
+        closureNullability.put(expression, Boolean.valueOf(found[0]))
+        return found[0]
+    }
+
+    private boolean implicitClosureReturnIsNullable(ClosureExpression expression) {
+        Statement last = expression.code
+        while (last instanceof BlockStatement) {
+            List<Statement> statements = ((BlockStatement) last).statements
+            if (statements.isEmpty()) {
+                return false
+            }
+            last = statements.last()
+        }
+        if (last instanceof ExpressionStatement) {
+            Expression value = ((ExpressionStatement) last).expression
+            return isNullExpr(value) || isKnownNullable(value)
+        }
+        return false
+    }
+
+    private void trackClosure(Variable target, Expression value) {
+        if (!(target instanceof VariableExpression) || ((VariableExpression) target).isThisExpression()) {
+            return
+        }
+        ClosureExpression closure = closureFor(value)
+        if (closure != null) {
+            closureVariables.put(target, closure)
+        } else {
+            closureVariables.remove(target)
+        }
+    }
+
+    /** A closure handed to another API escapes this local analysis; stop trusting its summary. */
+    private void clearEscapedClosures(Expression arguments) {
+        if (arguments instanceof TupleExpression) {
+            for (Expression argument : ((TupleExpression) arguments).expressions) {
+                clearEscapedClosure(argument)
+            }
+        } else {
+            clearEscapedClosure(arguments)
+        }
+    }
+
+    private void clearEscapedClosure(Expression argument) {
+        if (argument instanceof VariableExpression) {
+            closureVariables.remove(findTargetVariable((VariableExpression) argument))
         }
     }
 
@@ -513,6 +631,7 @@ class NullCheckVisitor extends CheckingVisitor {
     @Override
     void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
         super.visitStaticMethodCallExpression(call)
+        clearEscapedClosures(call.arguments)
         checkMethodArguments(call)
         applyCallNarrowing(call)
     }
@@ -542,6 +661,9 @@ class NullCheckVisitor extends CheckingVisitor {
 
     void visitReturnStatement(ReturnStatement statement) {
         super.visitReturnStatement(statement)
+        if (statement.expression instanceof VariableExpression) {
+            closureVariables.remove(findTargetVariable((VariableExpression) statement.expression))
+        }
         if (methodNonNull && closureDepth == 0) {
             if (isNullExpr(statement.expression)) {
                 reporter.report("Cannot return null from @NonNull method '${method.name}'", statement)
@@ -1501,6 +1623,9 @@ class NullCheckVisitor extends CheckingVisitor {
             return true
         }
         if (expr instanceof MethodCallExpression || expr instanceof StaticMethodCallExpression) {
+            if (expr instanceof MethodCallExpression && isClosureReturnNullable(expr)) {
+                return true
+            }
             if (isNullableEntryCall(expr)) {
                 return true
             }

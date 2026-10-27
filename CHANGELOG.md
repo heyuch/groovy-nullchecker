@@ -10,6 +10,16 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Dogfood moved to `0.7.3`.** Central serves the release, so the self-check plugin and
   `nullcheck.toolVersion` are bumped from `0.7.2`.
 
+## [Unreleased]
+
+### Added
+
+- **Closure return-nullness propagation.** Direct local closure literals are summarized: a
+  closure that can return null makes `c.call()` nullable, so assigning it to an outer variable
+  or returning it from a `@NonNull` method is tracked. Nested returns stay in their own
+  closure; closures passed to another API are treated as escaping and are not trusted. See
+  `docs/PERF.md` for the performance comparison.
+
 ## [0.7.3] - 2026-10-27
 
 ### Fixed

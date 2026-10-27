@@ -219,7 +219,7 @@ Status: done.
 
 ### N1. Closure return-nullness propagation
 
-Status: future, not in 0.7.x.
+Status: implemented on the working tree (Unreleased); release pending.
 
 Current behavior: a closure that returns `null` is not reported at its call site, and assigning
 `c.call()` to an outer variable does not make that variable nullable. Assigning `null` to a

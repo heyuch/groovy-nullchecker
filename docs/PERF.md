@@ -94,4 +94,22 @@ across nine modules), so adoption needs triage and contracts rather than treatin
 as a defect count. Annotation mode reports 400, most of which are resolution rather than
 nullness. The CFG itself is not the source of the extra reports on this code.
 
+## Closure return tracking
+
+Working-tree closure return tracking was compared with published `0.7.3` on the same nine
+external modules (4,372 Groovy files, 4,675 classes), strict mode, warm daemon,
+`--no-build-cache --no-configuration-cache`.
+
+The first `0.7.3` run was cold (172.47 s, dependency/cache work) and is excluded. Three warm
+runs after it:
+
+| Version | Warm runs (s) | Median | Findings |
+| --- | --- | ---: | ---: |
+| 0.7.3 (Central) | 37.33, 37.94, 41.78 | 37.94 s | 1,620 |
+| working tree + N1 | 37.84, 36.86, 42.04 | 37.84 s | 1,620 |
+
+The medians are effectively identical and the ranges overlap. N1 only scans closure literals
+that are assigned to direct local variables (plus direct literal invocation); it does not add a
+second full AST pass. The sample contains no new closure-return finding, so this measures the
+added summary/scoping work, not a changed finding volume.
 
