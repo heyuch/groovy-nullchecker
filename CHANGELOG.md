@@ -3,14 +3,7 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Changed
-
-- **Dogfood moved to `0.7.3`.** Central serves the release, so the self-check plugin and
-  `nullcheck.toolVersion` are bumped from `0.7.2`.
-
-## [Unreleased]
+## [0.8.0] - 2026-10-27
 
 ### Added
 
@@ -24,6 +17,11 @@ versions follow [Semantic Versioning](https://semver.org/).
   or returning it from a `@NonNull` method is tracked. Nested returns stay in their own
   closure; closures passed to another API are treated as escaping and are not trusted. See
   `docs/PERF.md` for the performance comparison.
+
+### Changed
+
+- **Dogfood moved to `0.7.3`.** Central serves the release, so the self-check plugin and
+  `nullcheck.toolVersion` are bumped from `0.7.2`.
 
 ## [0.7.3] - 2026-10-27
 

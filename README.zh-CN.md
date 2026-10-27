@@ -52,7 +52,7 @@ repositories {
 
 dependencies {
     // 仅编译期使用。它永远不会进入你的运行时 classpath。
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.7.3'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.8.0'
 }
 ```
 
@@ -63,7 +63,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.7.3.jar')
+    compileOnly files('libs/groovy-nullchecker-0.8.0.jar')
 }
 ```
 
@@ -76,7 +76,7 @@ Gradle 需要仓库里的 plugin marker，所以只能按 id 安装。）
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.7.3'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.8.0'
 }
 ```
 
@@ -687,7 +687,7 @@ coverage   = files=43 classes=50 compileStatic=46 nonNullByDefault=50 methodsWit
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.7.3'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.8.0'
 }
 
 nullcheck {

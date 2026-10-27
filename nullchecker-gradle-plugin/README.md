@@ -37,7 +37,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.7.3'   // 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.8.0'   // 版本号必填
 }
 
 repositories {
@@ -66,7 +66,7 @@ nullcheck {
     targets     = ['src/main/groovy', 'src/main/java']
     reportFile  = 'build/reports/nullcheck/nullcheck.txt'
     canary      = true            // 关掉自检（不建议）
-    toolVersion = '0.7.3'
+    toolVersion = '0.8.0'
 
     // 项目自己的守卫方法：声明极性，而不是猜名字
     guardNotNullWhenTrue  = ['com.acme.Utils#isNotEmpty']        // 返回 true  ⇒ 参数 0 非空
@@ -105,7 +105,7 @@ nullcheck {
 | `reportToStdout` | `false` | 同时把同一份完整报告写到任务 stdout |
 | `reportToStderr` | `false` | 同时把同一份完整报告写到任务 stderr |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
-| `toolVersion` | `0.7.3` | 解析不到的版本会**明确失败**，不会静默变绿 |
+| `toolVersion` | `0.8.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
 

@@ -28,7 +28,7 @@ is only reconsidered after the method-local work is complete and a real project 
 - Phase 0 is deliberately a snapshot over the existing sets, not yet the per-variable
   `Nullness` map described in NULLNESS-FLOW.
 - `dualRun` is informational; upstream parity is not a release gate.
-- The latest published release is `0.7.3`.
+- The latest published release is `0.8.0`.
 
 ## Order
 
@@ -201,12 +201,12 @@ Status: pending, low priority.
 
 #### R1. Version and release
 
-Status: done (0.7.3 released).
+Status: done (0.8.0 released).
 
-- `gradle.properties` is `0.7.3`; the tag and GitHub Release are `v0.7.3`.
+- `gradle.properties` is `0.8.0`; the tag and GitHub Release are `v0.8.0`.
 - `clean check`, `dualRun`, `dist`, the release workflow and the plugin functional suite passed.
 - GitHub Release assets and the Gradle Plugin Portal publication are live.
-- Maven Central now serves `0.7.3`; the dogfood plugin and `toolVersion` are bumped to `0.7.3`.
+- Maven Central serves `0.7.3`; the dogfood plugin and `toolVersion` are bumped after `0.8.0` propagation.
 
 #### R2. Documentation
 
@@ -219,7 +219,7 @@ Status: done.
 
 ### N1. Closure return-nullness propagation
 
-Status: implemented on the working tree (Unreleased); release pending.
+Status: done (0.8.0).
 
 Current behavior: a closure that returns `null` is not reported at its call site, and assigning
 `c.call()` to an outer variable does not make that variable nullable. Assigning `null` to a
