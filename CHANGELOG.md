@@ -5,6 +5,13 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Compile mode reads `@NullMarked` from a package-info class.** The compiler-worker
+  classpath is passed to `PackageScopes`, which uses an isolated classloader for
+  package-info so a package already defined by a parent loader cannot mask its annotations.
+  This fixes markedOnly skipping static classes in packages marked only via package-info.class.
+
 ### Added
 
 - **Opt-in `@Nullable` migration.** The separate `nullcheckAddNullable` task / annotator CLI

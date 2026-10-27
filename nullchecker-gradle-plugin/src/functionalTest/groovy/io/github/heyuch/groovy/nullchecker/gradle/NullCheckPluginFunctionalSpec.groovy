@@ -131,6 +131,33 @@ class MarkedViolation {
 '''
     }
 
+    /** A Java package-info annotation compiled before compileGroovy. */
+    private void writeMarkedPackage() {
+        File dir = new File(testProjectDir, 'src/main/java/demo')
+        dir.mkdirs()
+        new File(dir, 'package-info.java').text = '''@demo.NullMarked
+package demo;
+'''
+    }
+
+    private void writePackageMarkedViolation() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'PackageMarkedViolation.groovy').text = '''package demo
+
+import groovy.transform.CompileStatic
+
+@CompileStatic
+class PackageMarkedViolation {
+    private @Nullable String value
+
+    int bad() {
+        return value.length()
+    }
+}
+'''
+    }
+
     private void writeUnmarkedViolation() {
         File dir = new File(testProjectDir, 'src/main/groovy/demo')
         dir.mkdirs()
@@ -359,6 +386,28 @@ class Clean {
         result.output.contains('groovy=')
         result.output.contains('findings=1')
         result.output.contains('Violation.groovy')
+    }
+
+    def 'compile mode reads @NullMarked from a package-info class'() {
+        given:
+        writeSettings()
+        writeBuild('''nullcheck {
+    compileCheck = true
+    markedOnly = true
+}
+''')
+        writeAnnotation()
+        writeMarkedAnnotation()
+        writeMarkedPackage()
+        writePackageMarkedViolation()
+
+        when:
+        BuildResult result = run('nullcheck')
+
+        then:
+        result.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        result.output.contains('PackageMarkedViolation.groovy')
+        result.output.contains('findings=1')
     }
 
     def 'compile mode keeps private closure calls bound to the declaring class'() {

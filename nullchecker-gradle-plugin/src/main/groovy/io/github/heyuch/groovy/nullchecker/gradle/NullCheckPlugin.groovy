@@ -188,7 +188,7 @@ class NullCheckPlugin implements Plugin<Project> {
             // it: evaluate() runs it with the same binding, so it still sees `configuration`.
             userScript = "evaluate(new File('${escape(existingScript.absolutePath)}'))\n"
         }
-        scriptFile.setText(userScript + compileScript(extension, findingsFile), 'UTF-8')
+        scriptFile.setText(userScript + compileScript(project, extension, findingsFile), 'UTF-8')
 
         compile.configure { GroovyCompile task ->
             task.classpath = project.files(task.classpath, checker)
@@ -274,7 +274,7 @@ class Canary {
     }
 
     /** The configuration script the compiler worker runs before compiling. */
-    private static String compileScript(NullCheckExtension extension, File findingsFile) {
+    private static String compileScript(Project project, NullCheckExtension extension, File findingsFile) {
         List<String> checks = enabledChecks(extension)
         if (checks.isEmpty()) {
             throw new GradleException('nullcheck: nullnessCheck and initializationCheck are both ' +
@@ -294,6 +294,7 @@ System.setProperty('groovy.nullchecker.guards.true', '${escape(extension.guardNo
 System.setProperty('groovy.nullchecker.guards.false', '${escape(extension.guardNotNullWhenFalse.get().join(','))}')
 System.setProperty('groovy.nullchecker.neverreturns', '${escape(extension.neverReturns.get().join(','))}')
 System.setProperty('groovy.nullchecker.contracts', '${escape(contracts)}')
+System.setProperty('groovy.nullchecker.classpath', '${escape(compileClasspathOf(project).asPath + java.io.File.pathSeparator + compileJavaOutputOf(project).asPath)}')
 configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extension.extension.get())}', 'groovy.transform.TypeChecked', true))
 """
     }

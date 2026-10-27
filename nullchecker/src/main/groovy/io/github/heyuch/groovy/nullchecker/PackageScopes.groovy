@@ -306,6 +306,22 @@ class PackageScopes {
         } catch (Throwable ignored) {
             // not reachable in this setup
         }
+        try {
+            String extra = System.getProperty('groovy.nullchecker.classpath')
+            if (extra) {
+                List<URL> urls = []
+                for (String path : extra.split(java.io.File.pathSeparator)) {
+                    if (path) {
+                        urls.add(new File(path).toURI().toURL())
+                    }
+                }
+                if (urls) {
+                    loaders << new URLClassLoader(urls as URL[], null)
+                }
+            }
+        } catch (Throwable ignored) {
+            // an opt-in classpath hint must never break the check
+        }
         loaders << Thread.currentThread().contextClassLoader
         loaders << PackageScopes.classLoader
         loaders = loaders.findAll { ClassLoader l -> l != null }.unique()
