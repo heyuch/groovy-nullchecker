@@ -61,6 +61,9 @@ class NullCheckPlugin implements Plugin<Project> {
     static final String FINDINGS_CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.NullCheckFindingsCli'
     static final String TASK_NAME = 'nullcheck'
 
+    static final String ANNOTATE_TASK_NAME = 'nullcheckAddNullable'
+    static final String ANNOTATE_CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.harness.NullableAnnotatorCli'
+
     /** Groovy the tool itself runs on; must match the checker's major version. */
     static final String TOOL_GROOVY_VERSION = '4.0.30'
 
@@ -78,9 +81,24 @@ class NullCheckPlugin implements Plugin<Project> {
             t.outputs.upToDateWhen { false }
         }
 
+        TaskProvider<JavaExec> annotate = project.tasks.register(ANNOTATE_TASK_NAME, JavaExec) { JavaExec t ->
+            t.group = 'verification'
+            t.description = 'Opt-in: add @Nullable to high-confidence declarations in @NullMarked code'
+            t.mainClass.set(ANNOTATE_CLI_CLASS)
+            t.outputs.upToDateWhen { false }
+        }
+
         project.afterEvaluate {
             Configuration tool = resolvedToolConfiguration(project, extension)
             JavaExec javaExec = task.get()
+            JavaExec annotateExec = annotate.get()
+            annotateExec.classpath = project.files(tool)
+            List<String> annotateArgs = ['--annotation', extension.nullableAnnotation.get()]
+            if (extension.nullableDryRun.get()) {
+                annotateArgs << '--dry-run'
+            }
+            annotateArgs.addAll(extension.targets.get())
+            annotateExec.args = annotateArgs
 
             if (extension.compileCheck.get()) {
                 configureCompileMode(project, extension, javaExec, tool)

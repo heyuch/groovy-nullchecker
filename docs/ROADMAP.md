@@ -239,6 +239,16 @@ Planned scope:
 Acceptance: direct local closure return null is reported at the receiver; an outer variable
 assigned from that call is nullable; existing closure-side-effect tests stay green.
 
+### N2. Opt-in `@Nullable` migration
+
+Status: implemented on the working tree (Unreleased); release pending.
+
+- Separate `nullcheckAddNullable` task / `NullableAnnotatorCli`; not part of `check`.
+- High-confidence targets only: explicit null returns, null-initialised/assigned fields,
+  null-checked parameters, in `@NullMarked` scopes.
+- Dry-run support and source-position edits for single-line declarations; complex declarations
+  are skipped rather than reformatted.
+
 ## Tracking
 
 - Work top to bottom; do not start a later phase while an earlier acceptance criterion is open.

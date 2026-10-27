@@ -161,6 +161,12 @@ class NullCheckExtension {
     /** Also write the full report to the task's stderr. */
     final Property<Boolean> reportToStderr
 
+    /** FQCN used by the opt-in nullcheckAddNullable source migration. */
+    final Property<String> nullableAnnotation
+
+    /** When true, nullcheckAddNullable prints changes without writing files. */
+    final Property<Boolean> nullableDryRun
+
     NullCheckExtension(Project project) {
         this.extension = project.objects.property(String)
         this.strict = project.objects.property(Boolean)
@@ -181,6 +187,8 @@ class NullCheckExtension {
         this.markedOnly = project.objects.property(Boolean)
         this.reportToStdout = project.objects.property(Boolean)
         this.reportToStderr = project.objects.property(Boolean)
+        this.nullableAnnotation = project.objects.property(String)
+        this.nullableDryRun = project.objects.property(Boolean)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
         strict.convention(false)
@@ -202,5 +210,7 @@ class NullCheckExtension {
         markedOnly.convention(false)
         reportToStdout.convention(false)
         reportToStderr.convention(false)
+        nullableAnnotation.convention('org.jspecify.annotations.Nullable')
+        nullableDryRun.convention(false)
     }
 }

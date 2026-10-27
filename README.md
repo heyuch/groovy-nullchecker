@@ -692,7 +692,7 @@ the affected class is skipped instead of aborting the module; if nothing can be 
 CLI reports an incomplete resolution finding. The switch filters checker findings and does not inject
 `@TypeChecked` into unmarked dynamic classes. Groovy's own resolution errors from classes that
 already use `@CompileStatic`/`@TypeChecked` still appear (not fail-on by default); hiding those
-would require a report-layer filter. CLI: `--marked-only`. Report destinations can be combined: `--report file.txt
+would require a report-layer filter. To migrate annotations separately, run `./gradlew nullcheckAddNullable` (opt-in; see the plugin README). CLI: `--marked-only`. Report destinations can be combined: `--report file.txt
 --report-stdout --report-stderr` write the same full text to each target.
 
 That is not the same as `failOn`: disabling a family removes its findings from the report,

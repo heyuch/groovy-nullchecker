@@ -5,6 +5,13 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Opt-in `@Nullable` migration.** The separate `nullcheckAddNullable` task / annotator CLI
+  adds annotations to high-confidence `@NullMarked` declarations: explicit null returns,
+  null-initialised or null-assigned fields, and null-checked parameters. It supports
+  `nullableDryRun` / `--dry-run`, skips complex declarations, and is never part of `check`.
+
 ### Changed
 
 - **Dogfood moved to `0.8.0`.** Central serves the release, so the self-check plugin and

@@ -104,10 +104,38 @@ nullcheck {
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 完整报告落盘位置 |
 | `reportToStdout` | `false` | 同时把同一份完整报告写到任务 stdout |
 | `reportToStderr` | `false` | 同时把同一份完整报告写到任务 stderr |
+| `nullableAnnotation` | `org.jspecify.annotations.Nullable` | `nullcheckAddNullable` 写入的注解 FQCN |
+| `nullableDryRun` | `false` | `nullcheckAddNullable` 只打印计划，不修改源码 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
 | `toolVersion` | `0.8.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
+
+### 自动迁移：添加 `@Nullable`
+
+这是一个**独立、手动执行**的任务，默认不会运行，也不属于 `check`：
+
+```bash
+./gradlew nullcheckAddNullable
+```
+
+只处理高置信度声明（`@NullMarked` 作用域内）：
+
+- 显式 `return null` 的方法返回值；
+- 初始化为 null 或方法中赋 null 的字段/属性；
+- 在方法体中与 null 比较的参数。
+
+先看计划而不改源码：
+
+```groovy
+nullcheck {
+    nullableDryRun = true
+    // nullableAnnotation = 'org.jspecify.annotations.Nullable' // 默认
+}
+```
+
+确认后设 `nullableDryRun = false` 再执行；结果可用 `git diff` 检查、`git reset` 回滚。
+任务只处理单行、位置明确的声明，复杂/多行声明会跳过并输出统计。
 
 ### 渐进式接入（`markedOnly = true`）
 

@@ -99,6 +99,19 @@ class ClosureMain {
 '''
     }
 
+    /** A field with an explicit null initializer for the migration task. */
+    private void writeNullableField() {
+        File dir = new File(testProjectDir, 'src/main/groovy/demo')
+        dir.mkdirs()
+        new File(dir, 'NullableField.groovy').text = '''package demo
+
+@NullMarked
+class NullableField {
+    String value = null
+}
+'''
+    }
+
     private void writeMarkedViolation() {
         File dir = new File(testProjectDir, 'src/main/groovy/demo')
         dir.mkdirs()
@@ -299,6 +312,32 @@ class Clean {
         and: 'the self-check and coverage are reported, so the number is interpretable'
         result.output.contains('canary')
         result.output.contains('coverage')
+    }
+
+    def 'nullcheckAddNullable is opt-in, honours dry-run, and can write the annotation'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { nullableDryRun = true }')
+        writeMarkedAnnotation()
+        writeNullableField()
+
+        when:
+        BuildResult dry = run('nullcheckAddNullable')
+
+        then:
+        dry.task(':nullcheckAddNullable').outcome == TaskOutcome.SUCCESS
+        dry.output.contains('would add @Nullable')
+        !new File(testProjectDir, 'src/main/groovy/demo/NullableField.groovy')
+                .getText('UTF-8').contains('@Nullable')
+
+        when:
+        writeBuild('nullcheck { nullableDryRun = false }')
+        BuildResult apply = run('nullcheckAddNullable')
+
+        then:
+        apply.task(':nullcheckAddNullable').outcome == TaskOutcome.SUCCESS
+        new File(testProjectDir, 'src/main/groovy/demo/NullableField.groovy')
+                .getText('UTF-8').contains('@Nullable String value')
     }
 
     def 'reportToStdout and reportToStderr emit the full report'() {
