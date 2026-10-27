@@ -215,6 +215,27 @@ Status: done.
 - README/README.zh-CN, CHANGELOG, PORT and NULLNESS-FLOW reflect the released behavior.
 - Historical CHANGELOG/BACKLOG versions remain untouched.
 
+## Future work
+
+### N1. Closure return-nullness propagation
+
+Status: future, not in 0.7.x.
+
+Current behavior: a closure that returns `null` is not reported at its call site, and assigning
+`c.call()` to an outer variable does not make that variable nullable. Assigning `null` to a
+captured outer local **is** tracked in strict mode.
+
+Planned scope:
+
+- summarize the nullable-return behavior of direct, non-escaping closure literals;
+- propagate that summary through `Closure.call()` / direct closure invocation;
+- keep alias/escape cases conservative (`MAYBE_NULL` or `UNKNOWN`) rather than guessing;
+- add corpus fixtures for closure-return-to-variable and closure-side-effect tracking;
+- document that annotation mode remains non-flow-sensitive.
+
+Acceptance: direct local closure return null is reported at the receiver; an outer variable
+assigned from that call is nullable; existing closure-side-effect tests stay green.
+
 ## Tracking
 
 - Work top to bottom; do not start a later phase while an earlier acceptance criterion is open.
