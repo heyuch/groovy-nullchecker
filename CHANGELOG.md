@@ -3,6 +3,13 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Dogfood moved to `0.9.0`.** Central serves the release, so the self-check plugin and
+  `nullcheck.toolVersion` are bumped from `0.8.0`.
+
 ## [0.9.0] - 2026-10-27
 
 ### Fixed
