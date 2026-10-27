@@ -192,10 +192,13 @@ Acceptance: `NullCheckCategoriesSpec` plus the existing sink/corpus tests.
 
 #### Q2. SpotBugs test filter (#7)
 
-Status: pending, low priority.
+Status: done.
 
-- Re-enable `spotbugsTest` only with a test-specific filter that removes the Spock dynamic
-  dispatch noise.
+- `spotbugsTest` is enabled in both modules.
+- The shared filter removes only the Spock dynamic-dispatch artefact
+  (`UPM_UNCALLED_PRIVATE_METHOD` on `*Spec` classes); the rest of the test bytecode is analysed.
+
+Acceptance: `check` runs `spotbugsTest` in both modules with no findings.
 
 ### 5. Release
 
