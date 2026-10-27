@@ -33,6 +33,7 @@ class CorpusRules {
              *  by default, so a plain method returning null is reported even though the
              *  class carries no annotation of its own. */
             R10: 'Cannot return null from @NonNull method',
+            R11: 'Cannot unbox @Nullable value to primitive',
     ] as Map<String, String>
 
     /**

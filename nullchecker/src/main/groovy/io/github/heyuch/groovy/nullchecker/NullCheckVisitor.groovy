@@ -20,6 +20,7 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.lookupKey
 import static io.github.heyuch.groovy.nullchecker.AstSupport.mapEntryTypes
 import static io.github.heyuch.groovy.nullchecker.AstSupport.nullableProperty
 import static io.github.heyuch.groovy.nullchecker.AstSupport.typeOfExpression
+import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType
 import static org.codehaus.groovy.syntax.Types.isAssignment
 
@@ -160,6 +161,10 @@ class NullCheckVisitor extends CheckingVisitor {
         if (hasNonNullAnno(annotated) && isNullExpr(decl.rightExpression)) {
             reporter.report("Cannot assign null to @NonNull variable '${ve.name}'", decl)
         }
+        if (checkUnboxing(decl.rightExpression, ve.originType, decl, "for '${ve.name}'")) {
+            nullableVars.remove(ve)
+            return
+        }
         // Uninitialized non-primitive declaration (e.g. "String x") is implicitly null
         boolean implicitlyNull = decl.rightExpression instanceof EmptyExpression && !isPrimitiveType(ve.type)
         if (hasNullableAnno(annotated) || isNullExpr(decl.rightExpression) ||
@@ -220,6 +225,11 @@ class NullCheckVisitor extends CheckingVisitor {
                 }
             }
 
+            if (checkUnboxing(rightExpr, target.originType, expr, "for '${leftExpr.name}'")) {
+                nullableVars.remove(target)
+                guardedVars.remove(target)
+                return
+            }
             nonEmptyVars.remove(target)
             if (isNullExpr(rightExpr)) {
                 nullableVars.add(target)
@@ -637,6 +647,30 @@ class NullCheckVisitor extends CheckingVisitor {
     }
 
     @Override
+    void visitCastExpression(CastExpression expression) {
+        super.visitCastExpression(expression)
+        if (isUnboxingTarget(expression.type)) {
+            checkUnboxing(expression.expression, expression.type, expression, 'in a cast')
+        }
+    }
+
+    private static boolean isUnboxingTarget(ClassNode type) {
+        return type != null && type != VOID_TYPE && isPrimitiveType(type)
+    }
+
+    /** A nullable value entering a primitive context would throw on unboxing. */
+    private boolean checkUnboxing(Expression value, ClassNode targetType, ASTNode at, String context) {
+        if (!isUnboxingTarget(targetType)) {
+            return false
+        }
+        if (isNullExpr(value) || isKnownNullable(value)) {
+            reporter.report("Cannot unbox @Nullable value to primitive '${targetType.name}' ${context}: ${nullableReason(value)}", at)
+            return true
+        }
+        return false
+    }
+
+    @Override
     void visitPropertyExpression(PropertyExpression expression) {
         super.visitPropertyExpression(expression)
         if (!expression.safe) {
@@ -663,6 +697,11 @@ class NullCheckVisitor extends CheckingVisitor {
         super.visitReturnStatement(statement)
         if (statement.expression instanceof VariableExpression) {
             closureVariables.remove(findTargetVariable((VariableExpression) statement.expression))
+        }
+        if (closureDepth == 0 && isUnboxingTarget(method.returnType) &&
+                checkUnboxing(statement.expression, method.returnType, statement,
+                        "from '${method.name}'")) {
+            return
         }
         if (methodNonNull && closureDepth == 0) {
             if (isNullExpr(statement.expression)) {
@@ -1545,6 +1584,11 @@ class NullCheckVisitor extends CheckingVisitor {
         int limit = Math.min(args.expressions.size(), params.length)
         for (int i = 0; i < limit; i++) {
             Expression arg = args.getExpression(i)
+            if (isUnboxingTarget(params[i].type)) {
+                checkUnboxing(arg, params[i].type, (ASTNode) call,
+                        "for parameter '${params[i].name}' of '${targetMethod.name}'")
+                continue
+            }
             boolean paramIsNonNull = hasNonNullAnno(params[i]) || (nullChecked && !isPrimitiveType(params[i].type) && !hasNullableAnno(params[i]))
             if (paramIsNonNull) {
                 if (isNullExpr(arg)) {
@@ -1617,6 +1661,9 @@ class NullCheckVisitor extends CheckingVisitor {
             return nullableVars.contains(target)
         }
         if (expr instanceof CastExpression) {
+            if (isUnboxingTarget(expr.type)) {
+                return false
+            }
             return isKnownNullable(expr.expression)
         }
         if (isSafeNavResult(expr)) {

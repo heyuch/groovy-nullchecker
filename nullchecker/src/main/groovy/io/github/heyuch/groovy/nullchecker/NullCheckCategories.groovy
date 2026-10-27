@@ -21,6 +21,7 @@ class NullCheckCategories {
             'Cannot assign null to @MonotonicNonNull',
             'Cannot pass null to @NonNull parameter',
             'Cannot pass @Nullable value to @NonNull parameter',
+            'Cannot unbox @Nullable value to primitive',
     ] as List<String>
 
     static String classify(String message) {

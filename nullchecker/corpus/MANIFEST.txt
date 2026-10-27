@@ -160,6 +160,30 @@ strict=only
 expect=2
 note=closure may execute zero times; captured write joins with the pre-call state
 
+positive/unbox_closure_return.groovy
+rule=R11
+strict=any
+expect=some
+note=nullable closure result assigned to primitive boolean
+
+positive/unbox_argument.groovy
+rule=R11
+strict=any
+expect=some
+note=nullable value passed to primitive parameter
+
+positive/unbox_return.groovy
+rule=R11
+strict=any
+expect=some
+note=nullable value returned from primitive method
+
+positive/unbox_cast.groovy
+rule=R11
+strict=any
+expect=some
+note=explicit primitive cast unboxes a nullable value
+
 positive/closure_return_null.groovy
 rule=R05
 strict=only
@@ -206,6 +230,12 @@ rule=R05
 strict=any
 expect=none
 note=a nested closure return is not the outer closure's return
+
+negative/unbox_wrapper.groovy
+rule=R11
+strict=any
+expect=none
+note=a guarded Boolean wrapper is truth-tested, not unboxed
 
 negative/closure_escaped_return.groovy
 rule=R05

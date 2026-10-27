@@ -14,6 +14,11 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Primitive unboxing rule (R11).** A nullable value entering a primitive declaration,
+  assignment, method argument, return or cast now reports
+  `Cannot unbox @Nullable value to primitive '...'`. After reporting, the primitive target is
+  treated as non-null to avoid duplicate return/deref findings.
+
 - **Closure return-nullness propagation.** Direct local closure literals are summarized: a
   closure that can return null makes `c.call()` nullable, so assigning it to an outer variable
   or returning it from a `@NonNull` method is tracked. Nested returns stay in their own
