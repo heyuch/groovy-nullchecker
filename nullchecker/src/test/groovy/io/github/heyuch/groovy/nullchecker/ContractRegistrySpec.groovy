@@ -42,6 +42,41 @@ import java.lang.annotation.Target
 }
 '''
 
+    static final String SPRING_CONTRACT = '''package org.springframework.lang
+
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target([ElementType.METHOD])
+@interface Contract {
+    String value()
+}
+'''
+
+    static final String SPRING_GUARD = '''package fixtures
+
+import groovy.transform.CompileStatic
+import org.springframework.lang.Contract
+
+@CompileStatic
+class SpringGuard {
+    @Contract('null -> false')
+    static boolean isNotEmpty(List<String> values) {
+        return values != null && !values.isEmpty()
+    }
+
+    static int size(@Nullable List<String> values) {
+        if (isNotEmpty(values)) {
+            return values.size()
+        }
+        return 0
+    }
+}
+'''
+
     static final String HELPER = '''package fixtures
 
 import groovy.transform.CompileStatic
@@ -115,6 +150,8 @@ class PlainGuardUse {
         dir = File.createTempDir('nullchecker-contracts', '')
         write('Nullable.groovy', NULLABLE)
         write('Contract.groovy', CONTRACT)
+        write('org/springframework/lang/Contract.groovy', SPRING_CONTRACT)
+        write('SpringGuard.groovy', SPRING_GUARD)
         write('Helper.groovy', HELPER)
         write('Plain.groovy', PLAIN)
         write('MapUse.groovy', MAP_USE)
@@ -131,6 +168,11 @@ class PlainGuardUse {
     def 'an annotation contract narrows by itself'() {
         expect:
         countNulls(check('GuardUse.groovy')) == 0
+    }
+
+    def 'a Spring Contract annotation is recognised by its simple name'() {
+        expect:
+        countNulls(check('SpringGuard.groovy')) == 0
     }
 
     def 'a configured contract overrides the annotation'() {
@@ -168,6 +210,8 @@ class PlainGuardUse {
     private NullCheckHarness.Result check(String source) {
         NullCheckHarness.check([new File(dir, 'Nullable.groovy'),
                                 new File(dir, 'Contract.groovy'),
+                                new File(dir, 'org/springframework/lang/Contract.groovy'),
+                                new File(dir, 'SpringGuard.groovy'),
                                 new File(dir, 'Helper.groovy'),
                                 new File(dir, 'Plain.groovy'),
                                 new File(dir, source)], EXTENSION, true)
@@ -180,6 +224,8 @@ class PlainGuardUse {
     }
 
     private void write(String name, String content) {
-        new File(dir, name).setText(content, 'UTF-8')
+        File file = new File(dir, name)
+        file.parentFile.mkdirs()
+        file.setText(content, 'UTF-8')
     }
 }
