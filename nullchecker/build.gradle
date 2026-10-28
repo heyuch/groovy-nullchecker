@@ -23,7 +23,7 @@ plugins {
     id 'codenarc'
     id 'com.github.spotbugs' version '6.5.13'
     // Dogfood: the last published checker, applied to this project's own sources.
-    id 'io.github.heyuch.groovy-nullchecker' version '0.9.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.10.0'
 }
 
 // 模块目录名是 nullchecker，坐标要叫 groovy-nullchecker（见文件头），所以显式钉住。
@@ -338,7 +338,7 @@ tasks.named('spotbugsTest') {
 
 // Dogfood: check this project with the last published checker. Bump toolVersion on release.
 nullcheck {
-    toolVersion = '0.9.0'
+    toolVersion = '0.10.0'
     strict = true
     failOnError = true
     targets = ['src/main/groovy']
