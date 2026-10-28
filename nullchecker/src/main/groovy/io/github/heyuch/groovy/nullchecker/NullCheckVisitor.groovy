@@ -142,6 +142,12 @@ class NullCheckVisitor extends CheckingVisitor {
     /** Collections currently known non-empty; used to refine max()/min(). */
     private final Set<Variable> nonEmptyVars = new HashSet<>()
 
+    /** Locals explicitly annotated @NonNull; the annotation owns their contract. */
+    private final Set<Variable> nonNullVars = new HashSet<>()
+
+    /** Assignment nodes often carry a different VariableExpression; match locals by name. */
+    private final Set<String> nonNullLocalNames = new HashSet<>()
+
     /** Finite access paths known non-null, e.g. this.value. */
     private final Map<String, Nullness> pathFacts = new LinkedHashMap<>()
 
@@ -164,6 +170,19 @@ class NullCheckVisitor extends CheckingVisitor {
         if (checkUnboxing(decl.rightExpression, ve.originType, decl, "for '${ve.name}'")) {
             nullableVars.remove(ve)
             return
+        }
+        if (hasNonNullAnno(annotated) && !hasNullableAnno(annotated)) {
+            nonNullVars.add(ve)
+            nonNullLocalNames.add(ve.name)
+            if (isNullExpr(decl.rightExpression)) {
+                reporter.report("Cannot assign null to @NonNull variable '${ve.name}'", decl)
+            } else if (isKnownNullable(decl.rightExpression)) {
+                reporter.report("Cannot assign @Nullable value to @NonNull variable '${ve.name}'", decl)
+            }
+            if (isNullExpr(decl.rightExpression) || isKnownNullable(decl.rightExpression)) {
+                nullableVars.remove(ve)
+                return
+            }
         }
         // Uninitialized non-primitive declaration (e.g. "String x") is implicitly null
         boolean implicitlyNull = decl.rightExpression instanceof EmptyExpression && !isPrimitiveType(ve.type)
@@ -212,8 +231,16 @@ class NullCheckVisitor extends CheckingVisitor {
                 fieldNonNull = field.declaringClass != null &&
                     scopes.isFieldNonNullByDefault(field.declaringClass)
             }
+            boolean explicitNonNull = isExplicitNonNull(target)
             if (fieldNonNull && isNullExpr(rightExpr)) {
                 reporter.report("Cannot assign null to @NonNull variable '${leftExpr.name}'", expr)
+            } else if (explicitNonNull && isKnownNullable(rightExpr)) {
+                reporter.report("Cannot assign @Nullable value to @NonNull variable '${leftExpr.name}'", expr)
+            }
+            if (explicitNonNull && (isNullExpr(rightExpr) || isKnownNullable(rightExpr))) {
+                nullableVars.remove(target)
+                guardedVars.add(target)
+                return
             }
 
             // @MonotonicNonNull: once initialized with non-null, cannot assign null again
@@ -1525,6 +1552,9 @@ class NullCheckVisitor extends CheckingVisitor {
                 return
             }
             Variable target = findTargetVariable(receiver)
+            if (isExplicitNonNull(target)) {
+                return
+            }
             boolean isMonotonicAndInitialized = target instanceof AnnotatedNode && hasMonotonicAnno(target) && monotonicInitialized.contains(target)
             boolean nonEmpty = nonEmptyVars.contains(target)
             if (!nonEmpty && target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
@@ -1640,6 +1670,17 @@ class NullCheckVisitor extends CheckingVisitor {
         return "'${expression.text}' may be null"
     }
 
+    private boolean isExplicitNonNull(Variable target) {
+        if (target instanceof AnnotatedNode && hasNonNullAnno((AnnotatedNode) target) &&
+                !hasNullableAnno((AnnotatedNode) target)) {
+            return true
+        }
+        if (nonNullVars.contains(target)) {
+            return true
+        }
+        return !(target instanceof FieldNode) && nonNullLocalNames.contains(target.name)
+    }
+
     /**
      * Determines whether an expression is known to produce a possibly-null value:
      * a {@code @Nullable} (or flow-inferred nullable) unguarded variable, a safe-navigation
@@ -1650,6 +1691,9 @@ class NullCheckVisitor extends CheckingVisitor {
         if (expr instanceof VariableExpression) {
             Variable target = findTargetVariable(expr)
             if (guardedVars.contains(target) || nonEmptyVars.contains(target)) {
+                return false
+            }
+            if (isExplicitNonNull(target)) {
                 return false
             }
             if (isNullableElement(expr, target)) {

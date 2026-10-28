@@ -160,6 +160,18 @@ strict=only
 expect=2
 note=closure may execute zero times; captured write joins with the pre-call state
 
+positive/nonnull_nullable_declaration.groovy
+rule=R12
+strict=any
+expect=some
+note=@NonNull local initialised from a nullable value reports at the assignment
+
+positive/nonnull_nullable_assignment.groovy
+rule=R12
+strict=any
+expect=some
+note=@NonNull local reassigned from a nullable value reports at the assignment
+
 positive/unbox_closure_return.groovy
 rule=R11
 strict=any

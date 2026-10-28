@@ -34,6 +34,7 @@ class CorpusRules {
              *  class carries no annotation of its own. */
             R10: 'Cannot return null from @NonNull method',
             R11: 'Cannot unbox @Nullable value to primitive',
+            R12: 'Cannot assign @Nullable value to @NonNull variable',
     ] as Map<String, String>
 
     /**

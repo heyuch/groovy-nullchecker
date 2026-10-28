@@ -5,6 +5,13 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Explicit `@Nonnull` locals own their contract.** A nullable value assigned to a `@Nonnull`
+  local now reports `Cannot assign @Nullable value to @NonNull variable` at the assignment
+  site; after that report the variable is treated as non-null, so the later dereference is not
+  reported again.
+
 ### Changed
 
 - **Dogfood moved to `0.9.0`.** Central serves the release, so the self-check plugin and
