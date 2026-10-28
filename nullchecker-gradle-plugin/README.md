@@ -105,6 +105,7 @@ nullcheck {
 | `reportToStdout` | `false` | 同时把同一份完整报告写到任务 stdout |
 | `reportToStderr` | `false` | 同时把同一份完整报告写到任务 stderr |
 | `nonNullAnnotations` | `[]` | 额外当作 `@NonNull` 的注解，FQCN 或 simple name；内置已支持 NonNull / NotNull / Nonnull / NotEmpty / NotBlank（含 type-use） |
+| `assertsTrue` | `[]` | 正常返回即证明第 0 个 boolean 实参为 true 的 assertion 方法，`类全名#方法名`；也支持 `@Contract('false -> fail')` |
 | `nullableAnnotation` | `org.jspecify.annotations.Nullable` | `nullcheckAddNullable` 写入的注解 FQCN |
 | `nullableDryRun` | `false` | `nullcheckAddNullable` 只打印计划，不修改源码 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |

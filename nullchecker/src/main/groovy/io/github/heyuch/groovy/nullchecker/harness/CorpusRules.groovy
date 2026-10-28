@@ -73,6 +73,7 @@ class CorpusRules {
             N23: 'max/min on a collection proved non-empty stays non-null',
             N24: 'first/head throw on empty and any is boolean, so none is nullable',
             N25: 'switch fall-through reaches the next case before the break',
+            N26: 'false->fail assertion contracts narrow the condition after return',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

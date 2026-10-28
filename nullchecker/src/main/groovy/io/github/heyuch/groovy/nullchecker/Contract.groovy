@@ -24,6 +24,9 @@ class Contract {
 
     int resultArgument = -1
 
+    /** Normal return proves this boolean argument true (assertion helpers). */
+    int argumentTrueAfterReturn = -1
+
     boolean neverReturns
 
     Set<Integer> nonNullWhenTrue = new LinkedHashSet<Integer>()
@@ -52,6 +55,12 @@ class Contract {
     static Contract fact(boolean whenTrue) {
         Contract contract = new Contract()
         (whenTrue ? contract.nonNullWhenTrue : contract.nonNullWhenFalse).add(0)
+        return contract
+    }
+
+    static Contract assertsTrue(int index) {
+        Contract contract = new Contract()
+        contract.argumentTrueAfterReturn = index
         return contract
     }
 

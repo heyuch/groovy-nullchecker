@@ -44,6 +44,7 @@ class NullCheckCli {
                             repeatable, and makes the statements after a call unreachable
   --nonnull-annotation <fqcn>
                         also treat this annotation as @NonNull; repeatable
+  --asserts-true <c#m>  normal return proves this method's first argument true; repeatable
   --no-container-lookups    do not treat Map.get/find/max and friends as nullable; those
                             results are nullable because the lookup can miss
   --contract <c#m=spec>     declare a contract, e.g. "java.util.Map#get=-> !null";
@@ -99,6 +100,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         boolean containerLookups = true
         List<String> contracts = new ArrayList<String>()
         List<String> nonNullAnnotations = new ArrayList<String>()
+        List<String> assertsTrue = new ArrayList<String>()
         List<String> checks = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> paths = []
 
@@ -180,6 +182,13 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     }
                     neverReturns << neverReturn
                     break
+                case '--asserts-true':
+                    String assertion = value(argv, ++i, arg, err)
+                    if (assertion == null) {
+                        return 2
+                    }
+                    assertsTrue << assertion
+                    break
                 case '--nonnull-annotation':
                     String nonNullAnnotation = value(argv, ++i, arg, err)
                     if (nonNullAnnotation == null) {
@@ -227,6 +236,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
             setProperty('groovy.nullchecker.contracts', contracts.join(';'))
             setProperty('groovy.nullchecker.checks', checks.join(','))
             setProperty('groovy.nullchecker.nonnullannotations', nonNullAnnotations.join(','))
+            setProperty('groovy.nullchecker.assertsTrue', assertsTrue.join(','))
             setProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
         }
 

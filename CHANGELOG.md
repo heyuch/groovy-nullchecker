@@ -7,6 +7,11 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Assertion-condition narrowing.** Methods declared with `@Contract('false -> fail')` or
+  listed in `assertsTrue` / `--asserts-true` establish that their first boolean argument was
+  true when they return normally. The existing guard analysis then narrows compound conditions
+  such as `outcome != null && (...)`.
+
 - **Configurable @NonNull annotation names.** Built-ins already cover `NonNull`, `NotNull`,
   `Nonnull`, `NotEmpty` and `NotBlank`, including type-use annotations. Projects can add
   package-specific names through `nonNullAnnotations` / `--nonnull-annotation`.

@@ -165,6 +165,9 @@ class NullCheckExtension {
     /** Extra @NonNull annotation classes, by FQCN or simple name. */
     final ListProperty<String> nonNullAnnotations
 
+    /** Methods whose normal return proves their first (boolean) argument true. */
+    final ListProperty<String> assertsTrue
+
     /** FQCN used by the opt-in nullcheckAddNullable source migration. */
     final Property<String> nullableAnnotation
 
@@ -192,6 +195,7 @@ class NullCheckExtension {
         this.reportToStdout = project.objects.property(Boolean)
         this.reportToStderr = project.objects.property(Boolean)
         this.nonNullAnnotations = project.objects.listProperty(String)
+        this.assertsTrue = project.objects.listProperty(String)
         this.nullableAnnotation = project.objects.property(String)
         this.nullableDryRun = project.objects.property(Boolean)
 
@@ -216,6 +220,7 @@ class NullCheckExtension {
         reportToStdout.convention(false)
         reportToStderr.convention(false)
         nonNullAnnotations.convention([])
+        assertsTrue.convention([])
         nullableAnnotation.convention('org.jspecify.annotations.Nullable')
         nullableDryRun.convention(false)
     }

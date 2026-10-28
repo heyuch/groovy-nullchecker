@@ -693,7 +693,8 @@ CLI reports an incomplete resolution finding. The switch filters checker finding
 `@TypeChecked` into unmarked dynamic classes. Groovy's own resolution errors from classes that
 already use `@CompileStatic`/`@TypeChecked` still appear (not fail-on by default); hiding those
 would require a report-layer filter. To migrate annotations separately, run `./gradlew nullcheckAddNullable` (opt-in; see the plugin README). Extra @NonNull annotation names can be declared with `nonNullAnnotations` (plugin) or
-`--nonnull-annotation` (CLI). CLI: `--marked-only`. Report destinations can be combined: `--report file.txt
+`--nonnull-annotation` (CLI). Assertion helpers can be declared with `assertsTrue` or
+`@Contract('false -> fail')`. CLI: `--marked-only`. Report destinations can be combined: `--report file.txt
 --report-stdout --report-stderr` write the same full text to each target.
 
 That is not the same as `failOn`: disabling a family removes its findings from the report,

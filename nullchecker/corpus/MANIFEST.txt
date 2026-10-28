@@ -160,6 +160,12 @@ strict=only
 expect=2
 note=closure may execute zero times; captured write joins with the pre-call state
 
+positive/assertion_without_contract.groovy
+rule=R05
+strict=any
+expect=some
+note=without a contract the assertion condition is not presumed true
+
 positive/nonnull_nullable_declaration.groovy
 rule=R12
 strict=any
@@ -248,6 +254,12 @@ rule=R11
 strict=any
 expect=none
 note=a guarded Boolean wrapper is truth-tested, not unboxed
+
+negative/assertion_contract.groovy
+rule=N26
+strict=any
+expect=none
+note=false->fail assertion narrows a compound condition after normal return
 
 negative/closure_escaped_return.groovy
 rule=R05

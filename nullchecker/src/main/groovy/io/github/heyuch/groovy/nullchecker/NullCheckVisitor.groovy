@@ -1504,6 +1504,15 @@ class NullCheckVisitor extends CheckingVisitor {
             }
             narrowToNonNull(args.getExpression(index))
         }
+        if (contract.argumentTrueAfterReturn >= 0 &&
+                contract.argumentTrueAfterReturn < args.expressions.size()) {
+            GuardFacts facts = analyzeCondition(
+                    args.getExpression(contract.argumentTrueAfterReturn), false)
+            applyFacts(facts.whenTrue)
+            applyNonEmptyFacts(facts.nonEmptyTrue)
+            applyPathFacts(facts.pathsTrue)
+            applyLookupFacts(facts.lookupsTrue)
+        }
     }
 
     /**

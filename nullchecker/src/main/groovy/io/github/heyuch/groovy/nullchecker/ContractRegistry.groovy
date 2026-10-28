@@ -39,6 +39,8 @@ class ContractRegistry {
 
     private static final String CONTRACTS_PROPERTY = 'groovy.nullchecker.contracts'
 
+    private static final String ASSERTS_TRUE_PROPERTY = 'groovy.nullchecker.assertsTrue'
+
     private static final Set<String> NO_RETURN_ANNOS = Collections.unmodifiableSet(
             ['NoReturn', 'NeverReturns', 'DoesNotReturn'] as Set<String>)
 
@@ -47,6 +49,8 @@ class ContractRegistry {
     private final Set<String> guardsFalse
 
     private final Set<String> neverReturns
+
+    private final Set<String> assertsTrue
 
     private final Map<String, Contract> configured
 
@@ -59,6 +63,7 @@ class ContractRegistry {
         guardsTrue = readGuardEntries(GUARD_TRUE_PROPERTY)
         guardsFalse = readGuardEntries(GUARD_FALSE_PROPERTY)
         neverReturns = readGuardEntries(NEVER_RETURNS_PROPERTY)
+        assertsTrue = readGuardEntries(ASSERTS_TRUE_PROPERTY)
         installBuiltIns()
         configured = buildConfigContracts()
     }
@@ -134,6 +139,9 @@ class ContractRegistry {
                     for (int i = 0; i < clause.arguments.size(); i++) {
                         if (clause.arguments[i] == 'null') {
                             contract.nonNullAfterReturn.add(i)
+                            recognised = true
+                        } else if (clause.arguments[i] == 'false') {
+                            contract.argumentTrueAfterReturn = i
                             recognised = true
                         }
                     }
@@ -282,6 +290,9 @@ class ContractRegistry {
         }
         for (String key : neverReturns) {
             contracts.put(key, Contract.never())
+        }
+        for (String key : assertsTrue) {
+            contracts.put(key, Contract.assertsTrue(0))
         }
         for (Map.Entry<String, String> entry : readContractEntries().entrySet()) {
             Contract contract = contractFromJetBrains(entry.value)
