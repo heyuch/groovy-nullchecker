@@ -251,7 +251,7 @@ Status: done (0.9.0).
 
 ### N3. Autofix provider framework
 
-Status: future; design not settled.
+Status: prototype on the working tree (Unreleased); design not final.
 
 - A controlled `FixProvider` SPI: built-in high-confidence fixes and user providers share the
   same proposal/apply path.

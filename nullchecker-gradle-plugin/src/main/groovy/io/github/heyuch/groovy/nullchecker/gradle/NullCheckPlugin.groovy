@@ -64,6 +64,9 @@ class NullCheckPlugin implements Plugin<Project> {
     static final String ANNOTATE_TASK_NAME = 'nullcheckAddNullable'
     static final String ANNOTATE_CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.harness.NullableAnnotatorCli'
 
+    static final String AUTOFIX_TASK_NAME = 'nullcheckAutofix'
+    static final String AUTOFIX_CLI_CLASS = 'io.github.heyuch.groovy.nullchecker.harness.NullCheckAutofixCli'
+
     /** Groovy the tool itself runs on; must match the checker's major version. */
     static final String TOOL_GROOVY_VERSION = '4.0.30'
 
@@ -81,6 +84,13 @@ class NullCheckPlugin implements Plugin<Project> {
             t.outputs.upToDateWhen { false }
         }
 
+        TaskProvider<JavaExec> autofix = project.tasks.register(AUTOFIX_TASK_NAME, JavaExec) { JavaExec t ->
+            t.group = 'verification'
+            t.description = 'Opt-in: apply report-driven @Nullable fixes for high-confidence findings'
+            t.mainClass.set(AUTOFIX_CLI_CLASS)
+            t.outputs.upToDateWhen { false }
+        }
+
         TaskProvider<JavaExec> annotate = project.tasks.register(ANNOTATE_TASK_NAME, JavaExec) { JavaExec t ->
             t.group = 'verification'
             t.description = 'Opt-in: add @Nullable to high-confidence declarations in @NullMarked code'
@@ -93,6 +103,20 @@ class NullCheckPlugin implements Plugin<Project> {
             JavaExec javaExec = task.get()
             JavaExec annotateExec = annotate.get()
             annotateExec.classpath = project.files(tool)
+            JavaExec autofixExec = autofix.get()
+            autofixExec.classpath = project.files(tool, compileClasspathOf(project), compileJavaOutputOf(project))
+            project.tasks.findByName('compileJava')?.with { compileJava ->
+                autofixExec.dependsOn(compileJava)
+            }
+            List<String> autofixArgs = ['--annotation', extension.nullableAnnotation.get()]
+            if (extension.autofixDryRun.get()) {
+                autofixArgs << '--dry-run'
+            }
+            if (extension.strict.get()) {
+                autofixArgs << '--strict'
+            }
+            autofixArgs.addAll(extension.targets.get())
+            autofixExec.args = autofixArgs
             List<String> annotateArgs = ['--annotation', extension.nullableAnnotation.get()]
             if (extension.nullableDryRun.get()) {
                 annotateArgs << '--dry-run'

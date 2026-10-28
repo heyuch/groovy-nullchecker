@@ -1,5 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
+import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullAnno
 import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullableAnno
 import static io.github.heyuch.groovy.nullchecker.AstSupport.isNullExpr
 
@@ -11,6 +12,10 @@ import org.codehaus.groovy.ast.FieldNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
 import org.codehaus.groovy.ast.expr.BinaryExpression
+import org.codehaus.groovy.ast.expr.Expression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
+import org.codehaus.groovy.ast.expr.StaticMethodCallExpression
+import org.codehaus.groovy.ast.expr.TupleExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.control.CompilationUnit
@@ -35,6 +40,228 @@ class NullableAnnotator {
         int skipped
         List<String> messages = []
 
+    }
+
+    /** One report finding consumed by the report-driven rules. */
+    static class FixFinding {
+
+        String path = ''
+        int line
+        String message = ''
+        String category = ''
+
+    }
+
+    /**
+     * Report-driven mode: only act on the two high-confidence messages. Method returns are
+     * resolved by declaration; parameters are only changed when the target body checks the
+     * parameter for null.
+     */
+    static Result runFromFindings(List<File> files, List<FixFinding> findings, String annotation,
+                                  boolean dryRun, PrintStream out) {
+        Result result = new Result(files: files.size())
+        Map<String, CompilationUnit> units = new LinkedHashMap<>()
+        Map<String, File> byPath = new LinkedHashMap<>()
+        List<MethodRef> methods = []
+        for (File file : files) {
+            CompilationUnit unit = parse(file, out, result)
+            if (unit == null) {
+                continue
+            }
+            units[file.absolutePath] = unit
+            byPath[file.absolutePath] = file
+            for (ClassNode cn : unit.AST.classes) {
+                if (cn.name.endsWith('.package-info')) {
+                    continue
+                }
+                for (MethodNode method : cn.methods) {
+                    methods << new MethodRef(file, cn, method, unit)
+                }
+            }
+        }
+        Map<File, List<Target>> targetsByFile = new LinkedHashMap<>()
+        Set<String> seen = new HashSet<>()
+        for (FixFinding finding : findings) {
+            String message = finding.message.replaceFirst('^\\[Static type checking\\] - ', '')
+            File file = findFile(finding.path, files)
+            if (file == null) {
+                result.skipped++
+                continue
+            }
+            CompilationUnit unit = units[file.absolutePath]
+            if (unit == null) {
+                result.skipped++
+                continue
+            }
+            if (message.startsWith('Cannot return @Nullable value from @NonNull method')) {
+                String name = capture(message, /method '([^']+)'/)
+                if (name == null) {
+                    result.skipped++
+                    continue
+                }
+                MethodNode method = methodAt(unit, finding.line, name)
+                if (method == null) {
+                    result.skipped++
+                    continue
+                }
+                ClassNode owner = classOf(unit, method)
+                if (owner == null || !new PackageScopes(unit, null).isNullMarked(owner) ||
+                        method.returnType == ClassHelper.VOID_TYPE ||
+                        ClassHelper.isPrimitiveType(method.returnType) ||
+                        hasNullableAnno(method) || hasNonNullAnno(method)) {
+                    result.skipped++
+                    continue
+                }
+                String key = "method|${method.lineNumber}|${method.name}"
+                if (seen.add(key)) {
+                    addTarget(targetsByFile, file, new Target(kind: 'method', name: method.name,
+                            line: method.lineNumber,
+                            description: "method '${owner.name}#${method.name}'"))
+                }
+            } else if (message.startsWith('Cannot pass @Nullable value to @NonNull parameter')) {
+                String parameter = capture(message, /parameter '([^']+)'/)
+                String methodName = capture(message, /parameter '[^']+' of '([^']+)'/)
+                if (parameter == null || methodName == null) {
+                    result.skipped++
+                    continue
+                }
+                int arity = argumentCount(unit, finding.line, methodName)
+                List<MethodRef> candidates = methods.findAll { MethodRef ref ->
+                    ref.method.name == methodName && ref.method.parameters.length == arity
+                }
+                if (candidates.size() != 1) {
+                    result.skipped++
+                    continue
+                }
+                MethodRef target = candidates.first()
+                MethodNode method = target.method
+                Parameter param = method.parameters.find { Parameter p -> p.name == parameter }
+                if (param == null || method.code == null || ClassHelper.isPrimitiveType(param.type) ||
+                        hasNullableAnno(param) || hasNonNullAnno(param) ||
+                        !comparedToNull(method.code, param.name) ||
+                        !new PackageScopes(target.unit, null).isNullMarked(target.owner)) {
+                    result.skipped++
+                    continue
+                }
+                String key = "parameter|${param.lineNumber}|${param.name}"
+                if (seen.add(key)) {
+                    addTarget(targetsByFile, target.file, new Target(kind: 'parameter', name: param.name,
+                            line: param.lineNumber,
+                            description: "parameter '${param.name}' of '${target.owner.name}#${method.name}'"))
+                }
+            }
+        }
+        for (Map.Entry<File, List<Target>> entry : targetsByFile.entrySet()) {
+            File file = entry.key
+            String source = file.getText('UTF-8')
+            List<Edit> edits = edits(source, entry.value, annotation, result)
+            if (edits.isEmpty()) {
+                continue
+            }
+            result.added += edits.count { Edit edit -> edit.annotation }
+            for (Edit edit : edits.findAll { Edit e -> e.annotation }) {
+                result.messages.add(("${dryRun ? 'would add' : 'added'} @Nullable to ${edit.description} " +
+                        "(${file.absolutePath}:${edit.line})").toString())
+            }
+            if (!dryRun) {
+                apply(file, source, edits)
+            }
+        }
+        for (String message : result.messages) {
+            out.println message
+        }
+        out.println "autofix: ${dryRun ? 'would add' : 'added'} ${result.added}, " +
+                "skipped ${result.skipped} finding(s)"
+        return result
+    }
+
+    private static void addTarget(Map<File, List<Target>> targets, File file, Target target) {
+        List<Target> entries = targets.get(file)
+        if (entries == null) {
+            entries = new ArrayList<Target>()
+            targets.put(file, entries)
+        }
+        entries.add(target)
+    }
+
+    private static class MethodRef {
+
+        final File file
+        final ClassNode owner
+        final MethodNode method
+        final CompilationUnit unit
+
+        MethodRef(File file, ClassNode owner, MethodNode method, CompilationUnit unit) {
+            this.file = file
+            this.owner = owner
+            this.method = method
+            this.unit = unit
+        }
+
+    }
+
+    private static @Nullable File findFile(String path, List<File> files) {
+        File exact = new File(path)
+        return files.find { File file -> file.absolutePath == exact.absolutePath } ?: files.find { File file ->
+            file.absolutePath.endsWith(File.separator + path)
+        }
+    }
+
+    private static @Nullable String capture(String message, String pattern) {
+        java.util.regex.Matcher matcher = (message =~ pattern)
+        return matcher.find() ? matcher.group(matcher.groupCount()) : null
+    }
+
+    private static @Nullable MethodNode methodAt(CompilationUnit unit, int line, String name) {
+        for (ClassNode cn : unit.AST.classes) {
+            for (MethodNode method : cn.methods) {
+                if (method.name == name && method.lineNumber > 0 && method.lineNumber <= line &&
+                        method.lastLineNumber >= line) {
+                    return method
+                }
+            }
+        }
+        return null
+    }
+
+    private static @Nullable ClassNode classOf(CompilationUnit unit, MethodNode method) {
+        for (ClassNode cn : unit.AST.classes) {
+            if (cn.methods.any { MethodNode candidate -> candidate.is(method) }) {
+                return cn
+            }
+        }
+        return null
+    }
+
+    private static int argumentCount(CompilationUnit unit, int line, String name) {
+        int[] count = [0]
+        CodeVisitorSupport visitor = new CodeVisitorSupport() {
+
+            @Override
+            void visitMethodCallExpression(MethodCallExpression call) {
+                if (call.methodAsString == name && call.lineNumber == line) {
+                    Expression args = call.arguments
+                    count[0] = args instanceof TupleExpression ? ((TupleExpression) args).expressions.size() : 0
+                }
+                super.visitMethodCallExpression(call)
+            }
+
+            @Override
+            void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
+                if (call.method == name && call.lineNumber == line) {
+                    Expression args = call.arguments
+                    count[0] = args instanceof TupleExpression ? ((TupleExpression) args).expressions.size() : 0
+                }
+                super.visitStaticMethodCallExpression(call)
+            }
+
+        }
+        for (ClassNode cn : unit.AST.classes) {
+            for (MethodNode method : cn.methods) {
+                method.code?.visit(visitor)
+            }
+        }
+        return count[0]
     }
 
     static Result run(List<File> files, String annotation, boolean dryRun, PrintStream out) {

@@ -108,10 +108,39 @@ nullcheck {
 | `assertsTrue` | `[]` | 正常返回即证明第 0 个 boolean 实参为 true 的 assertion 方法，`类全名#方法名`；也支持 `@Contract('false -> fail')` |
 | `nullableAnnotation` | `org.jspecify.annotations.Nullable` | `nullcheckAddNullable` 写入的注解 FQCN |
 | `nullableDryRun` | `false` | `nullcheckAddNullable` 只打印计划，不修改源码 |
+| `autofixDryRun` | `false` | `nullcheckAutofix` 只打印 report-driven 计划，不修改源码 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
 | `toolVersion` | `0.10.1` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
 ---
+
+### Report-driven autofix
+
+`nullcheckAutofix` 先运行 checker，再只针对高置信度 finding 提议修改：
+
+- `Cannot return @Nullable value from @NonNull method`
+  → 给方法返回值加 `@Nullable`；
+- `Cannot pass @Nullable value to @NonNull parameter`
+  → 仅当目标方法体显式检查了参数为 null 时，给参数加 `@Nullable`。
+
+```bash
+./gradlew nullcheckAutofix
+```
+
+先 dry-run：
+
+```groovy
+nullcheck {
+    autofixDryRun = true
+    // nullableAnnotation = 'org.jspecify.annotations.Nullable'
+}
+```
+
+与 `nullcheckAddNullable` 的区别：
+
+- `nullcheckAddNullable` 是 AST 推断驱动，不依赖 findings；
+- `nullcheckAutofix` 依赖 checker findings，目标更精确；
+- 两者都不属于 `check`，都需要显式执行。
 
 ### 自动迁移：添加 `@Nullable`
 

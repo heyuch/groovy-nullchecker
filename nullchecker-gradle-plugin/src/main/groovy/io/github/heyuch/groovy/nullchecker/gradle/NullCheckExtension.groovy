@@ -174,6 +174,9 @@ class NullCheckExtension {
     /** When true, nullcheckAddNullable prints changes without writing files. */
     final Property<Boolean> nullableDryRun
 
+    /** When true, report-driven nullcheckAutofix prints changes without writing files. */
+    final Property<Boolean> autofixDryRun
+
     NullCheckExtension(Project project) {
         this.extension = project.objects.property(String)
         this.strict = project.objects.property(Boolean)
@@ -198,6 +201,7 @@ class NullCheckExtension {
         this.assertsTrue = project.objects.listProperty(String)
         this.nullableAnnotation = project.objects.property(String)
         this.nullableDryRun = project.objects.property(Boolean)
+        this.autofixDryRun = project.objects.property(Boolean)
 
         extension.convention(NullCheckPlugin.DEFAULT_EXTENSION)
         strict.convention(false)
@@ -223,5 +227,6 @@ class NullCheckExtension {
         assertsTrue.convention([])
         nullableAnnotation.convention('org.jspecify.annotations.Nullable')
         nullableDryRun.convention(false)
+        autofixDryRun.convention(false)
     }
 }

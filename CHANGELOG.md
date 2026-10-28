@@ -18,6 +18,11 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Report-driven autofix prototype.** The separate `nullcheckAutofix` task consumes checker
+  findings and proposes `@Nullable` on methods returning nullable values and on parameters
+  whose bodies explicitly handle null. It supports `autofixDryRun` and never runs as part of
+  `check`.
+
 - **Assertion-condition narrowing.** Methods declared with `@Contract('false -> fail')` or
   listed in `assertsTrue` / `--asserts-true` establish that their first boolean argument was
   true when they return normally. The existing guard analysis then narrows compound conditions
