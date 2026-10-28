@@ -31,7 +31,7 @@ pluginManagement {
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.9.0'   // ← 版本号必填
+    id 'io.github.heyuch.groovy-nullchecker' version '0.10.0'   // ← 版本号必填
 }
 
 repositories {

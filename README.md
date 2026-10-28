@@ -57,7 +57,7 @@ repositories {
 
 dependencies {
     // Compile time only. It never becomes part of your runtime classpath.
-    compileOnly 'io.github.heyuch:groovy-nullchecker:0.9.0'
+    compileOnly 'io.github.heyuch:groovy-nullchecker:0.10.0'
 }
 ```
 
@@ -70,7 +70,7 @@ classpath and route B or C works with no coordinates and no repository:
 
 ```groovy
 dependencies {
-    compileOnly files('libs/groovy-nullchecker-0.9.0.jar')
+    compileOnly files('libs/groovy-nullchecker-0.10.0.jar')
 }
 ```
 
@@ -84,7 +84,7 @@ Full DSL in [nullchecker-gradle-plugin](nullchecker-gradle-plugin/README.md):
 
 ```groovy
 plugins {
-    id 'io.github.heyuch.groovy-nullchecker' version '0.9.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.10.0'
 }
 ```
 
@@ -758,7 +758,7 @@ your runtime classpath.
 ```groovy
 plugins {
     id 'groovy'
-    id 'io.github.heyuch.groovy-nullchecker' version '0.9.0'
+    id 'io.github.heyuch.groovy-nullchecker' version '0.10.0'
 }
 
 nullcheck {
