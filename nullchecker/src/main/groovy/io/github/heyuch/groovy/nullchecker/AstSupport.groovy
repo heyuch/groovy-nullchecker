@@ -44,6 +44,23 @@ class AstSupport {
     static final Set<String> NONNULL_ANNOS =
             Collections.unmodifiableSet(['NonNull', 'NotNull', 'Nonnull', 'NotEmpty', 'NotBlank'] as Set<String>)
 
+    static final String NONNULL_ANNOTATIONS_PROPERTY = 'groovy.nullchecker.nonnullannotations'
+
+    /** Built-ins plus project-declared annotation names (FQCN or simple name). */
+    static Set<String> nonNullAnnotations() {
+        Set<String> names = new HashSet<String>(NONNULL_ANNOS)
+        String extra = System.getProperty(NONNULL_ANNOTATIONS_PROPERTY)
+        if (extra) {
+            for (String part : extra.split(',')) {
+                String value = part.trim()
+                if (value) {
+                    names.add(value.substring(value.lastIndexOf('.') + 1))
+                }
+            }
+        }
+        return names
+    }
+
     static final Set<String> MONOTONIC_ANNOS =
             Collections.unmodifiableSet(['MonotonicNonNull', 'Lazy'] as Set<String>)
 
@@ -98,7 +115,7 @@ class AstSupport {
         if (node.getNodeMetaData('INFERRED_NON_NULL' /* PORT: marker absent in Groovy 4 */) == Boolean.TRUE) {
             return true
         }
-        return hasAnno(node, NONNULL_ANNOS)
+        return hasAnno(node, nonNullAnnotations())
     }
 
     @PackageScope

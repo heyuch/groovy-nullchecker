@@ -42,6 +42,8 @@ class NullCheckCli {
   --guard-when-false <c#m>  ... when it returns false (e.g. isNullOrEmpty); repeatable
   --never-returns <c#m>     method never returns normally (e.g. Panic#notExpectedResult);
                             repeatable, and makes the statements after a call unreachable
+  --nonnull-annotation <fqcn>
+                        also treat this annotation as @NonNull; repeatable
   --no-container-lookups    do not treat Map.get/find/max and friends as nullable; those
                             results are nullable because the lookup can miss
   --contract <c#m=spec>     declare a contract, e.g. "java.util.Map#get=-> !null";
@@ -96,6 +98,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
         List<String> neverReturns = new ArrayList<String>()
         boolean containerLookups = true
         List<String> contracts = new ArrayList<String>()
+        List<String> nonNullAnnotations = new ArrayList<String>()
         List<String> checks = [NullChecker.CHECK_NULL, NullChecker.CHECK_INITIALIZATION]
         List<String> paths = []
 
@@ -177,6 +180,13 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     }
                     neverReturns << neverReturn
                     break
+                case '--nonnull-annotation':
+                    String nonNullAnnotation = value(argv, ++i, arg, err)
+                    if (nonNullAnnotation == null) {
+                        return 2
+                    }
+                    nonNullAnnotations << nonNullAnnotation
+                    break
                 case '--no-container-lookups':
                     containerLookups = false
                     break
@@ -211,11 +221,14 @@ but does not fail the run by default, because it is not a nullness claim.'''
         }
 
         applyGuards(guardsTrue, guardsFalse)
-        System.setProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
-        System.setProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
-        System.setProperty('groovy.nullchecker.contracts', contracts.join(';'))
-        System.setProperty('groovy.nullchecker.checks', checks.join(','))
-        System.setProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
+        System.properties.with {
+            setProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
+            setProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
+            setProperty('groovy.nullchecker.contracts', contracts.join(';'))
+            setProperty('groovy.nullchecker.checks', checks.join(','))
+            setProperty('groovy.nullchecker.nonnullannotations', nonNullAnnotations.join(','))
+            setProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
+        }
 
         List<File> files = []
         List<String> missing = []

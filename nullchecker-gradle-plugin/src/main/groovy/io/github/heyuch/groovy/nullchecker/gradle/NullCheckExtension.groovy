@@ -3,6 +3,7 @@ package io.github.heyuch.groovy.nullchecker.gradle
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
 /**
@@ -161,6 +162,9 @@ class NullCheckExtension {
     /** Also write the full report to the task's stderr. */
     final Property<Boolean> reportToStderr
 
+    /** Extra @NonNull annotation classes, by FQCN or simple name. */
+    final ListProperty<String> nonNullAnnotations
+
     /** FQCN used by the opt-in nullcheckAddNullable source migration. */
     final Property<String> nullableAnnotation
 
@@ -187,6 +191,7 @@ class NullCheckExtension {
         this.markedOnly = project.objects.property(Boolean)
         this.reportToStdout = project.objects.property(Boolean)
         this.reportToStderr = project.objects.property(Boolean)
+        this.nonNullAnnotations = project.objects.listProperty(String)
         this.nullableAnnotation = project.objects.property(String)
         this.nullableDryRun = project.objects.property(Boolean)
 
@@ -210,6 +215,7 @@ class NullCheckExtension {
         markedOnly.convention(false)
         reportToStdout.convention(false)
         reportToStderr.convention(false)
+        nonNullAnnotations.convention([])
         nullableAnnotation.convention('org.jspecify.annotations.Nullable')
         nullableDryRun.convention(false)
     }

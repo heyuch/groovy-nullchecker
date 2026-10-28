@@ -5,6 +5,12 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Configurable @NonNull annotation names.** Built-ins already cover `NonNull`, `NotNull`,
+  `Nonnull`, `NotEmpty` and `NotBlank`, including type-use annotations. Projects can add
+  package-specific names through `nonNullAnnotations` / `--nonnull-annotation`.
+
 ### Fixed
 
 - **Explicit `@Nonnull` locals own their contract.** A nullable value assigned to a `@Nonnull`

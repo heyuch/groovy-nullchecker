@@ -289,6 +289,7 @@ System.setProperty('groovy.nullchecker.findingsFile', '${escape(findingsFile.abs
 System.setProperty('groovy.nullchecker.strict', '${extension.strict.get()}')
 System.setProperty('groovy.nullchecker.markedonly', '${extension.markedOnly.get()}')
 System.setProperty('groovy.nullchecker.checks', '${escape(checks.join(','))}')
+System.setProperty('groovy.nullchecker.nonnullannotations', '${escape(extension.nonNullAnnotations.get().join(','))}')
 System.setProperty('groovy.nullchecker.containerlookups', '${extension.containerLookups.get()}')
 System.setProperty('groovy.nullchecker.guards.true', '${escape(extension.guardNotNullWhenTrue.get().join(','))}')
 System.setProperty('groovy.nullchecker.guards.false', '${escape(extension.guardNotNullWhenFalse.get().join(','))}')
@@ -352,6 +353,9 @@ configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extens
         }
         if (extension.markedOnly.get()) {
             args << '--marked-only'
+        }
+        for (String annotation : extension.nonNullAnnotations.get()) {
+            args << '--nonnull-annotation' << annotation
         }
         if (extension.reportToStdout.get()) {
             args << '--report-stdout'

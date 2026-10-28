@@ -104,6 +104,7 @@ nullcheck {
 | `reportFile` | `build/reports/nullcheck/nullcheck.txt` | 完整报告落盘位置 |
 | `reportToStdout` | `false` | 同时把同一份完整报告写到任务 stdout |
 | `reportToStderr` | `false` | 同时把同一份完整报告写到任务 stderr |
+| `nonNullAnnotations` | `[]` | 额外当作 `@NonNull` 的注解，FQCN 或 simple name；内置已支持 NonNull / NotNull / Nonnull / NotEmpty / NotBlank（含 type-use） |
 | `nullableAnnotation` | `org.jspecify.annotations.Nullable` | `nullcheckAddNullable` 写入的注解 FQCN |
 | `nullableDryRun` | `false` | `nullcheckAddNullable` 只打印计划，不修改源码 |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
