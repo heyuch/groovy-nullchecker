@@ -3,7 +3,14 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.11.0] - 2026-10-28
+
+### Added
+
+- **Report-driven autofix prototype.** The separate `nullcheckAutofix` task consumes checker
+  findings and proposes `@Nullable` on methods returning nullable values and on parameters
+  whose bodies explicitly handle null. It supports `autofixDryRun` and never runs as part of
+  `check`.
 
 ### Fixed
 
@@ -26,11 +33,6 @@ versions follow [Semantic Versioning](https://semver.org/).
 ## [0.10.0] - 2026-10-28
 
 ### Added
-
-- **Report-driven autofix prototype.** The separate `nullcheckAutofix` task consumes checker
-  findings and proposes `@Nullable` on methods returning nullable values and on parameters
-  whose bodies explicitly handle null. It supports `autofixDryRun` and never runs as part of
-  `check`.
 
 - **Assertion-condition narrowing.** Methods declared with `@Contract('false -> fail')` or
   listed in `assertsTrue` / `--asserts-true` establish that their first boolean argument was
