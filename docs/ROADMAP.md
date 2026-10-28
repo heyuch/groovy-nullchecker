@@ -260,6 +260,16 @@ Status: future; design not settled.
 - Open questions: script vs compiled provider, source-edit safety, idempotency, edit ordering,
   and the public API surface.
 
+### N4. Repeated lookup guard
+
+Status: future, low priority.
+
+- `map.get(k) != null && map.get(k).isBlank()` currently reports on the second lookup.
+- Add the same lookup fact that `containsKey(k)` uses when a nullable lookup call is compared
+  with null, so the repeated call with the same receiver/key is narrowed.
+- Keep different keys reporting.
+- Corpus: same-key silent, different-key reported.
+
 ## Tracking
 
 - Work top to bottom; do not start a later phase while an earlier acceptance criterion is open.
