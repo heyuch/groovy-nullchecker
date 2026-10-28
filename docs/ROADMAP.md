@@ -249,6 +249,17 @@ Status: done (0.9.0).
 - Dry-run support and source-position edits for single-line declarations; complex declarations
   are skipped rather than reformatted.
 
+### N3. Autofix provider framework
+
+Status: future; design not settled.
+
+- A controlled `FixProvider` SPI: built-in high-confidence fixes and user providers share the
+  same proposal/apply path.
+- Match declarations/call sites/findings; emit text edits or structured assertion insertion.
+- Dry-run and diff by default; no automatic mutation as part of `check`.
+- Open questions: script vs compiled provider, source-edit safety, idempotency, edit ordering,
+  and the public API surface.
+
 ## Tracking
 
 - Work top to bottom; do not start a later phase while an earlier acceptance criterion is open.
