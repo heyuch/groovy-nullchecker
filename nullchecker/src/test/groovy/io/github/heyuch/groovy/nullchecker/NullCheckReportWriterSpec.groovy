@@ -19,7 +19,7 @@ class NullCheckReportWriterSpec extends Specification {
                 coverage: 'files=2 classes=1',
                 failOn: ['null', 'initialization'],
                 findings: [
-                        NullCheckReportWriter.findingLine('A.groovy', 7, 'null',
+                        NullCheckReportWriter.finding('dir/A.groovy', 7, 'null',
                                 "Potential null dereference: 'value'"),
                 ],
                 raw: 'raw compiler output')
@@ -32,7 +32,8 @@ class NullCheckReportWriterSpec extends Specification {
         text.contains('findings=1\n')
         text.contains('coverage=files=2 classes=1\n')
         text.contains('fail-on=null,initialization\n\n')
-        text.contains('A.groovy:7: [null] Potential null dereference: \'value\'\n')
+        text.contains('File: dir/A.groovy\n')
+        text.contains('    Loc=.(A.groovy:7) [null] Potential null dereference: \'value\'\n')
         text.endsWith('raw compiler output\n')
     }
 

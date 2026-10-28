@@ -3,13 +3,20 @@ package io.github.heyuch.groovy.nullchecker
 import groovy.transform.CompileStatic
 
 /**
- * One rendered report: stable metadata plus already-formatted finding lines.
- *
- * <p>Both the standalone CLI and the compile-mode findings CLI build this object, so a file,
- * stdout and stderr can carry exactly the same text.
+ * One report: metadata plus structured findings. Keeping findings structured lets the writer
+ * group them by file and emit the IDE-compatible {@code Loc=.(name:line)} form.
  */
 @CompileStatic
 class NullCheckReport {
+
+    static class Finding {
+
+        String path = ''
+        int line
+        String category = ''
+        String message = ''
+
+    }
 
     String groovyVersion = ''
 
@@ -23,7 +30,7 @@ class NullCheckReport {
 
     List<String> failOn = []
 
-    List<String> findings = []
+    List<Finding> findings = []
 
     String raw = ''
 

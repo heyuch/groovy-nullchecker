@@ -208,7 +208,8 @@ nullcheck {
 
 ```
 canary     = ok (2 findings on the built-in sample, including its @CompileStatic class)
-FINDING src/main/groovy/demo/Violation.groovy:16: [Static type checking] - Potential null dereference: 'value' is @Nullable
+File: src/main/groovy/demo/Violation.groovy
+    Loc=.(Violation.groovy:16) [null] Potential null dereference: 'value' is @Nullable
 findings   = 1
 coverage   = files=2 classes=2 compileStatic=2 nonNullByDefault=0 methodsWithReturnType=2
 nullcheck: findings reported (exit 1)

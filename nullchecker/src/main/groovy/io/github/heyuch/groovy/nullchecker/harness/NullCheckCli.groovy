@@ -334,7 +334,12 @@ but does not fail the run by default, because it is not a nullness claim.'''
             return 2
         }
 
-        result.findings.each { NullCheckHarness.Finding f -> out.println "FINDING ${f}" }
+        List<NullCheckReport.Finding> reportFindings = result.findings.collect { NullCheckHarness.Finding f ->
+            NullCheckReportWriter.finding(f.path, f.line, f.category.label, f.message)
+        }
+        if (!reportFindings.isEmpty()) {
+            out.print(NullCheckReportWriter.renderFindings(reportFindings))
+        }
         List<NullCheckHarness.Finding> failing = NullCheckHarness.findingsIn(result.findings, failOn)
         if (!quiet) {
             Map<String, Integer> counts = NullCheckHarness.categoryCounts(result.findings)
@@ -354,9 +359,6 @@ but does not fail the run by default, because it is not a nullness claim.'''
         }
 
         if (report || reportStdout || reportStderr) {
-            List<String> findingLines = result.findings.collect { NullCheckHarness.Finding f ->
-                NullCheckReportWriter.findingLine(f.path, f.line, f.category.label, f.message)
-            }
             NullCheckReport reportData = new NullCheckReport(
                     groovyVersion: GroovySystem.version,
                     extension: extension,
@@ -364,7 +366,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
                     files: files.size(),
                     coverage: result.coverage.toString(),
                     failOn: failOn,
-                    findings: findingLines,
+                    findings: reportFindings,
                     raw: result.raw)
             if (report) {
                 File target = new File(report)

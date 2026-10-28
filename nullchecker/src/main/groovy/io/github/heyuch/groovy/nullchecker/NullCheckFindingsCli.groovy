@@ -73,20 +73,20 @@ class NullCheckFindingsCli {
             }
         }
 
-        for (NullCheckFinding finding : findings) {
-            println "${finding.file}:${finding.line}: [${finding.category}] ${finding.message}"
+        List<NullCheckReport.Finding> reportFindings = findings.collect { NullCheckFinding finding ->
+            NullCheckReportWriter.finding(finding.file, finding.line,
+                    finding.category, finding.message)
+        }
+        if (!reportFindings.isEmpty()) {
+            print(NullCheckReportWriter.renderFindings(reportFindings))
         }
         println "nullcheck: findings=${findings.size()}"
 
         if (reportPath != null || reportStdout || reportStderr) {
-            List<String> findingLines = findings.collect { NullCheckFinding finding ->
-                NullCheckReportWriter.findingLine(finding.file, finding.line,
-                        finding.category, finding.message)
-            }
             NullCheckReport report = new NullCheckReport(
                     coverage: "classes=${visited.size()}",
                     failOn: failOn,
-                    findings: findingLines)
+                    findings: reportFindings)
             if (reportPath != null) {
                 NullCheckReportWriter.write(new File(reportPath).toPath(), report)
             }

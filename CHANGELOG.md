@@ -7,6 +7,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **IDE-friendly finding locations.** Reports group findings under `File:` and use CodeNarc's
+  `Loc=.(FileName:line)` format, so IntelliJ can resolve them as source hyperlinks. The CLI's
+  normal output and file/stdout/stderr reports share the same formatter.
+
 - **Dogfood moved to `0.10.0`.** Central serves the release, so the self-check plugin and
   `nullcheck.toolVersion` are bumped from `0.9.0`.
 
