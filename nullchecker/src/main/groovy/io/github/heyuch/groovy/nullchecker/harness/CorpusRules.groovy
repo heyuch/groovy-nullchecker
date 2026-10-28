@@ -74,6 +74,7 @@ class CorpusRules {
             N24: 'first/head throw on empty and any is boolean, so none is nullable',
             N25: 'switch fall-through reaches the next case before the break',
             N26: 'false->fail assertion contracts narrow the condition after return',
+            N27: 'a property-path != null guard narrows the rhs of &&',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

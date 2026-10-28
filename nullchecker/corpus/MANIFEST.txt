@@ -255,6 +255,12 @@ strict=any
 expect=none
 note=a guarded Boolean wrapper is truth-tested, not unboxed
 
+negative/guarded_field_path.groovy
+rule=N27
+strict=any
+expect=none
+note=a data.dslCode != null guard applies to the right side of &&
+
 negative/assertion_contract.groovy
 rule=N26
 strict=any

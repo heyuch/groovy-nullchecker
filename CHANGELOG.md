@@ -3,6 +3,15 @@
 Notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Property-path guards apply to the right of `&&`/`||`.** A condition such as
+  `data.dslCode != null && data.dslCode.length() > 50` no longer reports the second access as
+  nullable. The right operand now inherits the left operand's path, non-empty and lookup facts.
+
+
 ## [0.10.1] - 2026-10-28
 
 ### Changed

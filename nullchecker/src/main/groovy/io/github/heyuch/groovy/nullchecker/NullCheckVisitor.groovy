@@ -941,8 +941,12 @@ class NullCheckVisitor extends CheckingVisitor {
             GuardFacts left = analyzeCondition(condition.leftExpression, visiting)
             GuardFacts right = visiting
                 ? withGuards(left.whenTrue) {
-                    withLookupGuards(left.lookupsTrue) {
-                        analyzeCondition(condition.rightExpression, true)
+                    withNonEmptyGuards(left.nonEmptyTrue) {
+                        withPathGuards(left.pathsTrue) {
+                            withLookupGuards(left.lookupsTrue) {
+                                analyzeCondition(condition.rightExpression, true)
+                            }
+                        }
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
@@ -959,8 +963,12 @@ class NullCheckVisitor extends CheckingVisitor {
             GuardFacts left = analyzeCondition(condition.leftExpression, visiting)
             GuardFacts right = visiting
                 ? withGuards(left.whenFalse) {
-                    withLookupGuards(left.lookupsFalse) {
-                        analyzeCondition(condition.rightExpression, true)
+                    withNonEmptyGuards(left.nonEmptyFalse) {
+                        withPathGuards(left.pathsFalse) {
+                            withLookupGuards(left.lookupsFalse) {
+                                analyzeCondition(condition.rightExpression, true)
+                            }
+                        }
                     }
                 }
                 : analyzeCondition(condition.rightExpression, false)
