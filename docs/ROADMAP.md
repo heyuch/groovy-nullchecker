@@ -95,6 +95,7 @@ Status: done.
 - The `Potential null dereference` prefix and the `null` category are unchanged.
 - `docs/PERF.md` records a baseline for \`compileGroovy\` and the checker test suite.
 - Unreachable CFG nodes are never visited by the worklist, so they produce no findings.
+- Analysis-budget exhaustion is **not** diagnosed yet; H0-2 owns that follow-up.
 
 #### F5. Finite access paths
 
@@ -217,6 +218,136 @@ Status: done.
 
 - README/README.zh-CN, CHANGELOG, PORT and NULLNESS-FLOW reflect the released behavior.
 - Historical CHANGELOG/BACKLOG versions remain untouched.
+
+## 6. Hardening after `0.11.0`
+
+Source: [REVIEW-ACTIONS.md](REVIEW-ACTIONS.md). This section schedules only items with a
+concrete action and acceptance criterion. Hypotheses that still need proof, and large redesigns
+that would compete with the flow work, stay in the deferred group.
+
+Work top to bottom. Each item must keep `check`, CodeNarc, Spotless, SpotBugs and the plugin
+functional suite green, and must record its own acceptance evidence.
+
+### 6.1 H0: correctness and trust
+
+These are the next priority. Do not start H1/H2 while an H0 acceptance criterion is open.
+
+#### H0-1. Stale sink protection (`P0-1`)
+
+- Status: open, next.
+- Replace the unreachable `sink instanceof FileFindingsSink` check with a comparison of the
+  cached sink's file against the current findings file; install a new sink when they differ.
+- Define the sink lifecycle explicitly and clear the thread-local at compilation end.
+- Test two findings files on one thread and assert the second file receives the second run;
+  assert the thread-local is empty after compilation.
+
+#### H0-2. Analysis-budget diagnostics (`P0-2`)
+
+- Status: open, next.
+- Record when the worklist or loop fixed point hits its cap and surface it as an internal
+  diagnostic, not a clean result.
+- Put the budget constants in one place and include method/node context in the diagnostic.
+- Add a synthetic over-budget method; assert a diagnostic and no silent pass.
+
+#### H0-3. Fail-closed unknown checks (`P0-3`)
+
+- Status: open, next.
+- Unknown `groovy.nullchecker.checks` values must not disable every family.
+- Make the bare-checker path reject or report the invalid value; keep `all`, empty and
+  comma-separated known values unchanged.
+- Add a direct `NullChecker` test, not only a CLI/plugin validation test.
+
+#### H0-4. Structured finding categories (`P0-4`)
+
+- Status: open, next.
+- Carry the category from the finding creation site; keep `NullCheckCategories.classify` only
+  as a fallback for compiler messages that cannot be structured.
+- Freeze the current message/category table in a test; every new message must be registered.
+- Acceptance also covers `P3-4`'s full category table.
+
+### 6.2 H1: lifecycle and architecture
+
+Start after H0 is green.
+
+#### H1-1. Bind `AstSupport` caches to a compilation (`P1-3`)
+
+- Status: open.
+- Clear or weakly reference the annotation caches at compilation/session end; evaluate the
+  same lifecycle for `SESSIONS`, `PORT_OPTIONS` and `lastCoverage`.
+- Add a repeated-compilation test that asserts cache sizes do not grow across runs.
+
+#### H1-2. Remove test scaffolding from the published jar (`P1-5`)
+
+- Status: open.
+- Move `CorpusGate` / `CorpusRules` to test scope or a dedicated harness module; keep
+  `tools/dual-run.groovy` working.
+- Acceptance: the checker jar no longer contains those classes; corpus and `dualRun` still run.
+
+#### H1-3. Merge the finding DTOs (`P1-6`)
+
+- Status: open.
+- Define one core finding shape; make the harness and report DTOs adapters/views.
+- Keep `toTsv` / `fromTsv` / rendering responsibilities separate.
+- Acceptance: one field definition source; existing classification and serialization tests pass.
+
+#### H1-4. Per-compilation configuration (`P1-4`)
+
+- Status: open after H1-1/H1-3.
+- Replace direct global-property reads below the boundary with one configuration object passed
+  to the session/visitor/registry; system properties remain the transport layer.
+- Add an alternating-configuration test (strict/contracts/checks) and prove results do not leak.
+
+### 6.3 H2: robustness and consistency
+
+These are suitable for incremental, module-local work.
+
+- **H2-1 (`P2-1`)**: report `PackageScopes` package-info failures as diagnostics instead of
+  silently falling back to "no default"; test a forced read failure.
+- **H2-2 (`P2-2`)**: do not swallow `VirtualMachineError` in `NullCheckReporter.guard`; rethrow
+  fatal VM errors, keep ordinary recoverable failures visible.
+- **H2-3 (`P2-3`)**: delete the Groovy-4-unreachable
+  `INFERRED_NON_NULL_RETURN_VIOLATIONS` branch or guard it behind an explicit version check.
+- **H2-4 (`P2-4`)**: split `NullCheckFindingsCli.main` into `run(args, out, err)` and `main`;
+  test exit codes, `--help` and unknown arguments.
+- **H2-5 (`P2-5`)**: make findings/coverage writers safe across sink instances sharing a file;
+  use a per-path lock or per-compilation writer.
+- **H2-6 (`P2-8`)**: keep the nullable annotator conservative; add diff output, explicit skip
+  counts, idempotency and multi-line/Tab/CRLF tests.
+- **H2-7 (`P2-9`)**: remove the duplicate `@Override`, duplicate import, stale Javadoc, duplicate
+  non-null-assignment path, and unused rules; update the plugin functional version constant.
+- **H2-8 (`P2-10`)**: audit all `expect=some` corpus positives; use exact counts unless the
+  mismatch is genuinely version/type-inference dependent, and document why.
+- **H2-9 (`P2-11`)**: fix the duplicate `PORT.md` headings, ROADMAP status contradictions,
+  `allprojects`/`subprojects` comments, and stale symbol/line references.
+- **H2-10 (`P3-6`)**: special-case `return`/`break`/`continue` through `finally` in the CFG, or
+  record a permanent limitation with fixtures.
+
+### 6.4 H3: cleanup, CLI and performance
+
+- **H3-1 (`P3-1`)**: move task state to serializable `Property`/`ConfigurableFileCollection`
+  and enable configuration-cache verification incrementally.
+- **H3-2 (`P3-2`/`P3-3`)**: align CLI option validation, missing values, unknown options and
+  values beginning with `-`.
+- **H3-3 (`P3-4`)**: expand `NullCheckCategoriesSpec` into the full message table; new messages
+  must fail until registered. This is shared with H0-4.
+- **H3-4 (`P3-5`)**: refresh the `docs/PERF.md` baseline and add micro-benchmarks for
+  `FlowState.join` and capture/restore.
+- **H3-5 (`P3-7`)**: autofix provider SPI; keep it behind N3 and do not freeze an API before
+  the H0/H1 work is stable.
+
+### 6.5 Deferred and decision-only
+
+Not in the executable queue:
+
+- **`P1-1` visitor split**: a valid architecture debt, but an epic. Run it only after H0/H1 and
+  with a behavior-preserving test plan; do not mix it with feature work.
+- **`P1-2` dead strict-mode branches**: the claim that `visitIfElse`/loop branches are
+  unreachable still needs instrumentation/proof. Do not delete them yet; add a counter/assertion
+  first and record the result.
+- **`P2-6` annotation-mode branch precision**: decide whether to add `FlowState` joins or
+  document the limitation; implementation waits for that decision.
+- **`P2-7` definite-null projection**: a precision improvement, not a correctness blocker;
+  revisit after H0/H1.
 
 ## Future work
 
