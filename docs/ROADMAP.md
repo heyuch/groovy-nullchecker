@@ -401,6 +401,78 @@ Status: future, low priority.
 - Keep different keys reporting.
 - Corpus: same-key silent, different-key reported.
 
+## Long-term goal G1: broader Groovy version support
+
+Status: deliberately deferred, low priority.
+
+nullchecker currently targets Groovy 4.0.x and has grown beyond the upstream Groovy null
+checker in both coverage and features. That makes broader Groovy support valuable for users
+who cannot move to Groovy 4 yet. This is a product-expansion goal, not part of the current
+correctness/flow work.
+
+### Why now is not the time
+
+- finish the H0/H1 reliability work and the remaining flow/plugin capabilities first;
+- keep the checker behavior stable before multiplying the test/build matrix;
+- avoid freezing a compatibility abstraction based on a moving implementation.
+
+Do not start compatibility work in a feature branch. Treat it as a separate program after the
+current feature line is stable.
+
+### Target
+
+Gradually support the mainstream Groovy compiler majors, with Groovy 4 remaining the primary
+target until the other variants have equivalent corpus and functional coverage. The exact
+version window (for example 3.x/4.x/5.x/6.x) must be confirmed by an investigation, not assumed
+from release numbers.
+
+### Work required
+
+1. **Compatibility inventory**
+   - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
+     `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);
+   - record which APIs differ by Groovy major, with a source reference and a test.
+
+2. **Version boundary**
+   - decide whether each supported major gets a separate checker artifact (for example a
+     Groovy-major-specific classifier/coordinate) or whether a shared artifact can isolate
+     differences safely;
+   - keep the Gradle plugin's `toolVersion` resolution explicit; never silently load a checker
+     built for another Groovy major;
+   - document the Java baseline for each supported Groovy line.
+
+3. **Shared implementation, minimal forks**
+   - put version-specific code behind a small compatibility layer, not duplicated visitors or
+     contract parsers;
+   - keep the corpus, report format, CLI options and annotation semantics identical across
+     versions;
+   - reject a version with an explicit diagnostic when its compiler API cannot be supported,
+     rather than degrading silently.
+
+4. **CI and release matrix**
+   - run the full positive/negative corpus, strict and annotation modes, CLI tests and plugin
+     functional tests against every supported major;
+   - keep one canonical Groovy 4 lane for the main release gate;
+   - record per-version performance and known limitations in `docs/PERF.md` and README;
+   - make the release process attach/version each artifact without ambiguity.
+
+### Acceptance
+
+The goal is complete only when:
+
+- every advertised Groovy major passes the same corpus and plugin gates;
+- unsupported majors fail with a clear diagnostic;
+- the main Groovy 4 path has no behavioral or performance regression;
+- README/PUBLISHING document the compatibility matrix and artifact coordinates;
+- there is no duplicated core rule implementation kept only for one version.
+
+### Non-goals
+
+- supporting every Groovy patch release individually;
+- promising binary compatibility of the checker jar across compiler majors;
+- weakening nullness semantics or corpus expectations to make an older compiler pass;
+- starting this before H0/H1 and the remaining flow/plugin items are stable.
+
 ## Tracking
 
 - Work top to bottom; do not start a later phase while an earlier acceptance criterion is open.
