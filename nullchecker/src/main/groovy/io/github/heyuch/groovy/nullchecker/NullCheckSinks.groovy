@@ -16,19 +16,43 @@ class NullCheckSinks {
 
     private static final ThreadLocal<NullCheckSink> CURRENT = new ThreadLocal<NullCheckSink>()
 
+    /** Whether CURRENT was installed explicitly rather than derived from the findings property. */
+    private static final ThreadLocal<Boolean> EXPLICIT = new ThreadLocal<Boolean>()
+
     private static final String FINDINGS_PROPERTY = 'groovy.nullchecker.findingsFile'
 
     static void install(NullCheckSink sink) {
         CURRENT.set(sink)
+        EXPLICIT.set(Boolean.TRUE)
     }
 
     static void clear() {
         CURRENT.remove()
+        EXPLICIT.remove()
+    }
+
+    /**
+     * Drops only the property-created file sink. A sink installed explicitly by a caller owns
+     * its own lifecycle and must survive compilation setup.
+     */
+    static void clearFileSink() {
+        if (Boolean.TRUE.equals(EXPLICIT.get())) {
+            return
+        }
+        CURRENT.remove()
+        EXPLICIT.remove()
+    }
+
+    /** Test/diagnostic view: only the property-created file sink is lifecycle-managed here. */
+    static boolean hasFileSink() {
+        return CURRENT.get() instanceof FileFindingsSink
     }
 
     static @Nullable NullCheckSink currentSink() {
         NullCheckSink sink = CURRENT.get()
-        if (sink != null) {
+        // A sink installed explicitly by a caller owns its own lifecycle; the property must not
+        // override it, including an explicitly installed file sink.
+        if (sink != null && Boolean.TRUE.equals(EXPLICIT.get())) {
             return sink
         }
         // The Gradle integration sets this property in the compiler worker. Reading it here,
@@ -48,6 +72,7 @@ class NullCheckSinks {
         // sink must not keep writing to the previous one.
         NullCheckSink fileSink = new FileFindingsSink(target)
         CURRENT.set(fileSink)
+        EXPLICIT.set(Boolean.FALSE)
         return fileSink
     }
 

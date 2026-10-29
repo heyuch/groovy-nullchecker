@@ -21,7 +21,7 @@
 
 ### P0-1 修复 `NullCheckSinks` 的陈旧 sink 保护
 
-- Status: open
+- Status: done
 - 类型: bug
 - 证据: `nullchecker/src/main/groovy/io/github/heyuch/groovy/nullchecker/NullCheckSinks.groovy:29-51`
 - 问题: `currentSink()` 在第 30 行发现 `CURRENT` 非空就直接返回，第 43 行的 `sink instanceof FileFindingsSink` 检查因此永远不会执行。注释声称要防止 "worker 被另一个 task 复用、findings 文件不同" 时写错文件，但保护实际失效；同一线程/classloader 下第二个 task 仍会写第一个 task 的 findings 文件。`NullCheckSinks.clear()` 在生产路径中也没有调用点。
@@ -32,7 +32,7 @@
 - 验收:
   - 构造同一线程连续使用两个 findings 文件的测试，断言第二次写入的是第二个文件。
   - 断言 compilation 结束后 `CURRENT` 为空。
-- 测试建议: 在 `NullCheckSinkSpec` 增加 worker 复用场景；compile mode 的功能测试增加两个模块共用一个 worker 的用例（若 TestKit 可稳定复现）。
+- 测试建议: `NullCheckSinkSpec` 已覆盖两个 findings 文件、显式 sink 优先级和 compilation 结束清理；compile mode 的双 task 复现仍建议在 TestKit 稳定后补。
 
 ### P0-2 流分析预算耗尽不能静默
 

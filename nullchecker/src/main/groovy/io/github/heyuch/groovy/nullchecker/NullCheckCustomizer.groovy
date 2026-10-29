@@ -116,9 +116,26 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
      */
     @Override
     void setCompilationUnit(CompilationUnit unit) {
+        if (this.unit == unit) {
+            return
+        }
         this.unit = unit
+        // A worker can compile several tasks. Clear at the start so a cached file sink from a
+        // previous task cannot receive this task's findings, and register a final clear so the
+        // thread-local does not retain the sink after compilation.
+        NullCheckSinks.clearFileSink()
+        unit.addPhaseOperation(new ClearSinkOperation(), CompilePhase.OUTPUT.phaseNumber)
         inner.setCompilationUnit(unit)
         staticInner.setCompilationUnit(unit)
+    }
+
+    private static class ClearSinkOperation implements CompilationUnit.ISourceUnitOperation {
+
+        @Override
+        void call(SourceUnit source) {
+            NullCheckSinks.clearFileSink()
+        }
+
     }
 
     @Override

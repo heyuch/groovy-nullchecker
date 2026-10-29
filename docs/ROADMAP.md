@@ -234,12 +234,13 @@ These are the next priority. Do not start H1/H2 while an H0 acceptance criterion
 
 #### H0-1. Stale sink protection (`P0-1`)
 
-- Status: open, next.
-- Replace the unreachable `sink instanceof FileFindingsSink` check with a comparison of the
-  cached sink's file against the current findings file; install a new sink when they differ.
-- Define the sink lifecycle explicitly and clear the thread-local at compilation end.
-- Test two findings files on one thread and assert the second file receives the second run;
-  assert the thread-local is empty after compilation.
+- Status: done.
+- The cached file sink is compared with the current `groovy.nullchecker.findingsFile`; a new
+  sink is installed when they differ. Explicitly installed sinks keep their own lifecycle.
+- `NullCheckCustomizer` clears the property-created sink at compilation start and registers an
+  output-phase cleanup.
+- `NullCheckSinkSpec` covers worker reuse, explicit-sink precedence, two findings files, and
+  post-compilation cleanup.
 
 #### H0-2. Analysis-budget diagnostics (`P0-2`)
 

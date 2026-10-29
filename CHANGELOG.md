@@ -5,6 +5,13 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Compile-mode sink reuse fixed.** A worker that compiles two tasks no longer leaves the
+  first task's `FileFindingsSink` installed; the sink is recreated for a different findings
+  file and the property-created sink is cleared at compilation start and end. Explicitly
+  installed sinks keep their own lifecycle.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
