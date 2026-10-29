@@ -134,6 +134,15 @@ class NullCheckVisitor extends CheckingVisitor {
         ControlFlowGraph graph = ControlFlowGraph.build(method.code)
         FlowAnalysis analysis = new FlowAnalysis(graph, new NullnessFlowTransfer(this), captureState())
         analysis.run()
+        if (analysis.isBudgetExceeded()) {
+            reportBudgetExceeded('flow worklist', FlowAnalysis.DEFAULT_MAX_STEPS)
+        }
+    }
+
+    private void reportBudgetExceeded(String stage, int limit) {
+        String owner = method.declaringClass?.name ?: '<unknown>'
+        reporter.diagnostic("${stage} budget exhausted in ${owner}#${method.name} " +
+                "after ${limit} step(s); the method result is incomplete")
     }
 
     private final Set<Variable> monotonicInitialized = new HashSet<>()
@@ -324,6 +333,9 @@ class NullCheckVisitor extends CheckingVisitor {
     /** What the closure body currently being visited receives; innermost last. */
     private final List<ClosureHint> closureContexts = new ArrayList<>()
 
+    /** Upper bound for loop fixed-point iterations; exceeding it must not look clean. */
+    private static final int MAX_LOOP_ITERATIONS = 8
+
     /** Non-zero while visiting a closure body; a return there is not the method's return. */
     private int closureDepth
 
@@ -367,17 +379,22 @@ class NullCheckVisitor extends CheckingVisitor {
             FlowState header = before.copy()
             FlowState previous = null
             int iterations = 0
-            while (iterations < 8) {
+            boolean converged = false
+            while (iterations < MAX_LOOP_ITERATIONS) {
                 restoreState(header)
                 statement.loopBlock.visit(this)
                 FlowState body = captureState()
                 FlowState merged = FlowState.join(before, body)
                 if (merged == null || merged.sameAs(header) || merged.sameAs(previous)) {
+                    converged = true
                     break
                 }
                 previous = header
                 header = merged
                 iterations++
+            }
+            if (!converged) {
+                reportBudgetExceeded('for-loop fixed point', MAX_LOOP_ITERATIONS)
             }
             restoreState(header)
         } finally {
@@ -466,6 +483,9 @@ class NullCheckVisitor extends CheckingVisitor {
                 ControlFlowGraph graph = ControlFlowGraph.build(expression.code)
                 FlowAnalysis analysis = new FlowAnalysis(graph, new NullnessFlowTransfer(this), before)
                 analysis.run()
+                if (analysis.isBudgetExceeded()) {
+                    reportBudgetExceeded('closure flow worklist', FlowAnalysis.DEFAULT_MAX_STEPS)
+                }
                 FlowState after = analysis.exitState()
                 FlowState merged = FlowState.join(before, after)
                 restoreState(merged ?: before)
@@ -807,7 +827,8 @@ class NullCheckVisitor extends CheckingVisitor {
         FlowState header = before.copy()
         FlowState previous = null
         int iterations = 0
-        while (iterations < 8) {
+        boolean converged = false
+        while (iterations < MAX_LOOP_ITERATIONS) {
             restoreState(header)
             applyFacts(facts.whenTrue)
             applyNonEmptyFacts(facts.nonEmptyTrue)
@@ -816,11 +837,15 @@ class NullCheckVisitor extends CheckingVisitor {
             FlowState body = captureState()
             FlowState merged = FlowState.join(before, body)
             if (merged == null || merged.sameAs(header) || merged.sameAs(previous)) {
+                converged = true
                 break
             }
             previous = header
             header = merged
             iterations++
+        }
+        if (!converged) {
+            reportBudgetExceeded('while-loop fixed point', MAX_LOOP_ITERATIONS)
         }
         restoreState(header)
     }

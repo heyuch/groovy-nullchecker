@@ -44,6 +44,21 @@ class Sample {
         analysis.inState(graph.exit).locals[marker] == Nullness.MAYBE_NULL
     }
 
+    def 'worklist exposes budget exhaustion instead of silently stopping'() {
+        given:
+        ControlFlowGraph graph = graphFor('pick')
+        Variable marker = new VariableExpression('marker')
+        FlowTransfer transfer = new MarkerTransfer(marker)
+
+        when:
+        FlowAnalysis analysis = new FlowAnalysis(graph, transfer,
+                new FlowState([:], [:], [] as Set, [] as Set), 1)
+        analysis.run()
+
+        then:
+        analysis.budgetExceeded
+    }
+
     private static ControlFlowGraph graphFor(String methodName) {
         List<Object> nodes = new AstBuilder().buildFromString(CompilePhase.CONVERSION, false, SOURCE)
         ClassNode clazz = (ClassNode) nodes.find { Object node -> node instanceof ClassNode }

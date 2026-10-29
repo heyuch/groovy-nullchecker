@@ -95,7 +95,8 @@ Status: done.
 - The `Potential null dereference` prefix and the `null` category are unchanged.
 - `docs/PERF.md` records a baseline for \`compileGroovy\` and the checker test suite.
 - Unreachable CFG nodes are never visited by the worklist, so they produce no findings.
-- Analysis-budget exhaustion is **not** diagnosed yet; H0-2 owns that follow-up.
+- Analysis-budget exhaustion is diagnosed by H0-2 and routed through the internal-error
+  channel.
 
 #### F5. Finite access paths
 
@@ -244,11 +245,14 @@ These are the next priority. Do not start H1/H2 while an H0 acceptance criterion
 
 #### H0-2. Analysis-budget diagnostics (`P0-2`)
 
-- Status: open, next.
-- Record when the worklist or loop fixed point hits its cap and surface it as an internal
-  diagnostic, not a clean result.
-- Put the budget constants in one place and include method/node context in the diagnostic.
-- Add a synthetic over-budget method; assert a diagnostic and no silent pass.
+- Status: done.
+- `FlowAnalysis` exposes `budgetExceeded`; the visitor reports a diagnostic with the method
+  name and limit when the worklist or a loop fixed point stops early.
+- Diagnostics use the same internal-error channel as checker exceptions, including the
+  compile-mode `.errors` sidecar, so the harness/compile-mode CLI rejects a clean-looking
+  result.
+- `FlowAnalysisSpec` covers a synthetic over-budget worklist; `NullCheckReporterSpec` covers
+  the internal-error and sidecar path.
 
 #### H0-3. Fail-closed unknown checks (`P0-3`)
 

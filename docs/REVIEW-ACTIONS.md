@@ -36,7 +36,7 @@
 
 ### P0-2 流分析预算耗尽不能静默
 
-- Status: open
+- Status: done
 - 类型: 可信度
 - 证据: `FlowAnalysis.groovy:38`（10000 步上限）；`NullCheckVisitor.groovy:370`、`:810`（循环固定点最多 8 次）
 - 问题: 达到上限后 worklist 或循环固定点直接停止，没有诊断。分析可能因此漏报，而结果看起来仍然干净。这与项目 "0 findings 必须可信" 的核心主张冲突。
@@ -47,6 +47,8 @@
 - 验收:
   - 合成一个超过步数上限的方法，断言产生诊断而不是静默通过。
   - 现有语料与性能基线不回归。
+- 完成证据: `FlowAnalysisSpec` 覆盖预算耗尽标志；`NullCheckReporterSpec` 覆盖 internal-error
+  sidecar；visitor 在 worklist/loop 提前停止时上报方法名和上限。
 
 ### P0-3 裸 checker 的未知 checks 不能静默关闭全部检查
 

@@ -12,6 +12,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   file and the property-created sink is cleared at compilation start and end. Explicitly
   installed sinks keep their own lifecycle.
 
+- **Analysis-budget exhaustion is no longer silent.** The worklist and loop fixed points
+  report an internal diagnostic with the method name and limit, so a partial analysis cannot
+  look like a clean result.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

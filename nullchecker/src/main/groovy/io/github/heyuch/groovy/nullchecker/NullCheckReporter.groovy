@@ -48,6 +48,11 @@ class NullCheckReporter {
         }
     }
 
+    /** Records an incomplete analysis that is not an exception but still makes the run unclean. */
+    void diagnostic(String message) {
+        recordDiagnostic(message)
+    }
+
     static List<String> getInternalErrors() {
         List<String> errors = INTERNAL_ERRORS.get()
         if (errors == null) {
@@ -61,13 +66,17 @@ class NullCheckReporter {
     }
 
     private static void recordInternalError(String where, Throwable failure) {
+        recordDiagnostic(where + ': ' + failure.getClass().name + ': ' + failure.message)
+    }
+
+    private static void recordDiagnostic(String message) {
         List<String> errors = INTERNAL_ERRORS.get()
         if (errors == null) {
             errors = new ArrayList<String>()
             INTERNAL_ERRORS.set(errors)
         }
         if (errors.size() < MAX_INTERNAL_ERRORS) {
-            errors.add(where + ': ' + failure.getClass().name + ': ' + failure.message)
+            errors.add(message)
         }
         // Compile mode runs the reporter in a compiler worker, while the Gradle report runs in
         // another JVM; a static list cannot cross that boundary. The sidecar keeps a checker
@@ -76,7 +85,7 @@ class NullCheckReporter {
         if (findingsFile) {
             File errorsFile = new File(findingsFile + '.errors')
             errorsFile.getParentFile()?.mkdirs()
-            errorsFile.append("${where}: ${failure.getClass().name}: ${failure.message}\n".toString(), 'UTF-8')
+            errorsFile.append(message + '\n', 'UTF-8')
         }
     }
 
