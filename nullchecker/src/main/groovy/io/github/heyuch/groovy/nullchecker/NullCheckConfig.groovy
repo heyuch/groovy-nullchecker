@@ -24,6 +24,9 @@ class NullCheckConfig {
 
     static final String CHECKS_PROPERTY = 'groovy.nullchecker.checks'
 
+    private static final Set<String> KNOWN_CHECKS =
+            [CHECK_NULL, CHECK_INITIALIZATION, CHECKS_ALL] as Set<String>
+
     static final String STRICT_PROPERTY = 'groovy.nullchecker.strict'
 
     static final String STRICT_ENV = 'GROOVY_NULLCHECKER_STRICT'
@@ -66,8 +69,9 @@ class NullCheckConfig {
     }
 
     /**
-     * Both families are on by default; {@code all} means neither is filtered out. An unknown
-     * name disables the known ones, which the CLI rejects before it gets here.
+     * Both families are on by default; {@code all} means neither is filtered out. Unknown
+     * names are rejected here, including the bare-checker path that does not pass through the
+     * CLI/plugin's validation.
      */
     private static Set<String> readChecks() {
         String raw = System.getProperty(CHECKS_PROPERTY)
@@ -77,9 +81,15 @@ class NullCheckConfig {
         Set<String> enabled = new HashSet<String>()
         for (String part : raw.split(',')) {
             String name = part.trim().toLowerCase(Locale.ROOT)
-            if (!name.isEmpty()) {
-                enabled.add(name)
+            if (name.isEmpty()) {
+                continue
             }
+            if (!KNOWN_CHECKS.contains(name)) {
+                throw new IllegalArgumentException(
+                        "unknown value in ${CHECKS_PROPERTY}: '${name}'; expected " +
+                                'null, initialization or all')
+            }
+            enabled.add(name)
         }
         if (enabled.isEmpty() || enabled.contains(CHECKS_ALL)) {
             return [CHECK_NULL, CHECK_INITIALIZATION] as Set<String>

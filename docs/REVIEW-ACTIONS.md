@@ -52,7 +52,7 @@
 
 ### P0-3 裸 checker 的未知 checks 不能静默关闭全部检查
 
-- Status: open
+- Status: done
 - 类型: fail-open
 - 证据: `NullCheckConfig.groovy:72-87`
 - 问题: `-Dgroovy.nullchecker.checks=typo` 会得到 `{typo}`，导致 `nullnessCheck=false`、`initializationCheck=false`，两个规则族都不运行。CLI 和 Gradle 插件有前置校验，但直接使用 checker 或第三方构建入口不会经过这些校验。
@@ -63,6 +63,8 @@
 - 验收:
   - `checks=typo` 时进程以非零退出或产生 internal error，而不是 `findings = 0`。
   - 现有 `--checks null|initialization|all` 行为不变。
+- 完成证据: `NullCheckConfig` 对未知名字抛错；`NullChecker` 将错误写入 internal-error
+  通道；`CheckSelectionSpec` 覆盖裸 checker 场景。
 
 ### P0-4 finding 分类改为结构化，而不是消息子串
 

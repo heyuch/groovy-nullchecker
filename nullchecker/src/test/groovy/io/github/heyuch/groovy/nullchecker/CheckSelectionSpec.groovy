@@ -91,6 +91,19 @@ class Both {
         canary.healthy
     }
 
+    def 'a bare checker rejects an unknown checks value instead of reporting clean'() {
+        given:
+        System.setProperty('groovy.nullchecker.checks', 'bogus')
+
+        when:
+        NullCheckHarness.check([new File(dir, 'Both.groovy')], EXTENSION, true)
+
+        then:
+        IllegalStateException failure = thrown()
+        failure.message.contains('configuration')
+        failure.message.contains('unknown value')
+    }
+
     def 'a typo in --checks is rejected rather than silently disabling everything'() {
         given:
         def out = new ByteArrayOutputStream()

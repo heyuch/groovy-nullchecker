@@ -16,6 +16,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   report an internal diagnostic with the method name and limit, so a partial analysis cannot
   look like a clean result.
 
+- **Unknown checks fail closed.** `groovy.nullchecker.checks` now rejects unknown values even
+  when the bare checker is used outside the CLI/plugin; the failure is reported as an internal
+  error instead of silently disabling both rule families.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

@@ -256,11 +256,11 @@ These are the next priority. Do not start H1/H2 while an H0 acceptance criterion
 
 #### H0-3. Fail-closed unknown checks (`P0-3`)
 
-- Status: open, next.
-- Unknown `groovy.nullchecker.checks` values must not disable every family.
-- Make the bare-checker path reject or report the invalid value; keep `all`, empty and
-  comma-separated known values unchanged.
-- Add a direct `NullChecker` test, not only a CLI/plugin validation test.
+- Status: done.
+- `NullCheckConfig` validates every checks value and throws on an unknown name; `NullChecker`
+  records the failure through the internal-error channel instead of letting Groovy swallow it.
+- The bare-checker path now rejects the run; CLI/plugin pre-validation remains unchanged.
+- `CheckSelectionSpec` covers the invalid bare-checker path.
 
 #### H0-4. Structured finding categories (`P0-4`)
 

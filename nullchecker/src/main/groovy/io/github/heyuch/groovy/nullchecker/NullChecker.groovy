@@ -209,7 +209,15 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      */
     @Override
     @Nullable Object run() {
-        NullCheckConfig config = NullCheckConfig.read(PORT_OPTIONS)
+        NullCheckConfig config = null
+        try {
+            config = NullCheckConfig.read(PORT_OPTIONS)
+        } catch (IllegalArgumentException failure) {
+            reporter.diagnostic("configuration: ${failure.message}")
+        }
+        if (config == null) {
+            return null
+        }
         CompilationUnit unit = context?.compilationUnit
         NullCheckSession session = sessionFor(unit, config, context?.source?.classLoader)
         lastCoverage = session.coverage
