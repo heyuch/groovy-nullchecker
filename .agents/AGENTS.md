@@ -176,7 +176,7 @@
 | 命名、import、未使用符号、明显 bug pattern | CodeNarc + SpotBugs |
 | 规则/guard 语料覆盖 | `CorpusGate`，由 `check` 执行 |
 | contract 解析只有一个所有者 | `ArchitectureSpec` |
-| 生产代码不引入 Java Stream | `ArchitectureSpec` |
+| checker 模块生产代码不引入 Java Stream | `ArchitectureSpec` |
 | nullchecker 自身无 finding | `:nullchecker:nullcheck`（dogfood） |
 
 `./gradlew check` 和 plugin functional tests 是门禁；CodeNarc/Spotless 目前是 **check/lint 阶段**执行，不是编译器 warning。需要实时反馈时，使用 IDE 插件或本地运行对应任务。
