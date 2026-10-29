@@ -125,9 +125,9 @@ Agent 并不缺"发现相似性"的能力，缺的是**把发现变成行动的�
 
 ## 4. 机制清单
 
-### 4.1 完成定义与 `AGENTS.md`
+### 4.1 完成定义与 `.agents/AGENTS.md`
 
-这是成本最低、杠杆最高的一层。`AGENTS.md` 目前是空的，正好适合放项目级的协作规则。建议内容见附录 A。
+这是成本最低、杠杆最高的一层。项目级规则已经落在 `.agents/AGENTS.md`；根 `AGENTS.md` 尚未创建。建议内容见附录 A。
 
 核心规则：
 
@@ -302,7 +302,7 @@ Contract 的五个实现同时满足这四条，所以合并是对的。如果�
 
 ### 6.1 最小方案（建议先做）
 
-1. 在 `AGENTS.md` 加入"概念所有权表 + 第三个实现即设计缺陷"的规则。
+1. 在 `.agents/AGENTS.md` 维护"概念所有权表 + 第三个实现即设计缺陷"的规则。
 2. 把 `0b7dff7` 的 commit message 提升为 `docs/adr/0001-contract-model.md`。
 3. 加一个 architecture fitness test：contract 解析只能出现在 `ContractRegistry`。
 
@@ -349,7 +349,7 @@ Contract 的五个实现同时满足这四条，所以合并是对的。如果�
 
 ---
 
-## 附录 A：`AGENTS.md` 片段草稿
+## 附录 A：`.agents/AGENTS.md` 片段草稿
 
 ```markdown
 ## 概念所有权与合并规则
@@ -527,4 +527,5 @@ Concept changes:
 - `nullchecker/src/main/groovy/io/github/heyuch/groovy/nullchecker/ContractRegistry.groovy`
 - `nullchecker/src/test/groovy/io/github/heyuch/groovy/nullchecker/ContractRegistrySpec.groovy`
 - [REVIEW-ACTIONS.md](REVIEW-ACTIONS.md)
+- [`.agents/AGENTS.md`](../.agents/AGENTS.md)
 - [NULLNESS-FLOW.md](NULLNESS-FLOW.md)
