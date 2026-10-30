@@ -32,9 +32,20 @@ class NullCheckFinding {
 
     String message = ''
 
+    /**
+     * Compiler-message fallback: use only when the producer cannot carry a category, such as
+     * messages extracted from Groovy's own error collector.
+     */
     static NullCheckFinding of(String file, int line, String message) {
         String text = message == null ? '' : message
-        return new NullCheckFinding(file: file, line: line, category: classify(text), message: text)
+        return of(file, line, classify(text), text)
+    }
+
+    /** Explicit category from the finding's creation site; never reclassifies the message. */
+    static NullCheckFinding of(String file, int line, String category, String message) {
+        String text = message == null ? '' : message
+        String label = category ?: RESOLUTION
+        return new NullCheckFinding(file: file, line: line, category: label, message: text)
     }
 
     static String classify(String message) {

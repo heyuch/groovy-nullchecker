@@ -264,11 +264,13 @@ These are the next priority. Do not start H1/H2 while an H0 acceptance criterion
 
 #### H0-4. Structured finding categories (`P0-4`)
 
-- Status: open, next.
-- Carry the category from the finding creation site; keep `NullCheckCategories.classify` only
-  as a fallback for compiler messages that cannot be structured.
-- Freeze the current message/category table in a test; every new message must be registered.
-- Acceptance also covers `P3-4`'s full category table.
+- Status: done.
+- `NullCheckReporter`, `NullCheckFinding` and the reporting closure carry an explicit category
+  from the creation site; visitor findings report `null`, initialization checks report
+  `initialization`, unresolved-type findings report `resolution`.
+- `NullCheckCategories.classify` remains only as the compiler-message fallback.
+- `NullCheckCategoriesSpec` covers every current nullness fragment plus explicit-category
+  overrides; this also completes `P3-4`'s message table.
 
 ### 6.2 H1: lifecycle and architecture
 
@@ -334,7 +336,7 @@ These are suitable for incremental, module-local work.
 - **H3-2 (`P3-2`/`P3-3`)**: align CLI option validation, missing values, unknown options and
   values beginning with `-`.
 - **H3-3 (`P3-4`)**: expand `NullCheckCategoriesSpec` into the full message table; new messages
-  must fail until registered. This is shared with H0-4.
+  must fail until registered. Done with H0-4.
 - **H3-4 (`P3-5`)**: refresh the `docs/PERF.md` baseline and add micro-benchmarks for
   `FlowState.join` and capture/restore.
 - **H3-5 (`P3-7`)**: autofix provider SPI; keep it behind N3 and do not freeze an API before

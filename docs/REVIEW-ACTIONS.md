@@ -68,7 +68,7 @@
 
 ### P0-4 finding 分类改为结构化，而不是消息子串
 
-- Status: open
+- Status: done
 - 类型: 设计债 / 构建误判
 - 证据: `NullCheckCategories.groovy:28-41`；`NullCheckFinding.of` / `NullCheckHarness.categoryOf` 都依赖它
 - 问题: `null` / `initialization` / `resolution` 靠消息片段匹配。修改一条消息文案就可能把 nullness finding 降级为 `resolution`，而 `resolution` 默认不失败，构建会从红变绿。这是静默的语义变化，测试不一定能发现。
@@ -79,6 +79,9 @@
 - 验收:
   - 修改任意 checker 消息文案，不会改变其 category。
   - `NullCheckCategoriesSpec` 覆盖 checker 当前会产生的全部消息形状。
+- 完成证据: `NullCheckReporter.report(..., category)` 将分类从创建点传到 sink；visitor /
+  initialization / unresolved 各自显式分类；compiler 消息仍走 `classify` fallback；
+  `NullCheckCategoriesSpec` 覆盖全部 null fragment 和显式分类。
 
 ---
 
@@ -294,7 +297,7 @@
 
 ### P3-4 分类测试的完整表
 
-- Status: open
+- Status: done
 - 证据: `NullCheckCategoriesSpec.groovy` 只有 5 个用例
 - 动作: 为 checker 当前产生的每条消息建立分类表；新增消息时测试失败，强制登记。
 - 验收: `NullCheckCategoriesSpec` 覆盖 `NULL_FRAGMENTS` 的每一项及初始化/解析消息。

@@ -32,12 +32,19 @@ class NullCheckReporter {
         this.reportFunction = reportFunction
     }
 
+    /** Compatibility fallback for callers that only have a message; prefer the 3-arg form. */
     void report(CharSequence message, ASTNode node) {
-        String key = "${message}|${node.lineNumber}|${node.columnNumber}".toString()
+        String text = message == null ? '' : message.toString()
+        report(message, node, NullCheckCategories.classify(text))
+    }
+
+    void report(CharSequence message, ASTNode node, String category) {
+        String label = category ?: NullCheckCategories.RESOLUTION
+        String key = "${label}|${message}|${node.lineNumber}|${node.columnNumber}".toString()
         if (!reported.add(key)) {
             return
         }
-        reportFunction.call(message, node)
+        reportFunction.call(message, node, label)
     }
 
     void guard(String where, Closure body) {

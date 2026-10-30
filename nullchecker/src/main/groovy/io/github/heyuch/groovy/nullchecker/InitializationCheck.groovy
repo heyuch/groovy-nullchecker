@@ -82,9 +82,11 @@ class InitializationCheck {
                 continue
             }
             if (!ctors) {
-                reporter.report("@NonNull field '${field.name}' is not initialized", field)
+                reporter.report("@NonNull field '${field.name}' is not initialized", field,
+                        NullCheckCategories.INITIALIZATION)
             } else if (ctorAssigned.any { Set<String> assigned -> !(field.name in assigned) }) {
-                reporter.report("@NonNull field '${field.name}' is not initialized by all constructors", field)
+                reporter.report("@NonNull field '${field.name}' is not initialized by all constructors", field,
+                        NullCheckCategories.INITIALIZATION)
             }
         }
     }

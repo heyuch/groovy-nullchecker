@@ -64,7 +64,8 @@ class NullCheckSession {
                 if (stash instanceof List) {
                     List<?> violations = (List<?>) stash
                     for (Object node : violations) {
-                        reporter.report("Cannot return null from @NonNull method '${method.name}'", (ASTNode) node)
+                        reporter.report("Cannot return null from @NonNull method '${method.name}'",
+                            (ASTNode) node, NullCheckCategories.NULL)
                     }
                 }
             }

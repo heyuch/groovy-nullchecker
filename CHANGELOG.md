@@ -20,6 +20,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   when the bare checker is used outside the CLI/plugin; the failure is reported as an internal
   error instead of silently disabling both rule families.
 
+- **Finding categories are structured at creation time.** Checker findings carry `null`,
+  `initialization` or `resolution` explicitly instead of being reclassified from message
+  substrings; compiler messages retain the fallback table.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

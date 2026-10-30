@@ -179,7 +179,8 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
                 "'${classNode.name}'; the class was not analysed"
         NullCheckSink sink = NullCheckSinks.currentSink()
         if (sink != null) {
-            sink.report(NullCheckFinding.of(source.name, classNode.lineNumber, message))
+            sink.report(NullCheckFinding.of(source.name, classNode.lineNumber,
+                    NullCheckCategories.RESOLUTION, message))
             return
         }
         String path = System.getProperty(UNRESOLVED_PROPERTY)

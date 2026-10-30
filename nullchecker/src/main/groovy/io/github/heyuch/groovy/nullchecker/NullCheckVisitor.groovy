@@ -139,6 +139,11 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
+    /** All visitor findings belong to the nullness family; categories are explicit here. */
+    private void reportNull(CharSequence message, ASTNode node) {
+        reporter.report(message, node, NullCheckCategories.NULL)
+    }
+
     private void reportBudgetExceeded(String stage, int limit) {
         String owner = method.declaringClass?.name ?: '<unknown>'
         reporter.diagnostic("${stage} budget exhausted in ${owner}#${method.name} " +
@@ -174,7 +179,7 @@ class NullCheckVisitor extends CheckingVisitor {
         // version (see declAnnoCarrier), so query both rather than only 've'.
         AnnotatedNode annotated = declAnnoCarrier(decl, ve)
         if (hasNonNullAnno(annotated) && isNullExpr(decl.rightExpression)) {
-            reporter.report("Cannot assign null to @NonNull variable '${ve.name}'", decl)
+            reportNull("Cannot assign null to @NonNull variable '${ve.name}'", decl)
         }
         if (checkUnboxing(decl.rightExpression, ve.originType, decl, "for '${ve.name}'")) {
             nullableVars.remove(ve)
@@ -184,9 +189,9 @@ class NullCheckVisitor extends CheckingVisitor {
             nonNullVars.add(ve)
             nonNullLocalNames.add(ve.name)
             if (isNullExpr(decl.rightExpression)) {
-                reporter.report("Cannot assign null to @NonNull variable '${ve.name}'", decl)
+                reportNull("Cannot assign null to @NonNull variable '${ve.name}'", decl)
             } else if (isKnownNullable(decl.rightExpression)) {
-                reporter.report("Cannot assign @Nullable value to @NonNull variable '${ve.name}'", decl)
+                reportNull("Cannot assign @Nullable value to @NonNull variable '${ve.name}'", decl)
             }
             if (isNullExpr(decl.rightExpression) || isKnownNullable(decl.rightExpression)) {
                 nullableVars.remove(ve)
@@ -242,9 +247,9 @@ class NullCheckVisitor extends CheckingVisitor {
             }
             boolean explicitNonNull = isExplicitNonNull(target)
             if (fieldNonNull && isNullExpr(rightExpr)) {
-                reporter.report("Cannot assign null to @NonNull variable '${leftExpr.name}'", expr)
+                reportNull("Cannot assign null to @NonNull variable '${leftExpr.name}'", expr)
             } else if (explicitNonNull && isKnownNullable(rightExpr)) {
-                reporter.report("Cannot assign @Nullable value to @NonNull variable '${leftExpr.name}'", expr)
+                reportNull("Cannot assign @Nullable value to @NonNull variable '${leftExpr.name}'", expr)
             }
             if (explicitNonNull && (isNullExpr(rightExpr) || isKnownNullable(rightExpr))) {
                 nullableVars.remove(target)
@@ -257,7 +262,7 @@ class NullCheckVisitor extends CheckingVisitor {
                 if (!isNullExpr(rightExpr)) {
                     monotonicInitialized.add(target)
                 } else if (monotonicInitialized.contains(target)) {
-                    reporter.report("Cannot assign null to @MonotonicNonNull variable '${leftExpr.name}' after non-null assignment", expr)
+                    reportNull("Cannot assign null to @MonotonicNonNull variable '${leftExpr.name}' after non-null assignment", expr)
                 }
             }
 
@@ -711,7 +716,7 @@ class NullCheckVisitor extends CheckingVisitor {
             return false
         }
         if (isNullExpr(value) || isKnownNullable(value)) {
-            reporter.report("Cannot unbox @Nullable value to primitive '${targetType.name}' ${context}: ${nullableReason(value)}", at)
+            reportNull("Cannot unbox @Nullable value to primitive '${targetType.name}' ${context}: ${nullableReason(value)}", at)
             return true
         }
         return false
@@ -752,10 +757,10 @@ class NullCheckVisitor extends CheckingVisitor {
         }
         if (methodNonNull && closureDepth == 0) {
             if (isNullExpr(statement.expression)) {
-                reporter.report("Cannot return null from @NonNull method '${method.name}'", statement)
+                reportNull("Cannot return null from @NonNull method '${method.name}'", statement)
             } else if (isKnownNullable(statement.expression)) {
                 String reason = nullableReason(statement.expression)
-                reporter.report("Cannot return @Nullable value from @NonNull method '${method.name}': ${reason}", statement)
+                reportNull("Cannot return @Nullable value from @NonNull method '${method.name}': ${reason}", statement)
             }
         }
     }
@@ -1586,7 +1591,7 @@ class NullCheckVisitor extends CheckingVisitor {
 
     private void checkDereference(Expression receiver, Expression context) {
         if (isNullExpr(receiver)) {
-            reporter.report('Cannot dereference null', context)
+            reportNull('Cannot dereference null', context)
             return
         }
         if (receiver instanceof VariableExpression) {
@@ -1600,26 +1605,26 @@ class NullCheckVisitor extends CheckingVisitor {
             boolean isMonotonicAndInitialized = target instanceof AnnotatedNode && hasMonotonicAnno(target) && monotonicInitialized.contains(target)
             boolean nonEmpty = nonEmptyVars.contains(target)
             if (!nonEmpty && target instanceof AnnotatedNode && hasNullableAnno(target) && !guardedVars.contains(target) && !isMonotonicAndInitialized) {
-                reporter.report("Potential null dereference: '${receiver.name}' is @Nullable", context)
+                reportNull("Potential null dereference: '${receiver.name}' is @Nullable", context)
             } else if (!nonEmpty && isNullableElement(receiver, target) && !guardedVars.contains(target)) {
-                reporter.report("Potential null dereference: '${receiver.name}' may be null", context)
+                reportNull("Potential null dereference: '${receiver.name}' may be null", context)
             } else if (!nonEmpty && flowSensitive && nullableVars.contains(target) && !guardedVars.contains(target)) {
-                reporter.report("Potential null dereference: '${receiver.name}' may be null", context)
+                reportNull("Potential null dereference: '${receiver.name}' may be null", context)
             }
         } else if (isSafeNavResult(receiver)) {
-            reporter.report("Potential null dereference: '${receiver.text}' may be null", context)
+            reportNull("Potential null dereference: '${receiver.text}' may be null", context)
         } else if (isNullableEntryCall(receiver)) {
-            reporter.report("Potential null dereference: '${receiver.text}' may be null", context)
+            reportNull("Potential null dereference: '${receiver.text}' may be null", context)
         } else if (receiver instanceof MethodCallExpression && isNullableContainerLookup(receiver)) {
-            reporter.report("Potential null dereference: '${receiver.methodAsString}()' may return null", context)
+            reportNull("Potential null dereference: '${receiver.methodAsString}()' may return null", context)
         } else if (receiver instanceof MethodCallExpression || receiver instanceof StaticMethodCallExpression) {
             Object targetMethod = receiver.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
             if (targetMethod instanceof MethodNode && (hasNullableAnno(targetMethod) || inferredNullableTypeUse(receiver))) {
-                reporter.report("Potential null dereference: '${targetMethod.name}()' may return null", context)
+                reportNull("Potential null dereference: '${targetMethod.name}()' may return null", context)
             }
         } else if (isSubscript(receiver)
                 && (inferredNullableTypeUse(receiver) || isNullableMapSubscript(receiver))) {
-            reporter.report("Potential null dereference: '${receiver.text}' may be null", context)
+            reportNull("Potential null dereference: '${receiver.text}' may be null", context)
         } else if (receiver instanceof PropertyExpression) {
             AccessPath path = AccessPath.from(receiver)
             Nullness pathFact = path == null ? null : pathFacts.get(path.text)
@@ -1628,7 +1633,7 @@ class NullCheckVisitor extends CheckingVisitor {
             }
             if (pathFact == Nullness.NULL || pathFact == Nullness.MAYBE_NULL ||
                     nullableProperty(receiver) || isNullableEntryProperty(receiver)) {
-                reporter.report("Potential null dereference: '${receiver.propertyAsString}' may be null", context)
+                reportNull("Potential null dereference: '${receiver.propertyAsString}' may be null", context)
             }
         } else if (receiver instanceof CastExpression) {
             // casts are transparent to nullness
@@ -1664,10 +1669,10 @@ class NullCheckVisitor extends CheckingVisitor {
             boolean paramIsNonNull = hasNonNullAnno(params[i]) || (nullChecked && !isPrimitiveType(params[i].type) && !hasNullableAnno(params[i]))
             if (paramIsNonNull) {
                 if (isNullExpr(arg)) {
-                    reporter.report("Cannot pass null to @NonNull parameter '${params[i].name}' of '${targetMethod.name}'", (ASTNode) call)
+                    reportNull("Cannot pass null to @NonNull parameter '${params[i].name}' of '${targetMethod.name}'", (ASTNode) call)
                 } else if (isKnownNullable(arg)) {
                     String reason = nullableReason(arg)
-                    reporter.report("Cannot pass @Nullable value to @NonNull parameter '${params[i].name}' of '${targetMethod.name}': ${reason}", (ASTNode) call)
+                    reportNull("Cannot pass @Nullable value to @NonNull parameter '${params[i].name}' of '${targetMethod.name}': ${reason}", (ASTNode) call)
                 }
             }
         }

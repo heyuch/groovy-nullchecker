@@ -284,11 +284,11 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
      * <p>{@code addStaticTypeError} is declared on {@code StaticTypeCheckingVisitor}, not on
      * the DSL, so it is reached dynamically; this shim is the one place that says so.
      */
-    private void reportTypeError(CharSequence message, ASTNode node) {
+    private void reportTypeError(CharSequence message, ASTNode node, String category) {
         NullCheckSink sink = NullCheckSinks.currentSink()
         if (sink != null) {
             String file = getContext().source.name
-            sink.report(NullCheckFinding.of(file, node.lineNumber, message.toString()))
+            sink.report(NullCheckFinding.of(file, node.lineNumber, category, message.toString()))
             return
         }
         invokeMethod('addStaticTypeError', [message.toString(), node] as Object[])
@@ -309,8 +309,8 @@ class NullChecker extends GroovyTypeCheckingExtensionSupport.TypeCheckingDSL {
     }
 
     /** Reports into this DSL instance, so a finding lands on the current type-checking context. */
-    private final NullCheckReporter reporter = new NullCheckReporter({ CharSequence message, ASTNode node ->
-        reportTypeError(message, node)
+    private final NullCheckReporter reporter = new NullCheckReporter({ CharSequence message, ASTNode node, String category ->
+        reportTypeError(message, node, category)
     })
 
     private static final Map<CompilationUnit, NullCheckSession> SESSIONS =

@@ -2,7 +2,10 @@ package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
 
-/** The one owner of the finding-category mapping shared by the core, CLI and harness. */
+/**
+ * Fallback category mapping for messages that cannot be structured at their creation site,
+ * primarily Groovy compiler messages. Checker-created findings pass an explicit category.
+ */
 @CompileStatic
 class NullCheckCategories {
 
