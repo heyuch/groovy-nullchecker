@@ -490,7 +490,7 @@ from release numbers.
 
 ### Work required
 
-1. **Compatibility inventory**
+1. **Compatibility inventory** (started; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md))
    - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
      `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);
    - record which APIs differ by Groovy major, with a source reference and a test.
