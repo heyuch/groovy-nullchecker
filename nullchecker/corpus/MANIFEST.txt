@@ -257,6 +257,12 @@ strict=any
 expect=none
 note=a guarded Boolean wrapper is truth-tested, not unboxed
 
+negative/assert_field_path.groovy
+rule=N29
+strict=any
+expect=none
+note=assert of this.value != null and map.get(k) != null narrow after the statement
+
 negative/repeated_lookup_guard.groovy
 rule=N28
 strict=any

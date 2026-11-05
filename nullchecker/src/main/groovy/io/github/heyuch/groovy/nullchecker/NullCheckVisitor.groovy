@@ -923,6 +923,8 @@ class NullCheckVisitor extends CheckingVisitor {
         // assert x/assert x != null → x is non-null for the rest of the block
         applyFacts(facts.whenTrue)
         applyNonEmptyFacts(facts.nonEmptyTrue)
+        applyPathFacts(facts.pathsTrue)
+        applyLookupFacts(facts.lookupsTrue)
     }
 
     /**

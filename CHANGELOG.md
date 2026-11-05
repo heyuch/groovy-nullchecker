@@ -88,6 +88,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **One fixed-point budget.** Visitor loop fixed points use the same global 10000-step budget
   as the CFG worklist, with the existing exhaustion diagnostic.
 
+- **Assert applies path and lookup facts.** `assert this.value != null` and
+  `assert map.get(k) != null` now narrow the following expression, not only local variables.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
