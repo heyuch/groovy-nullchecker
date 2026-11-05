@@ -95,7 +95,9 @@ Both compilations now succeed after three portable fixes:
 
 This is a **compile spike only**. A CLI runtime spike against Groovy 5.0.2 and 6.0.0 produced
 `coverage classes=0` and a resolution finding for the same source; the extension was not
-registered/visited. Therefore runtime/corpus behavior is **not** supported yet.
+registered/visited. Trying `SEMANTIC_ANALYSIS` instead of `CANONICALIZATION` did not change
+that result, so this is not a one-line phase switch. Therefore runtime/corpus behavior is
+**not** supported yet.
 
 The next gate is diagnosing the customizer/extension lifecycle under each major, then rerunning
 the corpus. Do not turn the compile spike into a release claim.
