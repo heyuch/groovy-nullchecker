@@ -465,7 +465,9 @@ Status: done.
 
 ## Long-term goal G1: broader Groovy version support
 
-Status: deliberately deferred, low priority.
+Status: Groovy 4 is the official release line; Groovy 5.0.2/6.0.0 are experimental, with
+compile/runtime/corpus/plugin/classifier/CI coverage but no release artifact or maintenance
+commitment. Promoting 5/6 to an official line remains a separate program.
 
 nullchecker currently targets Groovy 4.0.x and has grown beyond the upstream Groovy null
 checker in both coverage and features. That makes broader Groovy support valuable for users
@@ -490,16 +492,13 @@ from release numbers.
 
 ### Work required
 
-1. **Compatibility inventory** (started; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md));
-   compile, runtime and exact CorpusGate spikes pass for Groovy 5.0.2/6.0.0 (94 results, 0
-   failures); the Groovy 5 union-type closure was replaced with explicit guard push/pop, and a
-   local-only plugin spike passed for 5.0.2/6.0.0 in standalone and compile modes, and
-   classifier-selected experimental jars (`groovy5`/`groovy6`) are buildable, and CI has a
-   5.0.2/6.0.0 compatibility matrix. No 5/6 release artifact or long-term maintenance commitment
-   exists yet
+1. **Compatibility inventory** (done; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md)):
    - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
      `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);
    - record which APIs differ by Groovy major, with a source reference and a test.
+   - Spike status: compile, runtime and exact CorpusGate pass for Groovy 5.0.2/6.0.0 (94 results,
+     0 failures); the Groovy 5 union-type closure uses explicit guard push/pop; classifier jars
+     and a CI matrix exist. No 5/6 release artifact or maintenance commitment yet.
 
 2. **Version boundary**
    - decide whether each supported major gets a separate checker artifact (for example a
