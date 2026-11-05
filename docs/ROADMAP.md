@@ -491,9 +491,9 @@ from release numbers.
 ### Work required
 
 1. **Compatibility inventory** (started; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md));
-   compile and runtime spikes pass for Groovy 5.0.2/6.0.0; Groovy 5 positive corpus works but its
-   exact CorpusGate fails on the `unbox_wrapper` union-type classload; Groovy 6 per-fixture runs
-   complete with one bulk-run closure interaction
+   compile, runtime and exact CorpusGate spikes pass for Groovy 5.0.2/6.0.0 (94 results, 0
+   failures); the Groovy 5 union-type closure was replaced with explicit guard push/pop. Plugin
+   functional and artifact boundaries remain
    - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
      `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);
    - record which APIs differ by Groovy major, with a source reference and a test.

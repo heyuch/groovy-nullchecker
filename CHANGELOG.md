@@ -103,10 +103,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   `nullcheckAutofixProviders` configuration load user providers. The SPI is a documented
   prototype, not a frozen public API.
 
-- **Groovy 5/6 compile and runtime spike.** Main sources compile and fixtures report correctly
-  under 5.0.2/6.0.0 with the main runtime classpath; Groovy 5 positive corpus works, but its exact
-  CorpusGate hits a generated `UnionType` classload on `unbox_wrapper`, and Groovy 6 has a bulk
-  closure interaction. Corpus/plugin support is not claimed.
+- **Groovy 5/6 compile and runtime spike.** Main sources compile and exact CorpusGate passes for
+  both 5.0.2 and 6.0.0 (94 results, 0 failures). The Groovy 5 ternary guard no longer uses a
+  closure that generated an unloadable union type. Plugin/artifact support is not claimed.
 
 ### Changed
 

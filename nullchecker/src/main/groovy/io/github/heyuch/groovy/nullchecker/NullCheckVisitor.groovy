@@ -1336,6 +1336,20 @@ class NullCheckVisitor extends CheckingVisitor {
         return null
     }
 
+    /** Pushes guard facts without a closure, for Groovy 5's union-type-safe path. */
+    private Set<Variable> pushGuards(Set<Variable> vars) {
+        Set<Variable> saved = new HashSet<Variable>(guardedVars)
+        if (vars) {
+            guardedVars.addAll(vars)
+        }
+        return saved
+    }
+
+    private void popGuards(Set<Variable> saved) {
+        guardedVars.clear()
+        guardedVars.addAll(saved)
+    }
+
     private <T> T withGuards(Set<Variable> vars, Closure<T> body) {
         if (!vars) {
             return body()
@@ -1874,11 +1888,22 @@ class NullCheckVisitor extends CheckingVisitor {
             // judge each branch under the condition's guard facts, so that
             // e.g. "s != null ? s : 'default'" is not considered nullable
             GuardFacts facts = analyzeCondition(expr.booleanExpression.expression, false)
-            // elvis (x ?: y) is null only if its fallback is: a truthy x is non-null
-            boolean trueNullable = !(expr instanceof ElvisOperatorExpression) &&
-                withGuards(facts.whenTrue) { isNullExpr(expr.trueExpression) || isKnownNullable(expr.trueExpression) }
-            boolean falseNullable =
-                withGuards(facts.whenFalse) { isNullExpr(expr.falseExpression) || isKnownNullable(expr.falseExpression) }
+            Set<Variable> savedTrue = pushGuards(facts.whenTrue)
+            boolean trueNullable
+            try {
+                // elvis (x ?: y) is null only if its fallback is: a truthy x is non-null
+                trueNullable = !(expr instanceof ElvisOperatorExpression) &&
+                        (isNullExpr(expr.trueExpression) || isKnownNullable(expr.trueExpression))
+            } finally {
+                popGuards(savedTrue)
+            }
+            Set<Variable> savedFalse = pushGuards(facts.whenFalse)
+            boolean falseNullable
+            try {
+                falseNullable = isNullExpr(expr.falseExpression) || isKnownNullable(expr.falseExpression)
+            } finally {
+                popGuards(savedFalse)
+            }
             return trueNullable || falseNullable
         }
         return false
