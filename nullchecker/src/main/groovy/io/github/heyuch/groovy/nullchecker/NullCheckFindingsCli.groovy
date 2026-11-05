@@ -69,11 +69,11 @@ class NullCheckFindingsCli {
         List<NullCheckFinding> findings = new ArrayList<NullCheckFinding>()
         for (String row : findingsFile.readLines('UTF-8')) {
             if (!row.trim().isEmpty()) {
-                findings.add(NullCheckFinding.fromTsv(row))
+                findings.add(NullCheckFindingTsv.fromTsv(row))
             }
         }
 
-        List<NullCheckReport.Finding> reportFindings = findings.collect { NullCheckFinding finding ->
+        List<NullCheckFinding> reportFindings = findings.collect { NullCheckFinding finding ->
             NullCheckReportWriter.finding(finding.file, finding.line,
                     finding.category, finding.message)
         }

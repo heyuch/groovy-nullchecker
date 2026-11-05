@@ -31,6 +31,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Test-only corpus tooling is no longer published.** `CorpusGate` and `CorpusRules` moved to
   the test source set, so they are not part of the consumer-facing checker jar.
 
+- **One finding DTO.** `NullCheckFinding` is the single field definition; the harness and report
+  adapt it, and TSV serialization lives in `NullCheckFindingTsv`.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

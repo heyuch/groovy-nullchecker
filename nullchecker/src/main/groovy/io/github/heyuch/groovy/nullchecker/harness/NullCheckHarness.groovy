@@ -4,6 +4,7 @@ import groovy.transform.CompileStatic
 import io.github.heyuch.groovy.nullchecker.NullCheckCategories
 import io.github.heyuch.groovy.nullchecker.NullCheckCoverage
 import io.github.heyuch.groovy.nullchecker.NullCheckCustomizer
+import io.github.heyuch.groovy.nullchecker.NullCheckFinding
 import io.github.heyuch.groovy.nullchecker.NullChecker
 import java.nio.file.Files
 import org.codehaus.groovy.control.CompilationUnit
@@ -85,22 +86,67 @@ class NullCheckHarness {
             return name().toLowerCase(Locale.ROOT)
         }
 
+        static Category fromLabel(String label) {
+            for (Category category : values()) {
+                if (category.label == label) {
+                    return category
+                }
+            }
+            return RESOLUTION
+        }
+
     }
 
     /** Categories that fail a run by default: the nullness rules the tool exists for. */
     static final List<String> DEFAULT_FAIL_ON = [Category.NULL.label, Category.INITIALIZATION.label] as List<String>
 
-    /** One reported problem, normalised to a stable single line. */
+    /**
+     * Adapter over the canonical finding DTO. It keeps the historical Category enum API while
+     * the only field definitions live in {@link NullCheckFinding}.
+     */
     static class Finding {
 
-        String path = ''
-        int line
-        String message = ''
-        Category category = Category.RESOLUTION
+        private final NullCheckFinding data = new NullCheckFinding()
+
+        String getPath() {
+            return data.file
+        }
+
+        void setPath(String path) {
+            data.file = path
+        }
+
+        int getLine() {
+            return data.line
+        }
+
+        void setLine(int line) {
+            data.line = line
+        }
+
+        String getMessage() {
+            return data.message
+        }
+
+        void setMessage(String message) {
+            data.message = message
+        }
+
+        Category getCategory() {
+            return Category.fromLabel(data.category)
+        }
+
+        void setCategory(Category category) {
+            data.category = (category ?: Category.RESOLUTION).label
+        }
+
+        NullCheckFinding getData() {
+            return data
+        }
 
         @Override
         String toString() {
-            return "${path}:${line}: ${message}".toString()
+            return "${getPath()}:${getLine()}: ${getMessage()}".toString()
         }
 
     }

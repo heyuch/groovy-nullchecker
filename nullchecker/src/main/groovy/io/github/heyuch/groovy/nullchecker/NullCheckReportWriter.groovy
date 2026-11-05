@@ -17,25 +17,25 @@ import java.nio.file.Path
 @CompileStatic
 class NullCheckReportWriter {
 
-    static NullCheckReport.Finding finding(String path, int line, String category, String message) {
-        return new NullCheckReport.Finding(path: path, line: line, category: category, message: message)
+    static NullCheckFinding finding(String path, int line, String category, String message) {
+        return new NullCheckFinding(file: path, line: line, category: category, message: message)
     }
 
-    static String renderFindings(List<NullCheckReport.Finding> findings) {
+    static String renderFindings(List<NullCheckFinding> findings) {
         StringBuilder text = new StringBuilder()
-        Map<String, List<NullCheckReport.Finding>> byPath = new LinkedHashMap<>()
-        for (NullCheckReport.Finding finding : findings) {
+        Map<String, List<NullCheckFinding>> byPath = new LinkedHashMap<>()
+        for (NullCheckFinding finding : findings) {
             String path = finding.path ?: '(unknown)'
-            List<NullCheckReport.Finding> group = byPath.get(path)
+            List<NullCheckFinding> group = byPath.get(path)
             if (group == null) {
-                group = new ArrayList<NullCheckReport.Finding>()
+                group = new ArrayList<NullCheckFinding>()
                 byPath.put(path, group)
             }
             group.add(finding)
         }
-        for (Map.Entry<String, List<NullCheckReport.Finding>> entry : byPath.entrySet()) {
+        for (Map.Entry<String, List<NullCheckFinding>> entry : byPath.entrySet()) {
             text.append("File: ${entry.key}\n")
-            for (NullCheckReport.Finding finding : entry.value) {
+            for (NullCheckFinding finding : entry.value) {
                 text.append("    Loc=.(${basename(entry.key)}:${finding.line}) " +
                         "[${finding.category}] ${finding.message}\n")
             }

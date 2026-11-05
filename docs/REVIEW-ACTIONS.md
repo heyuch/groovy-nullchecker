@@ -163,7 +163,7 @@
 
 ### P1-6 合并三个 finding DTO
 
-- Status: open
+- Status: done
 - 类型: 重复模型
 - 证据: `NullCheckFinding.groovy`、`NullCheckHarness.Finding`、`NullCheckReport.Finding`
 - 问题: 字段几乎相同（path/line/category/message），目前靠转换层维持一致；长期容易出现字段漂移或分类不一致。
@@ -172,6 +172,8 @@
   - 保留 `toTsv` / `fromTsv` / 渲染等序列化职责在独立类中。
 - 验收:
   - 只有一个 finding 字段定义源；分类与序列化测试不变。
+- 完成证据: `NullCheckFinding` 成为唯一字段定义；harness 使用组合适配器保留 `Category`，
+  report 直接使用核心 DTO；TSV 序列化移到 `NullCheckFindingTsv`。
 
 ---
 

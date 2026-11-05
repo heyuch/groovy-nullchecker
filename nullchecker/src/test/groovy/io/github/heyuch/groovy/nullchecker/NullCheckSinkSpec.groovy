@@ -133,7 +133,7 @@ class NullCheckSinkSpec extends Specification {
                 'Potential null dereference: \'value\' is @Nullable')
 
         when:
-        NullCheckFinding parsed = NullCheckFinding.fromTsv(finding.toTsv())
+        NullCheckFinding parsed = NullCheckFindingTsv.fromTsv(NullCheckFindingTsv.toTsv(finding))
 
         then:
         parsed.file == finding.file

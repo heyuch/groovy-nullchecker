@@ -297,10 +297,13 @@ Start after H0 is green.
 
 #### H1-3. Merge the finding DTOs (`P1-6`)
 
-- Status: open.
-- Define one core finding shape; make the harness and report DTOs adapters/views.
-- Keep `toTsv` / `fromTsv` / rendering responsibilities separate.
-- Acceptance: one field definition source; existing classification and serialization tests pass.
+- Status: done.
+- `NullCheckFinding` is the canonical field definition; `NullCheckHarness.Finding` is an
+  adapter that preserves the `Category` enum API, and `NullCheckReport` uses the core DTO
+  directly.
+- `NullCheckFindingTsv` owns `toTsv`/`fromTsv`; report rendering stays in
+  `NullCheckReportWriter`.
+- Existing classification, sink, CLI and report tests pass.
 
 #### H1-4. Per-compilation configuration (`P1-4`)
 

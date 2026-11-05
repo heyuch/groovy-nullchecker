@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy.nullchecker.NullCheckFinding
 import io.github.heyuch.groovy.nullchecker.NullCheckReport
 import io.github.heyuch.groovy.nullchecker.NullCheckReportWriter
 import io.github.heyuch.groovy.nullchecker.NullChecker
@@ -334,7 +335,7 @@ but does not fail the run by default, because it is not a nullness claim.'''
             return 2
         }
 
-        List<NullCheckReport.Finding> reportFindings = result.findings.collect { NullCheckHarness.Finding f ->
+        List<NullCheckFinding> reportFindings = result.findings.collect { NullCheckHarness.Finding f ->
             NullCheckReportWriter.finding(f.path, f.line, f.category.label, f.message)
         }
         if (!reportFindings.isEmpty()) {

@@ -9,15 +9,6 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class NullCheckReport {
 
-    static class Finding {
-
-        String path = ''
-        int line
-        String category = ''
-        String message = ''
-
-    }
-
     String groovyVersion = ''
 
     String extension = ''
@@ -30,7 +21,7 @@ class NullCheckReport {
 
     List<String> failOn = []
 
-    List<Finding> findings = []
+    List<NullCheckFinding> findings = []
 
     String raw = ''
 

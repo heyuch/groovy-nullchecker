@@ -1,7 +1,6 @@
 package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
-import groovy.transform.PackageScope
 
 /**
  * One finding in a form that can be collected, written and read back.
@@ -12,7 +11,6 @@ import groovy.transform.PackageScope
  * message. Categories match the CLI's labels.
  */
 @CompileStatic
-@PackageScope
 class NullCheckFinding {
 
     static final String NULL = NullCheckCategories.NULL
@@ -32,6 +30,19 @@ class NullCheckFinding {
 
     String message = ''
 
+    String getPath() {
+        return file
+    }
+
+    void setPath(String path) {
+        file = path
+    }
+
+    @Override
+    String toString() {
+        return "${file}:${line}: ${message}".toString()
+    }
+
     /**
      * Compiler-message fallback: use only when the producer cannot carry a category, such as
      * messages extracted from Groovy's own error collector.
@@ -50,27 +61,6 @@ class NullCheckFinding {
 
     static String classify(String message) {
         return NullCheckCategories.classify(message)
-    }
-
-    String toTsv() {
-        return [file ?: '', line, category ?: RESOLUTION, sanitise(message)].join('\t')
-    }
-
-    static NullCheckFinding fromTsv(String row) {
-        String[] parts = row.split('\t', -1)
-        if (parts.length < 4) {
-            throw new IllegalArgumentException("not a finding row: ${row}")
-        }
-        return new NullCheckFinding(file: parts[0], line: Integer.parseInt(parts[1]),
-                category: parts[2], message: parts[3])
-    }
-
-    /** Tabs and newlines would break the one-finding-per-line format. */
-    private static String sanitise(String text) {
-        if (text == null) {
-            return ''
-        }
-        return text.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ')
     }
 
 }
