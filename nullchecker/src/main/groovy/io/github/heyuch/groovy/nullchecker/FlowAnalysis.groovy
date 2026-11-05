@@ -92,6 +92,11 @@ class FlowAnalysis {
         return inStates.get(node)
     }
 
+    /** Outgoing state after the node's transfer; useful for CFG/debug diagnostics. */
+    @Nullable FlowState outState(CfgNode node) {
+        return outStates.get(node)
+    }
+
     @Nullable FlowState exitState() {
         return inStates.get(graph.exit)
     }

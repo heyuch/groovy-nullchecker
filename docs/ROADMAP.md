@@ -396,8 +396,8 @@ feature change.
 - **D3. Fixed-point discipline** (robustness): done. The visitor loop fixed points use the
   same 10000-step global safety budget as `FlowAnalysis`; exhaustion still routes through the
   H0-2 diagnostic.
-- **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression
-  tests and CFG diagnostics.
+- **D4. Analysis result/debug view** (optional, done): `FlowAnalysis.inState`/`outState` expose
+  node-level states for regression tests and CFG diagnostics; `FlowAnalysisSpec` covers both.
 - **D6. Alias/purity invalidation** (correctness, done, conservative): non-pure calls kill all
   field facts, `@Pure` / `@SideEffectFree` calls preserve them, field assignment invalidates the
   same field name on other receivers, and local assignment clears field facts. `AliasPuritySpec`

@@ -94,6 +94,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **FlowState microbenchmark and refreshed local baseline.** `FlowStateBench` records join and
   copy/restore timings; `docs/PERF.md` also has current compile/test wall times.
 
+- **FlowAnalysis debug view.** `outState(node)` complements `inState(node)` for CFG/debug
+  diagnostics.
+
 - **Configuration cache is supported.** Functional tests prove store/reuse for standalone and
   compile-mode `nullcheck`, `nullcheckAddNullable` and `nullcheckAutofix`; the plugin metadata
   now declares `configurationCache = true`. Isolated projects remains unsupported.

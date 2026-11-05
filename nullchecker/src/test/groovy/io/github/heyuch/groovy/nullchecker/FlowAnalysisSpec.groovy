@@ -42,6 +42,14 @@ class Sample {
         then:
         analysis.inState(graph.exit) != null
         analysis.inState(graph.exit).locals[marker] == Nullness.MAYBE_NULL
+        CfgNode aCall = graph.nodes.find { CfgNode node ->
+            node.statement instanceof ExpressionStatement &&
+                    ((ExpressionStatement) node.statement).expression instanceof MethodCallExpression &&
+                    ((MethodCallExpression) ((ExpressionStatement) node.statement).expression).methodAsString == 'a'
+        }
+        aCall != null
+        analysis.outState(aCall) != null
+        analysis.outState(aCall).locals[marker] == Nullness.NON_NULL
     }
 
     def 'worklist exposes budget exhaustion instead of silently stopping'() {
