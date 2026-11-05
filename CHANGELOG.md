@@ -48,6 +48,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Removed an unreachable Groovy 4 marker branch.** `NullCheckSession` no longer queries the
   upstream `INFERRED_NON_NULL_RETURN_VIOLATIONS` metadata that Groovy 4 does not provide.
 
+- **Findings CLI is testable in-process.** `NullCheckFindingsCli.main` now delegates to
+  `run(args, out, err)`; exit codes and help/error paths are covered by a spec.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

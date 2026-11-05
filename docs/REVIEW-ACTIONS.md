@@ -211,7 +211,7 @@
 
 ### P2-4 统一 CLI 的可测试入口
 
-- Status: open
+- Status: done
 - 证据: `NullCheckFindingsCli.groovy:18-23` 直接 `System.exit`
 - 问题: 与 `NullCheckCli.main` / `run` 的拆分方式不一致，难以在进程内测试退出码。
 - 动作: 抽出 `static int run(List<String> args, PrintStream out, PrintStream err)`，`main` 只负责 `System.exit(run(...))`；补齐 `--help` 与未知参数处理。
