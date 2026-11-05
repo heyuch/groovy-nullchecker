@@ -358,8 +358,9 @@ These are suitable for incremental, module-local work.
   must fail until registered. Done with H0-4.
 - **H3-4 (`P3-5`)**: done. The local compile/test baseline is refreshed and
   `FlowStateBench` records join/copy timings explicitly; it is not a CI gate.
-- **H3-5 (`P3-7`)**: autofix provider SPI; keep it behind N3 and do not freeze an API before
-  the H0/H1 work is stable.
+- **H3-5 (`P3-7`)**: design documented in [AUTOFIX-SPI.md](AUTOFIX-SPI.md); no SPI code yet.
+  Keep it separate from `check` and do not freeze the API before the proposal/apply model is
+  proven.
 
 ### 6.5 Deferred and decision-only
 
@@ -441,7 +442,8 @@ Status: done (0.9.0).
 
 ### N3. Autofix provider framework
 
-Status: prototype on the working tree (Unreleased); design not final.
+Status: prototype implemented; SPI design documented in
+[AUTOFIX-SPI.md](AUTOFIX-SPI.md), implementation deferred.
 
 - A controlled `FixProvider` SPI: built-in high-confidence fixes and user providers share the
   same proposal/apply path.
