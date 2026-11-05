@@ -371,9 +371,12 @@ configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extens
      * with Gradle's own dependency message rather than at task execution.
      */
     private static Configuration resolvedToolConfiguration(Project project, NullCheckExtension extension) {
+        Map<String, String> checker = [group: TOOL_GROUP, name: TOOL_NAME, version: extension.toolVersion.get()]
+        if (extension.toolClassifier.get()) {
+            checker.classifier = extension.toolClassifier.get()
+        }
         Configuration tool = project.configurations.detachedConfiguration(
-                project.dependencies.create(
-                        "${TOOL_GROUP}:${TOOL_NAME}:${extension.toolVersion.get()}".toString()),
+                project.dependencies.create(checker),
                 project.dependencies.create(
                         "org.apache.groovy:groovy:${extension.toolGroovyVersion.get()}".toString()))
         tool

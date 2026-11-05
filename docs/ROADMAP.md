@@ -493,7 +493,8 @@ from release numbers.
 1. **Compatibility inventory** (started; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md));
    compile, runtime and exact CorpusGate spikes pass for Groovy 5.0.2/6.0.0 (94 results, 0
    failures); the Groovy 5 union-type closure was replaced with explicit guard push/pop, and a
-   local-only plugin spike passed for 5.0.2/6.0.0 in standalone and compile modes. No 5/6 release
+   local-only plugin spike passed for 5.0.2/6.0.0 in standalone and compile modes, and
+   classifier-selected experimental jars (`groovy5`/`groovy6`) are buildable. No 5/6 release
    artifact, CI matrix or long-term maintenance commitment exists yet
    - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
      `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);

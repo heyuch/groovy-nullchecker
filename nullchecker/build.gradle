@@ -49,6 +49,9 @@ java {
 configurations {
     // Gradle 8 自带的 Groovy 未必是我们要编译/验证的那一份，显式钉住一个来源
     groovy4
+    // Experimental cross-major compile lanes; never enter main/test classpaths.
+    groovy5
+    groovy6
     // 仅 dualRun 用：Groovy 6 官方实现，绝不进入 main/test 的任何 classpath
     referenceChecker
     // 语料用的注解（JSR-305 / JetBrains），只为跑语料
@@ -70,6 +73,9 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     corpusAnnotations 'com.google.code.findbugs:jsr305:3.0.2'
     corpusAnnotations 'org.jetbrains:annotations:13.0'
+
+    groovy5 'org.apache.groovy:groovy:5.0.2'
+    groovy6 'org.apache.groovy:groovy:6.0.0'
 
     referenceChecker "org.apache.groovy:groovy:${referenceGroovyVersion}"
     referenceChecker "org.apache.groovy:groovy-typecheckers:${referenceGroovyVersion}"
@@ -133,6 +139,39 @@ tasks.withType(GroovyCompile).configureEach {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
+}
+
+// ── Experimental cross-major artifacts ─────────────────────────────────────
+// Same coordinate, classifier-selected jars. These are opt-in and not part of the
+// default `check`; the plugin metadata remains Groovy 4 unless a consumer explicitly
+// selects a classifier and matching toolGroovyVersion.
+def compatCompile = { String lane, String configurationName ->
+    tasks.register("compileGroovy${lane}", GroovyCompile) {
+        source = sourceSets.main.groovy
+        classpath = files(
+                sourceSets.main.compileClasspath.filter { File f -> !f.name.startsWith('groovy-') },
+                configurations[configurationName])
+        groovyClasspath = configurations[configurationName]
+        destinationDirectory = layout.buildDirectory.dir("classes/groovy/${lane}")
+        options.encoding = 'UTF-8'
+    }
+}
+
+def compileGroovy5 = compatCompile('groovy5', 'groovy5')
+def compileGroovy6 = compatCompile('groovy6', 'groovy6')
+
+tasks.register('groovy5Jar', Jar) {
+    archiveClassifier = 'groovy5'
+    dependsOn compileGroovy5, processResources
+    from compileGroovy5.map { task -> task.destinationDirectory }
+    from sourceSets.main.output.resourcesDir
+}
+
+tasks.register('groovy6Jar', Jar) {
+    archiveClassifier = 'groovy6'
+    dependsOn compileGroovy6, processResources
+    from compileGroovy6.map { task -> task.destinationDirectory }
+    from sourceSets.main.output.resourcesDir
 }
 
 // ── 语料门禁 ────────────────────────────────────────────────────────────────
@@ -286,6 +325,8 @@ publishing {
         maven(MavenPublication) {
             artifactId = 'groovy-nullchecker'
             from components.java
+            artifact groovy5Jar
+            artifact groovy6Jar
             pom {
                 name = 'groovy-nullchecker'
                 description = 'Groovy 6 NullChecker back-ported to Groovy 4.0.x'

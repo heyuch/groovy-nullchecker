@@ -129,11 +129,20 @@ a real TestKit-style consumer project with the corresponding Groovy version:
 | 5.0.2 | passed; canary/coverage/finding | passed; compileGroovy + findings sink |
 | 6.0.0 | passed; canary/coverage/finding | passed; compileGroovy + findings sink |
 
-The g5/g6 coordinates are **not published release artifacts**; they exist only in the local
-verification environment. Remaining work is the real artifact boundary (classifier or separate
-coordinates), a reproducible CI matrix, package-info coverage under 5/6, and a decision on how
-long the experimental lane is maintained. A single bulk CLI compilation of all positive fixtures
-previously hit a Groovy 6 closure interaction; the per-fixture gate is the accepted corpus model.
+The artifact boundary is now implemented as same-coordinate, classifier-selected jars:
+
+- `:nullchecker:groovy5Jar` -> `groovy-nullchecker-<version>-groovy5.jar`;
+- `:nullchecker:groovy6Jar` -> `groovy-nullchecker-<version>-groovy6.jar`;
+- the plugin selects them with `toolClassifier = 'groovy5' | 'groovy6'` and a matching
+  `toolGroovyVersion`.
+
+A local Maven publication and consumer build passed for both classifiers in standalone and
+compile modes. These classifiers are experimental: they are not in the default `assemble`/release
+lane, there is no CI matrix or long-term maintenance commitment, and package-info coverage under
+5/6 is still unverified.
+
+A single bulk CLI compilation of all positive fixtures previously hit a Groovy 6 closure
+interaction; the per-fixture gate is the accepted corpus model.
 
 ## Work order
 
