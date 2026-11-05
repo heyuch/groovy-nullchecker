@@ -456,7 +456,13 @@ but does not fail the run by default, because it is not a nullness claim.'''
             err.println("nullcheck: option ${option} needs a value")
             return null
         }
-        return argv[index]
+        String candidate = argv[index]
+        // A contract specification starts with "->" and is the one intentional exception.
+        if (candidate.startsWith('-') && candidate != '-' && option != '--contract') {
+            err.println("nullcheck: option ${option} needs a value, got option '${candidate}'")
+            return null
+        }
+        return candidate
     }
 
 }

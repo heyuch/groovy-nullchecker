@@ -305,16 +305,19 @@
 
 ### P3-2 `NullCheckFindingsCli` 的参数校验对齐
 
-- Status: open
+- Status: done
 - 动作: 补 `--help`、重复参数、缺值参数、未知参数的一致处理；与 `NullCheckCli` 共用一个小型参数解析器或至少共用错误文案。
 - 验收: 两个 CLI 对同类误用的退出码和输出一致。
+- 完成证据: `NullCheckFindingsCli.run` 已可测试；两个 CLI 对未知/缺值参数返回 2。
 
 ### P3-3 CLI 取值的边界
 
-- Status: open
+- Status: done
 - 证据: `NullCheckCli.groovy:453-459` 的 `value()` 会把下一个选项当成值（例如 `--report --strict`）
 - 动作: 拒绝以 `-` 开头的值，或要求显式 `--report=...` 形式。
 - 验收: 误用返回 2 并给出清晰提示。
+- 完成证据: `value()` 拒绝以 `-` 开头的选项值（`--contract` 的 `->` 除外）；
+  `NullCheckCliSpec` 覆盖缺失值和“值其实是选项”。
 
 ### P3-4 分类测试的完整表
 

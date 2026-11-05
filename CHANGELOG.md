@@ -67,6 +67,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Documentation drift fixed.** Reconciled roadmap/flow status, removed a duplicate PORT heading,
   corrected the plugin build comment and replaced stale line-number references with symbols.
 
+- **CLI option values are validated.** A missing value or an option used as a value now returns
+  exit 2 with a clear message; the contract `->` literal remains accepted.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

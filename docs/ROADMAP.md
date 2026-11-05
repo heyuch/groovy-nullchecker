@@ -349,8 +349,9 @@ These are suitable for incremental, module-local work.
 
 - **H3-1 (`P3-1`)**: move task state to serializable `Property`/`ConfigurableFileCollection`
   and enable configuration-cache verification incrementally.
-- **H3-2 (`P3-2`/`P3-3`)**: align CLI option validation, missing values, unknown options and
-  values beginning with `-`.
+- **H3-2 (`P3-2`/`P3-3`)**: done. `NullCheckCli` rejects missing values and options used as
+  values (except the intentional `->` contract literal); `NullCheckCliSpec` covers both.
+  `NullCheckFindingsCli` was aligned in H2-4.
 - **H3-3 (`P3-4`)**: expand `NullCheckCategoriesSpec` into the full message table; new messages
   must fail until registered. Done with H0-4.
 - **H3-4 (`P3-5`)**: refresh the `docs/PERF.md` baseline and add micro-benchmarks for
