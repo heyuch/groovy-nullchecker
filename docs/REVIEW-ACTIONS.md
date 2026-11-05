@@ -135,7 +135,7 @@
 
 ### P1-4 收敛全局系统属性配置总线
 
-- Status: open
+- Status: done
 - 类型: 架构 / 并行安全
 - 证据: `NullCheckConfig.groovy:55-66`、`ContractRegistry.groovy:306-324/384-397`、`AstSupport.groovy:47-62`、`PackageScopes.groovy:310-324`、`NullChecker.groovy:146-182`；harness 通过 set/restore 隔离（`NullCheckHarness.groovy:216-234/302-325/371-385`）
 - 问题: 系统属性是 JVM 全局的。Gradle 并行编译不同模块、不同配置时理论上会互相污染；harness 的 set/restore 也意味着它不能并行运行。Groovy 4 不能给 extension 传参是客观限制，但不应让所有下游都直接读全局属性。
@@ -146,6 +146,8 @@
 - 验收:
   - 两套不同配置（strict、contracts、checks）交替运行，结果相互独立。
   - 现有 CLI/plugin 参数语义不变。
+- 完成证据: `NullCheckConfig` 一次性解析器配置；session/registry/visitor/initialization/
+  package-scope 均接收该快照；`NullCheckConfigSpec` 覆盖完整快照与交替快照。
 
 ### P1-5 测试脚手架不要进入发布物
 

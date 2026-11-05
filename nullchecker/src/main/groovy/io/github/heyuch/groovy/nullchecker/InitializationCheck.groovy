@@ -35,9 +35,17 @@ class InitializationCheck {
 
     private final NullCheckReporter reporter
 
+    private final Set<String> nonNullAnnotations
+
     InitializationCheck(PackageScopes scopes, NullCheckReporter reporter) {
+        this(scopes, reporter, AstSupport.nonNullAnnotations())
+    }
+
+    InitializationCheck(PackageScopes scopes, NullCheckReporter reporter,
+                        Set<String> nonNullAnnotations) {
         this.scopes = scopes
         this.reporter = reporter
+        this.nonNullAnnotations = new HashSet<String>(nonNullAnnotations)
     }
 
     /** Packages whose constraints imply non-null but not "assigned in source". */
@@ -144,7 +152,7 @@ class InitializationCheck {
      * which check happened to look.
      */
     boolean isNonNullAnnotated(AnnotatedNode node) {
-        if (hasNonNullAnno(node)) {
+        if (hasNonNullAnno(node, nonNullAnnotations)) {
             return true
         }
         ClassNode owner = node instanceof FieldNode ? ((FieldNode) node).declaringClass : null

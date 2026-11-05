@@ -46,13 +46,45 @@ class NullCheckConfig {
     /** When true, only @NullMarked classes/packages are analysed. */
     final boolean markedOnly
 
+    static final String GUARDS_TRUE_PROPERTY = 'groovy.nullchecker.guards.true'
+    static final String GUARDS_FALSE_PROPERTY = 'groovy.nullchecker.guards.false'
+    static final String NEVER_RETURNS_PROPERTY = 'groovy.nullchecker.neverreturns'
+    static final String CONTRACTS_PROPERTY = 'groovy.nullchecker.contracts'
+    static final String ASSERTS_TRUE_PROPERTY = 'groovy.nullchecker.assertsTrue'
+    static final String CLASSPATH_PROPERTY = 'groovy.nullchecker.classpath'
+
+    final Set<String> nonNullAnnotations
+    final Set<String> guardsTrue
+    final Set<String> guardsFalse
+    final Set<String> neverReturns
+    final Set<String> assertsTrue
+    final Map<String, String> contracts
+    final String classpath
+
     NullCheckConfig(boolean strict, boolean nullnessCheck, boolean initializationCheck,
                     boolean containerLookups, boolean markedOnly) {
+        this(strict, nullnessCheck, initializationCheck, containerLookups, markedOnly,
+                new HashSet<String>(AstSupport.NONNULL_ANNOS), Collections.<String> emptySet(),
+                Collections.<String> emptySet(), Collections.<String> emptySet(),
+                Collections.<String> emptySet(), Collections.<String, String> emptyMap(), '')
+    }
+
+    NullCheckConfig(boolean strict, boolean nullnessCheck, boolean initializationCheck,
+                    boolean containerLookups, boolean markedOnly, Set<String> nonNullAnnotations,
+                    Set<String> guardsTrue, Set<String> guardsFalse, Set<String> neverReturns,
+                    Set<String> assertsTrue, Map<String, String> contracts, String classpath) {
         this.strict = strict
         this.nullnessCheck = nullnessCheck
         this.initializationCheck = initializationCheck
         this.containerLookups = containerLookups
         this.markedOnly = markedOnly
+        this.nonNullAnnotations = Collections.unmodifiableSet(new HashSet<String>(nonNullAnnotations))
+        this.guardsTrue = Collections.unmodifiableSet(new HashSet<String>(guardsTrue))
+        this.guardsFalse = Collections.unmodifiableSet(new HashSet<String>(guardsFalse))
+        this.neverReturns = Collections.unmodifiableSet(new HashSet<String>(neverReturns))
+        this.assertsTrue = Collections.unmodifiableSet(new HashSet<String>(assertsTrue))
+        this.contracts = Collections.unmodifiableMap(new LinkedHashMap<String, String>(contracts))
+        this.classpath = classpath ?: ''
     }
 
     static NullCheckConfig read(Map<String, Object> options) {
@@ -65,7 +97,11 @@ class NullCheckConfig {
         boolean markedOnly = options?.markedOnly == true ||
                 'true'.equalsIgnoreCase(System.getProperty(MARKED_ONLY_PROPERTY))
         return new NullCheckConfig(strict, checks.contains(CHECK_NULL),
-                checks.contains(CHECK_INITIALIZATION), containerLookups, markedOnly)
+                checks.contains(CHECK_INITIALIZATION), containerLookups, markedOnly,
+                readNonNullAnnotations(), readGuardEntries(GUARDS_TRUE_PROPERTY),
+                readGuardEntries(GUARDS_FALSE_PROPERTY), readGuardEntries(NEVER_RETURNS_PROPERTY),
+                readGuardEntries(ASSERTS_TRUE_PROPERTY), readContractEntries(),
+                System.getProperty(CLASSPATH_PROPERTY, ''))
     }
 
     /**
@@ -73,6 +109,55 @@ class NullCheckConfig {
      * names are rejected here, including the bare-checker path that does not pass through the
      * CLI/plugin's validation.
      */
+    private static Set<String> readNonNullAnnotations() {
+        Set<String> names = new HashSet<String>(AstSupport.NONNULL_ANNOS)
+        String extra = System.getProperty(AstSupport.NONNULL_ANNOTATIONS_PROPERTY)
+        if (extra) {
+            for (String part : extra.split(',')) {
+                String value = part.trim()
+                if (value) {
+                    names.add(value.substring(value.lastIndexOf('.') + 1))
+                }
+            }
+        }
+        return names
+    }
+
+    private static Set<String> readGuardEntries(String property) {
+        String raw = System.getProperty(property)
+        if (raw == null || raw.trim().isEmpty()) {
+            return Collections.<String> emptySet()
+        }
+        Set<String> entries = new HashSet<String>()
+        for (String part : raw.split(',')) {
+            String entry = part.trim()
+            if (!entry.isEmpty()) {
+                entries.add(entry)
+            }
+        }
+        return entries
+    }
+
+    private static Map<String, String> readContractEntries() {
+        Map<String, String> entries = new LinkedHashMap<String, String>()
+        String raw = System.getProperty(CONTRACTS_PROPERTY)
+        if (raw == null) {
+            return entries
+        }
+        for (String part : raw.split(';')) {
+            String entry = part.trim()
+            if (entry.isEmpty()) {
+                continue
+            }
+            int separator = entry.indexOf('=')
+            if (separator <= 0) {
+                continue
+            }
+            entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
+        }
+        return entries
+    }
+
     private static Set<String> readChecks() {
         String raw = System.getProperty(CHECKS_PROPERTY)
         if (raw == null || raw.trim().isEmpty()) {

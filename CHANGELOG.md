@@ -34,6 +34,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **One finding DTO.** `NullCheckFinding` is the single field definition; the harness and report
   adapt it, and TSV serialization lives in `NullCheckFindingTsv`.
 
+- **Per-compilation configuration snapshot.** Checker collaborators now receive one immutable
+  `NullCheckConfig` containing checks, annotations, guards, contracts, asserts-true entries and
+  the classpath; system properties remain the transport layer.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

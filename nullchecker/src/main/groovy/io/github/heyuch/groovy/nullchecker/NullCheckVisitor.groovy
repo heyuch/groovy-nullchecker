@@ -4,7 +4,6 @@ import static io.github.heyuch.groovy.nullchecker.AstSupport.canBeNull
 import static io.github.heyuch.groovy.nullchecker.AstSupport.declAnnoCarrier
 import static io.github.heyuch.groovy.nullchecker.AstSupport.getASSERTION_MESSAGE_TYPES
 import static io.github.heyuch.groovy.nullchecker.AstSupport.hasMonotonicAnno
-import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullAnno
 import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullByDefaultAnno
 import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNonNullMapValue
 import static io.github.heyuch.groovy.nullchecker.AstSupport.hasNullCheckAnno
@@ -98,6 +97,8 @@ class NullCheckVisitor extends CheckingVisitor {
 
     private final boolean containerLookups
 
+    private final Set<String> nonNullAnnotations
+
     private static final Set<String> NON_EMPTY_WHEN_TRUE = [
             'isNotNullOrEmpty', 'isNotNullOrEmptyDeeply'] as Set<String>
 
@@ -106,7 +107,7 @@ class NullCheckVisitor extends CheckingVisitor {
     NullCheckVisitor(boolean flowSensitive, MethodNode method, boolean methodNonNull,
                      Set<Variable> initialNullable, PackageScopes scopes,
                      ContractRegistry contracts, NullCheckReporter reporter,
-                     boolean containerLookups) {
+                     boolean containerLookups, Set<String> nonNullAnnotations) {
         this.flowSensitive = flowSensitive
         this.method = method
         this.methodNonNull = methodNonNull
@@ -114,7 +115,12 @@ class NullCheckVisitor extends CheckingVisitor {
         this.contracts = contracts
         this.reporter = reporter
         this.containerLookups = containerLookups
+        this.nonNullAnnotations = new HashSet<String>(nonNullAnnotations)
         this.nullableVars = new HashSet<Variable>(initialNullable)
+    }
+
+    private boolean hasNonNullAnno(AnnotatedNode node) {
+        return AstSupport.hasNonNullAnno(node, nonNullAnnotations)
     }
 
     void markCatchParameter(Parameter parameter) {

@@ -31,16 +31,6 @@ import org.jspecify.annotations.Nullable
 @PackageScope
 class ContractRegistry {
 
-    private static final String GUARD_TRUE_PROPERTY = 'groovy.nullchecker.guards.true'
-
-    private static final String GUARD_FALSE_PROPERTY = 'groovy.nullchecker.guards.false'
-
-    private static final String NEVER_RETURNS_PROPERTY = 'groovy.nullchecker.neverreturns'
-
-    private static final String CONTRACTS_PROPERTY = 'groovy.nullchecker.contracts'
-
-    private static final String ASSERTS_TRUE_PROPERTY = 'groovy.nullchecker.assertsTrue'
-
     private static final Set<String> NO_RETURN_ANNOS = Collections.unmodifiableSet(
             ['NoReturn', 'NeverReturns', 'DoesNotReturn'] as Set<String>)
 
@@ -60,12 +50,17 @@ class ContractRegistry {
 
     /** Reads the project's declarations; one instance per compilation. */
     ContractRegistry() {
-        guardsTrue = readGuardEntries(GUARD_TRUE_PROPERTY)
-        guardsFalse = readGuardEntries(GUARD_FALSE_PROPERTY)
-        neverReturns = readGuardEntries(NEVER_RETURNS_PROPERTY)
-        assertsTrue = readGuardEntries(ASSERTS_TRUE_PROPERTY)
+        this(NullCheckConfig.read([:]))
+    }
+
+    /** Uses the already-resolved per-compilation configuration. */
+    ContractRegistry(NullCheckConfig config) {
+        guardsTrue = config.guardsTrue
+        guardsFalse = config.guardsFalse
+        neverReturns = config.neverReturns
+        assertsTrue = config.assertsTrue
         installBuiltIns()
-        configured = buildConfigContracts()
+        configured = buildConfigContracts(config.contracts)
     }
 
     /**
@@ -280,7 +275,7 @@ class ContractRegistry {
         return table.get('#' + target.name)
     }
 
-    private Map<String, Contract> buildConfigContracts() {
+    private Map<String, Contract> buildConfigContracts(Map<String, String> contractEntries) {
         Map<String, Contract> contracts = new LinkedHashMap<String, Contract>()
         for (String key : guardsTrue) {
             contracts.put(key, Contract.fact(true))
@@ -294,33 +289,13 @@ class ContractRegistry {
         for (String key : assertsTrue) {
             contracts.put(key, Contract.assertsTrue(0))
         }
-        for (Map.Entry<String, String> entry : readContractEntries().entrySet()) {
+        for (Map.Entry<String, String> entry : contractEntries.entrySet()) {
             Contract contract = contractFromJetBrains(entry.value)
             if (contract != null) {
                 contracts.put(entry.key, contract)
             }
         }
         return contracts
-    }
-
-    private static Map<String, String> readContractEntries() {
-        Map<String, String> entries = new LinkedHashMap<String, String>()
-        String raw = System.getProperty(CONTRACTS_PROPERTY)
-        if (raw == null) {
-            return entries
-        }
-        for (String part : raw.split(';')) {
-            String entry = part.trim()
-            if (entry.isEmpty()) {
-                continue
-            }
-            int separator = entry.indexOf('=')
-            if (separator <= 0) {
-                continue
-            }
-            entries.put(entry.substring(0, separator).trim(), entry.substring(separator + 1).trim())
-        }
-        return entries
     }
 
     /**
@@ -378,22 +353,6 @@ class ContractRegistry {
             clauses.add(new ContractClause(arguments: arguments, result: result))
         }
         return clauses
-    }
-
-    /** Reads a comma-separated guard list, ignoring blanks and surrounding whitespace. */
-    private static Set<String> readGuardEntries(String property) {
-        String raw = System.getProperty(property)
-        if (raw == null || raw.trim().isEmpty()) {
-            return Collections.<String> emptySet()
-        }
-        Set<String> entries = new HashSet<String>()
-        for (String part : raw.split(',')) {
-            String entry = part.trim()
-            if (!entry.isEmpty()) {
-                entries.add(entry)
-            }
-        }
-        return Collections.unmodifiableSet(entries)
     }
 
 }

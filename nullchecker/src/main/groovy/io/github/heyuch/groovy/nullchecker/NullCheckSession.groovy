@@ -38,8 +38,8 @@ class NullCheckSession {
 
     NullCheckSession(NullCheckConfig config, CompilationUnit unit, ClassLoader sourceLoader) {
         this.config = config
-        this.scopes = new PackageScopes(unit, sourceLoader)
-        this.contracts = new ContractRegistry()
+        this.scopes = new PackageScopes(unit, sourceLoader, config.classpath)
+        this.contracts = new ContractRegistry(config)
         this.coverage = new Coverage()
     }
 
@@ -58,7 +58,8 @@ class NullCheckSession {
             boolean classNonNullByDefault = method.declaringClass != null &&
                     scopes.isReturnValueNonNullByDefault(method.declaringClass)
             boolean methodNonNull = method.returnType != VOID_TYPE &&
-                    (hasNonNullAnno(method) || (classNonNullByDefault && !hasNullableAnno(method)))
+                    (hasNonNullAnno(method, config.nonNullAnnotations) ||
+                            (classNonNullByDefault && !hasNullableAnno(method)))
             if (methodNonNull) {
                 Object stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
                 if (stash instanceof List) {
@@ -73,7 +74,7 @@ class NullCheckSession {
                 hasNullableAnno(parameter)
             } as Set<Variable>
             NullCheckVisitor visitor = new NullCheckVisitor(config.strict, method, methodNonNull, initialNullable,
-                    scopes, contracts, reporter, config.containerLookups)
+                    scopes, contracts, reporter, config.containerLookups, config.nonNullAnnotations)
             if (config.strict) {
                 visitor.analyzeStrict()
             } else {
@@ -84,7 +85,7 @@ class NullCheckSession {
 
     void checkInitialization(ClassNode cn, NullCheckReporter reporter) {
         reporter.guard("initialization of ${cn.name}") {
-            new InitializationCheck(scopes, reporter).check(cn)
+            new InitializationCheck(scopes, reporter, config.nonNullAnnotations).check(cn)
         }
     }
 

@@ -26,6 +26,8 @@ class PackageScopes {
 
     private final ClassLoader sourceLoader
 
+    private final String classpath
+
     private final Map<String, List<String>> sourceAnnotations = [:]
 
     private final Map<String, List<String>> byClass = [:]
@@ -35,8 +37,13 @@ class PackageScopes {
     private @Nullable List<ClassLoader> classLoaders
 
     PackageScopes(@Nullable CompilationUnit unit, @Nullable ClassLoader sourceLoader) {
+        this(unit, sourceLoader, System.getProperty(NullCheckConfig.CLASSPATH_PROPERTY, ''))
+    }
+
+    PackageScopes(@Nullable CompilationUnit unit, @Nullable ClassLoader sourceLoader, String classpath) {
         this.transformLoader = unit?.transformLoader
         this.sourceLoader = sourceLoader
+        this.classpath = classpath ?: ''
         sourceAnnotations.putAll(collectSourceAnnotations(unit))
     }
 
@@ -307,7 +314,7 @@ class PackageScopes {
             // not reachable in this setup
         }
         try {
-            String extra = System.getProperty('groovy.nullchecker.classpath')
+            String extra = classpath
             if (extra) {
                 List<URL> urls = []
                 for (String path : extra.split(java.io.File.pathSeparator)) {

@@ -118,6 +118,15 @@ class AstSupport {
         return hasAnno(node, nonNullAnnotations())
     }
 
+    /** Per-compilation variant; callers with a config must not re-read the system property. */
+    @PackageScope
+    static boolean hasNonNullAnno(AnnotatedNode node, Set<String> annotations) {
+        if (node.getNodeMetaData('INFERRED_NON_NULL' /* PORT: marker absent in Groovy 4 */) == Boolean.TRUE) {
+            return true
+        }
+        return hasAnno(node, annotations)
+    }
+
     @PackageScope
     static boolean hasMonotonicAnno(AnnotatedNode node) {
         return hasAnno(node, MONOTONIC_ANNOS)

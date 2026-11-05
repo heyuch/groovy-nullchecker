@@ -307,10 +307,13 @@ Start after H0 is green.
 
 #### H1-4. Per-compilation configuration (`P1-4`)
 
-- Status: open after H1-1/H1-3.
-- Replace direct global-property reads below the boundary with one configuration object passed
-  to the session/visitor/registry; system properties remain the transport layer.
-- Add an alternating-configuration test (strict/contracts/checks) and prove results do not leak.
+- Status: done.
+- `NullCheckConfig` now snapshots strict/checks, non-null annotation names, guard/never-return/
+  asserts-true lists, raw contracts and the classpath.
+- `NullCheckSession`, `ContractRegistry`, `NullCheckVisitor`, `InitializationCheck` and
+  `PackageScopes` receive that snapshot; their checker-path property reads are gone.
+- `NullCheckConfigSpec` verifies a full snapshot and two alternating snapshots retain their
+  values; `ContractRegistry` still has a transport-only no-arg constructor for tests.
 
 ### 6.3 H2: robustness and consistency
 
