@@ -243,6 +243,10 @@ class NullCheckVisitor extends CheckingVisitor {
 
         if (isAssignment(expr.operation.type) && leftExpr instanceof VariableExpression) {
             Variable target = findTargetVariable((VariableExpression) leftExpr)
+            if (!(target instanceof FieldNode)) {
+                // A local may alias any receiver; without alias analysis, drop all field facts.
+                invalidateAllPaths()
+            }
             boolean fieldNonNull = target instanceof AnnotatedNode && hasNonNullAnno((AnnotatedNode) target)
             if (!fieldNonNull && target instanceof FieldNode && !hasNullableAnno((AnnotatedNode) target)) {
                 FieldNode field = (FieldNode) target

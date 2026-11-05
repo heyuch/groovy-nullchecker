@@ -394,10 +394,11 @@ feature change.
   H0-2 diagnostic.
 - **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression
   tests and CFG diagnostics.
-- **D6. Alias/purity invalidation** (correctness, in progress): non-pure calls now kill all
-  field facts, `@Pure` / `@SideEffectFree` calls preserve them, and assigning a field invalidates
-  the same field name on other receivers. `AliasPuritySpec` covers both. Remaining: local-
-  assignment alias invalidation using a type-compatibility approximation.
+- **D6. Alias/purity invalidation** (correctness, done, conservative): non-pure calls kill all
+  field facts, `@Pure` / `@SideEffectFree` calls preserve them, field assignment invalidates the
+  same field name on other receivers, and local assignment clears field facts. `AliasPuritySpec`
+  covers all three. No type-compatibility alias analysis is attempted; this is intentionally
+  conservative rather than unsound.
 - **D5. Basic blocks/expression nodes** (deferred): a substantial rewrite; revisit only if D1
   or D2 demonstrates a concrete need.
 

@@ -50,6 +50,14 @@ class Use {
         }
         return 0
     }
+
+    int localAlias(Holder a, Holder b) {
+        if (a.value != null) {
+            b = new Holder()
+            return a.value.length()
+        }
+        return 0
+    }
 }
 '''
 
@@ -79,8 +87,8 @@ import java.lang.annotation.Target
                 [NullCheckHarness.Category.NULL.label]).collect { NullCheckHarness.Finding f -> f.message }
 
         then:
-        messages.size() == 1
-        messages.first().contains("'value' may be null")
+        messages.size() == 2
+        messages.every { String message -> message.contains("'value' may be null") }
 
         cleanup:
         dir.deleteDir()

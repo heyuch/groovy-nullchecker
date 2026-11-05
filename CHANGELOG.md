@@ -77,9 +77,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   inside try/catch through the catch/finally target, and builds finally copies for abrupt
   `return`/`break`/`continue`. Per-operation call exception edges remain future D2 work.
 
-- **Field facts respect calls and aliases (partial).** Non-pure calls discard field facts,
-  `@Pure`/`@SideEffectFree` calls preserve them, and a field assignment invalidates the same
-  field name on other receivers; local-alias invalidation remains future D6 work.
+- **Field facts respect calls and aliases.** Non-pure calls discard field facts,
+  `@Pure`/`@SideEffectFree` calls preserve them, a field assignment invalidates the same field
+  name on other receivers, and local assignment clears field facts conservatively.
 
 - **Exceptional CFG is complete at statement granularity.** Call/constructor expressions now
   have exceptional edges to the enclosing catch/finally or the exceptional exit; exception types
