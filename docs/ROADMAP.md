@@ -358,10 +358,9 @@ These are suitable for incremental, module-local work.
   must fail until registered. Done with H0-4.
 - **H3-4 (`P3-5`)**: done. The local compile/test baseline is refreshed and
   `FlowStateBench` records join/copy timings explicitly; it is not a CI gate.
-- **H3-5 (`P3-7`)**: in progress. Built-in return/parameter rules now implement
-  `NullFixProvider`, `--provider <fqcn>` loads additional providers, and
-  `AutofixProviderSpec`/`NullCheckAutofixCliSpec` cover the hook. Plugin provider classpath
-  wiring and a frozen public API remain pending.
+- **H3-5 (`P3-7`)**: in progress. Built-in rules implement `NullFixProvider`, CLI `--provider`
+  and plugin `autofixProviders`/`nullcheckAutofixProviders` load user providers, and functional
+  tests cover the hook. Public API freeze and conflict/idempotency policy remain pending.
 
 ### 6.5 Deferred and decision-only
 

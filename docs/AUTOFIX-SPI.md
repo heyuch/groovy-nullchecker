@@ -1,6 +1,6 @@
 # Autofix provider SPI: design proposal
 
-- Status: minimal hook, built-in provider migration and CLI provider loading implemented; plugin provider classpath and public API freeze pending.
+- Status: minimal hook, built-in migration, CLI load and plugin `autofixProviders`/`nullcheckAutofixProviders` classpath implemented; public API freeze and conflict/idempotency policy pending.
 - Related: [ROADMAP.md](ROADMAP.md) N3 / H3-5, [DATAFLOW-COMPARISON.md](DATAFLOW-COMPARISON.md).
 - Current implementation: report-driven autofix in `NullableAnnotator.runFromFindings` plus
   the AST-only `nullcheckAddNullable` migration.

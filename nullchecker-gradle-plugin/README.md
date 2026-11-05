@@ -109,6 +109,7 @@ nullcheck {
 | `nullableAnnotation` | `org.jspecify.annotations.Nullable` | `nullcheckAddNullable` 写入的注解 FQCN |
 | `nullableDryRun` | `false` | `nullcheckAddNullable` 只打印计划，不修改源码 |
 | `autofixDryRun` | `false` | `nullcheckAutofix` 只打印 report-driven 计划，不修改源码 |
+| `autofixProviders` | `[]` | 用户 `NullFixProvider` 类名，classpath 来自 `nullcheckAutofixProviders` configuration |
 | `canary` | `true` | 关闭后**不再自证**，`0` 就无法区分"干净"和"没查" |
 | `toolVersion` | `0.11.0` | 解析不到的版本会**明确失败**，不会静默变绿 |
 
@@ -141,6 +142,18 @@ nullcheck {
 - `nullcheckAddNullable` 是 AST 推断驱动，不依赖 findings；
 - `nullcheckAutofix` 依赖 checker findings，目标更精确；
 - 两者都不属于 `check`，都需要显式执行。
+
+用户 provider 示例：
+
+```groovy
+dependencies {
+    nullcheckAutofixProviders files('libs/acme-null-fixes.jar')
+}
+
+nullcheck {
+    autofixProviders = ['com.acme.fix.TransactionExecuteFix']
+}
+```
 
 ### 自动迁移：添加 `@Nullable`
 

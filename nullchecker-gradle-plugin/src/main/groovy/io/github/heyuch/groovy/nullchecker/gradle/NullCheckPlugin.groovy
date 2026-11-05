@@ -74,6 +74,11 @@ class NullCheckPlugin implements Plugin<Project> {
     void apply(Project project) {
         NullCheckExtension extension =
                 project.extensions.create('nullcheck', NullCheckExtension, project)
+        Configuration autofixProviders = project.configurations.create('nullcheckAutofixProviders') { Configuration c ->
+            c.canBeConsumed = false
+            c.canBeResolved = true
+            c.description = 'Classpath for user NullFixProvider implementations'
+        }
 
         TaskProvider<JavaExec> task = project.tasks.register(TASK_NAME, JavaExec) { JavaExec t ->
             t.group = 'verification'
@@ -104,7 +109,8 @@ class NullCheckPlugin implements Plugin<Project> {
             JavaExec annotateExec = annotate.get()
             annotateExec.classpath = project.files(tool)
             JavaExec autofixExec = autofix.get()
-            autofixExec.classpath = project.files(tool, compileClasspathOf(project), compileJavaOutputOf(project))
+            autofixExec.classpath = project.files(tool, compileClasspathOf(project),
+                    compileJavaOutputOf(project), autofixProviders)
             project.tasks.findByName('compileJava')?.with { compileJava ->
                 autofixExec.dependsOn(compileJava)
             }
@@ -114,6 +120,9 @@ class NullCheckPlugin implements Plugin<Project> {
             }
             if (extension.strict.get()) {
                 autofixArgs << '--strict'
+            }
+            for (String provider : extension.autofixProviders.get()) {
+                autofixArgs << '--provider' << provider
             }
             autofixArgs.addAll(extension.targets.get())
             autofixExec.args = autofixArgs

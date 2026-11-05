@@ -487,6 +487,24 @@ tasks.register('runRepro', JavaExec) {
         second.output.contains('Configuration cache entry reused')
     }
 
+    def 'nullcheckAutofix reports an invalid user provider'() {
+        given:
+        writeSettings()
+        writeBuild('''nullcheck {
+    autofixDryRun = true
+    autofixProviders = ['does.not.Exist']
+}
+''')
+        writeAnnotation()
+        writeMarkedViolation()
+
+        when:
+        BuildResult result = runAndFail('nullcheckAutofix')
+
+        then:
+        result.output.contains('cannot load provider')
+    }
+
     def 'configuration cache covers compile mode'() {
         given:
         writeSettings()

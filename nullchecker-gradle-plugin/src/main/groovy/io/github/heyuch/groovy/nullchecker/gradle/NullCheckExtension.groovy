@@ -167,6 +167,9 @@ class NullCheckExtension {
     /** Methods whose normal return proves their first (boolean) argument true. */
     final ListProperty<String> assertsTrue
 
+    /** User NullFixProvider class names for nullcheckAutofix. */
+    final ListProperty<String> autofixProviders
+
     /** FQCN used by the opt-in nullcheckAddNullable source migration. */
     final Property<String> nullableAnnotation
 
@@ -198,6 +201,7 @@ class NullCheckExtension {
         this.reportToStderr = project.objects.property(Boolean)
         this.nonNullAnnotations = project.objects.listProperty(String)
         this.assertsTrue = project.objects.listProperty(String)
+        this.autofixProviders = project.objects.listProperty(String)
         this.nullableAnnotation = project.objects.property(String)
         this.nullableDryRun = project.objects.property(Boolean)
         this.autofixDryRun = project.objects.property(Boolean)
@@ -224,6 +228,7 @@ class NullCheckExtension {
         reportToStderr.convention(false)
         nonNullAnnotations.convention([])
         assertsTrue.convention([])
+        autofixProviders.convention([])
         nullableAnnotation.convention('org.jspecify.annotations.Nullable')
         nullableDryRun.convention(false)
         autofixDryRun.convention(false)
