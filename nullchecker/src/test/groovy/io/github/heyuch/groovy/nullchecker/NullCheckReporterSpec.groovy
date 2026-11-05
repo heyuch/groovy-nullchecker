@@ -29,6 +29,22 @@ class NullCheckReporterSpec extends Specification {
         categories == [NullCheckCategories.RESOLUTION]
     }
 
+    def 'a fatal VM error is recorded and rethrown'() {
+        given:
+        NullCheckReporter reporter = new NullCheckReporter({ String message, Object node -> })
+        StackOverflowError failure = new StackOverflowError('synthetic')
+
+        when:
+        reporter.guard('synthetic stack overflow') {
+            throw failure
+        }
+
+        then:
+        StackOverflowError thrown = thrown()
+        thrown.is(failure)
+        NullCheckReporter.internalErrors.any { String error -> error.contains('synthetic stack overflow') }
+    }
+
     def 'a budget diagnostic makes the run unclean and writes the sidecar'() {
         given:
         File findings = new File(File.createTempDir(), 'findings.tsv')

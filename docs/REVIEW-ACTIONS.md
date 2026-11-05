@@ -194,11 +194,12 @@
 
 ### P2-2 `NullCheckReporter.guard` 对 `Throwable` 的处理
 
-- Status: open
+- Status: done
 - 证据: `NullCheckReporter.groovy:43-49`
 - 问题: `catch (Throwable)` 会连 `OutOfMemoryError` / `StackOverflowError` 一起吞掉并继续编译。记录后让 compilation 完成，可能留下部分分析结果。
 - 动作: 记录后重新抛出致命 VM error（至少 `VirtualMachineError`），或在 harness 层强制终止；普通 `Exception` / `LinkageError` 仍按现有方式降级。
 - 验收: 模拟 `StackOverflowError` 时不会被当作普通可恢复失败。
+- 完成证据: `guard` 记录后重抛 `VirtualMachineError`；`NullCheckReporterSpec` 覆盖。
 
 ### P2-3 清理 Groovy 4 下不可达的 marker 分支
 

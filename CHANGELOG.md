@@ -42,6 +42,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   `package-info` metadata are recorded as internal diagnostics instead of silently disabling
   package defaults.
 
+- **Fatal VM errors are rethrown.** `NullCheckReporter.guard` still records a failure, but a
+  `VirtualMachineError` now aborts compilation instead of being treated as recoverable.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

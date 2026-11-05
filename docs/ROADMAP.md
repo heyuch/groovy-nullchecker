@@ -322,8 +322,8 @@ These are suitable for incremental, module-local work.
 - **H2-1 (`P2-1`)**: done. `PackageScopes` records source-scan, package-info lookup and
   classpath-hint failures through the internal-error channel; `PackageScopesSpec` forces a
   lookup failure.
-- **H2-2 (`P2-2`)**: do not swallow `VirtualMachineError` in `NullCheckReporter.guard`; rethrow
-  fatal VM errors, keep ordinary recoverable failures visible.
+- **H2-2 (`P2-2`)**: done. `NullCheckReporter.guard` records the failure and rethrows any
+  `VirtualMachineError`; `NullCheckReporterSpec` covers a synthetic `StackOverflowError`.
 - **H2-3 (`P2-3`)**: delete the Groovy-4-unreachable
   `INFERRED_NON_NULL_RETURN_VIOLATIONS` branch or guard it behind an explicit version check.
 - **H2-4 (`P2-4`)**: split `NullCheckFindingsCli.main` into `run(args, out, err)` and `main`;

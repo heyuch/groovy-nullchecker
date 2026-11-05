@@ -52,6 +52,9 @@ class NullCheckReporter {
             body.call()
         } catch (Throwable failure) {
             recordInternalError(where, failure)
+            if (failure instanceof VirtualMachineError) {
+                throw failure
+            }
         }
     }
 
