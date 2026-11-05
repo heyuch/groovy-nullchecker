@@ -8,6 +8,8 @@ import org.codehaus.groovy.ast.stmt.DoWhileStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.SwitchStatement
+import org.codehaus.groovy.ast.stmt.ThrowStatement
+import org.codehaus.groovy.ast.stmt.TryCatchStatement
 import org.codehaus.groovy.ast.stmt.WhileStatement
 import org.codehaus.groovy.control.CompilePhase
 import spock.lang.Specification
@@ -51,6 +53,26 @@ class Sample {
                 break
             default:
                 println 'd'
+        }
+    }
+
+    void throwsOutside() {
+        throw new RuntimeException('outside')
+    }
+
+    void throwsInside() {
+        try {
+            throw new RuntimeException('inside')
+        } catch (RuntimeException e) {
+            println e.message
+        }
+    }
+
+    void throwsNoCatch() {
+        try {
+            throw new RuntimeException('inside')
+        } finally {
+            println 'done'
         }
     }
 }
@@ -104,6 +126,46 @@ class Sample {
         then:
         node != null
         node.outgoing.size() >= 2
+    }
+
+    def 'an uncaught throw goes to the exceptional exit'() {
+        when:
+        ControlFlowGraph graph = graphFor('throwsOutside')
+        CfgNode thrown = graph.nodes.find { CfgNode current -> current.statement instanceof ThrowStatement }
+
+        then:
+        thrown != null
+        graph.exceptionExit != null
+        thrown.outgoing.size() == 1
+        thrown.outgoing.first().kind == CfgEdgeKind.EXCEPTION
+        thrown.outgoing.first().target.is(graph.exceptionExit)
+    }
+
+    def 'a throw inside try goes to the catch entry'() {
+        when:
+        ControlFlowGraph graph = graphFor('throwsInside')
+        CfgNode thrown = graph.nodes.find { CfgNode current -> current.statement instanceof ThrowStatement }
+        CfgNode caught = graph.nodes.find { CfgNode current -> current.catchStatement != null }
+
+        then:
+        thrown != null
+        caught != null
+        thrown.outgoing.any { CfgEdge edge ->
+            edge.kind == CfgEdgeKind.EXCEPTION && edge.target.is(caught)
+        }
+    }
+
+    def 'a throw in try without catch goes through finally'() {
+        when:
+        ControlFlowGraph graph = graphFor('throwsNoCatch')
+        CfgNode thrown = graph.nodes.find { CfgNode current -> current.statement instanceof ThrowStatement }
+        CfgNode tryNode = graph.nodes.find { CfgNode current -> current.statement instanceof TryCatchStatement }
+
+        then:
+        thrown != null
+        tryNode != null
+        thrown.outgoing.every { CfgEdge edge -> edge.kind == CfgEdgeKind.EXCEPTION }
+        thrown.outgoing.first().target != graph.exit
     }
 
     private static ControlFlowGraph graphFor(String methodName) {

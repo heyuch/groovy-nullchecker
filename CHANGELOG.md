@@ -73,6 +73,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Repeated map lookups narrow.** `map.get(k) != null && map.get(k).isBlank()` no longer reports
   the second lookup; a distinct call-result guard keeps `containsKey` presence semantics separate.
 
+- **Exceptional CFG edges (partial).** The CFG now has an exceptional exit and routes `throw`
+  inside try/catch through the catch/finally target; per-operation call edges and abrupt
+  `finally` jumps remain future D2 work.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

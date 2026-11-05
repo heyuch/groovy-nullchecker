@@ -385,9 +385,9 @@ feature change.
 - **D1. Conditional flow rules** (precision): model explicit then/else condition states and
   flow-rule inheritance for nested `&&`/`||`, ternary, assert and switch; start with the
   statement-level CFG, not an expression-level rewrite.
-- **D2. Exceptional CFG** (correctness): add an exceptional exit and per-operation exception
-  edges; route `throw` inside `try` to catch/finally; model abrupt `return`/`break`/`continue`
-  through finally. This is the highest-value CFG change and needs its own corpus.
+- **D2. Exceptional CFG** (correctness, in progress): `exceptionExit` and `throw` routing to
+  catch/finally are implemented and covered by `ControlFlowGraphSpec`. Remaining: per-operation
+  edges from calls and abrupt `return`/`break`/`continue` through finally.
 - **D3. Fixed-point discipline** (robustness): replace the low visitor loop cap with
   convergence plus a global safety budget; keep the H0-2 diagnostic when a budget is hit.
 - **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression

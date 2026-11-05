@@ -31,13 +31,20 @@ class ControlFlowGraph {
 
     final CfgNode exit
 
+    /** Exceptional method exit, separate from the normal return/exit edge. */
+    final CfgNode exceptionExit
+
     final List<CfgNode> nodes = new ArrayList<CfgNode>()
 
     private int nextId
 
+    /** Exception targets for the currently built try/catch bodies, innermost first. */
+    private final Deque<CfgNode> exceptionTargets = new ArrayDeque<CfgNode>()
+
     private ControlFlowGraph(Statement body) {
         entry = newNode(null)
         exit = newNode(null)
+        exceptionExit = newNode(null)
         CfgNode first = buildStatement(body, exit, exit, entry)
         entry.connect(first ?: exit, CfgEdgeKind.NORMAL)
     }
@@ -88,7 +95,9 @@ class ControlFlowGraph {
             SynchronizedStatement sync = (SynchronizedStatement) statement
             CfgNode body = buildStatement(sync.code, after, breakTarget, continueTarget)
             node.connect(body ?: after, CfgEdgeKind.NORMAL)
-        } else if (statement instanceof ReturnStatement || statement instanceof ThrowStatement) {
+        } else if (statement instanceof ThrowStatement) {
+            node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
+        } else if (statement instanceof ReturnStatement) {
             node.connect(exit, CfgEdgeKind.NORMAL)
         } else if (statement instanceof BreakStatement) {
             node.connect(breakTarget ?: exit, CfgEdgeKind.NORMAL)
@@ -96,11 +105,16 @@ class ControlFlowGraph {
             node.connect(continueTarget ?: exit, CfgEdgeKind.NORMAL)
         } else if (statement instanceof AssertStatement) {
             node.connect(after, CfgEdgeKind.TRUE)
-            node.connect(exit, CfgEdgeKind.EXCEPTION)
+            node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
         } else {
             node.connect(after, CfgEdgeKind.NORMAL)
         }
         return node
+    }
+
+    private CfgNode currentExceptionTarget() {
+        CfgNode target = exceptionTargets.peek()
+        return target ?: exceptionExit
     }
 
     private CfgNode buildBlock(BlockStatement block, CfgNode after,
@@ -144,13 +158,32 @@ class ControlFlowGraph {
                          CfgNode breakTarget, CfgNode continueTarget) {
         CfgNode finallyEntry = statement.finallyStatement == null ? after
                 : buildStatement(statement.finallyStatement, after, breakTarget, continueTarget)
-        CfgNode tryEntry = buildStatement(statement.tryStatement, finallyEntry, breakTarget, continueTarget)
-        node.connect(tryEntry ?: finallyEntry, CfgEdgeKind.NORMAL)
+        List<CfgNode> catchEntries = []
         for (CatchStatement catchStatement : statement.catchStatements) {
             CfgNode catchEntry = newNode(catchStatement.code, catchStatement)
-            CfgNode catchBody = buildStatement(catchStatement.code, finallyEntry, breakTarget, continueTarget)
-            catchEntry.connect(catchBody ?: finallyEntry, CfgEdgeKind.NORMAL)
+            catchEntries.add(catchEntry)
             node.connect(catchEntry, CfgEdgeKind.EXCEPTION)
+        }
+        CfgNode tryExceptionTarget = catchEntries ? catchEntries.get(0) : finallyEntry
+        exceptionTargets.push(tryExceptionTarget)
+        CfgNode tryEntry
+        try {
+            tryEntry = buildStatement(statement.tryStatement, finallyEntry, breakTarget, continueTarget)
+        } finally {
+            exceptionTargets.pop()
+        }
+        node.connect(tryEntry ?: finallyEntry, CfgEdgeKind.NORMAL)
+        for (int i = 0; i < statement.catchStatements.size(); i++) {
+            CatchStatement catchStatement = statement.catchStatements.get(i)
+            CfgNode catchEntry = catchEntries.get(i)
+            exceptionTargets.push(finallyEntry)
+            CfgNode catchBody
+            try {
+                catchBody = buildStatement(catchStatement.code, finallyEntry, breakTarget, continueTarget)
+            } finally {
+                exceptionTargets.pop()
+            }
+            catchEntry.connect(catchBody ?: finallyEntry, CfgEdgeKind.NORMAL)
         }
     }
 
