@@ -2,6 +2,11 @@ package io.github.heyuch.groovy.nullchecker
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
+import org.codehaus.groovy.ast.CodeVisitorSupport
+import org.codehaus.groovy.ast.expr.ConstructorCallExpression
+import org.codehaus.groovy.ast.expr.Expression
+import org.codehaus.groovy.ast.expr.MethodCallExpression
+import org.codehaus.groovy.ast.expr.StaticMethodCallExpression
 import org.codehaus.groovy.ast.stmt.AssertStatement
 import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
@@ -9,6 +14,7 @@ import org.codehaus.groovy.ast.stmt.CaseStatement
 import org.codehaus.groovy.ast.stmt.CatchStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
 import org.codehaus.groovy.ast.stmt.DoWhileStatement
+import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
@@ -111,8 +117,42 @@ class ControlFlowGraph {
             node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
         } else {
             node.connect(after, CfgEdgeKind.NORMAL)
+            if (mayThrowFromCall(statement)) {
+                node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
+            }
         }
         return node
+    }
+
+    /** Statement-level approximation: a call/constructor in an expression may throw. */
+    private static boolean mayThrowFromCall(Statement statement) {
+        if (!(statement instanceof ExpressionStatement)) {
+            return false
+        }
+        Expression expression = ((ExpressionStatement) statement).expression
+        boolean[] found = [false]
+        expression.visit(new CodeVisitorSupport() {
+
+            @Override
+            void visitMethodCallExpression(MethodCallExpression call) {
+                found[0] = true
+                super.visitMethodCallExpression(call)
+            }
+
+            @Override
+            void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
+                found[0] = true
+                super.visitStaticMethodCallExpression(call)
+            }
+
+            @Override
+            void visitConstructorCallExpression(ConstructorCallExpression call) {
+                found[0] = true
+                super.visitConstructorCallExpression(call)
+            }
+
+        })
+        return found[0]
     }
 
     /**

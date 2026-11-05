@@ -7,6 +7,7 @@ import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
 import org.codehaus.groovy.ast.stmt.ContinueStatement
 import org.codehaus.groovy.ast.stmt.DoWhileStatement
+import org.codehaus.groovy.ast.stmt.ExpressionStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
 import org.codehaus.groovy.ast.stmt.ReturnStatement
@@ -105,6 +106,18 @@ class Sample {
                 println 'done'
             }
         }
+    }
+
+    void callInsideTry() {
+        try {
+            println 'x'
+        } catch (RuntimeException e) {
+            println e.message
+        }
+    }
+
+    void callOutsideTry() {
+        println 'x'
     }
 }
 '''
@@ -215,6 +228,32 @@ class Sample {
         broken.outgoing.first().target.statement instanceof BlockStatement
         continued.outgoing.first().target != continueGraph.exit
         continued.outgoing.first().target.statement instanceof BlockStatement
+    }
+
+    def 'a call expression has an exceptional edge to catch or the exceptional exit'() {
+        when:
+        ControlFlowGraph inside = graphFor('callInsideTry')
+        ControlFlowGraph outside = graphFor('callOutsideTry')
+        CfgNode insideCall = inside.nodes.find { CfgNode current ->
+            current.statement instanceof ExpressionStatement &&
+                    current.outgoing.any { CfgEdge edge -> edge.kind == CfgEdgeKind.EXCEPTION }
+        }
+        CfgNode catchEntry = inside.nodes.find { CfgNode current -> current.catchStatement != null }
+        CfgNode outsideCall = outside.nodes.find { CfgNode current ->
+            current.statement instanceof ExpressionStatement &&
+                    current.outgoing.any { CfgEdge edge -> edge.kind == CfgEdgeKind.EXCEPTION }
+        }
+
+        then:
+        insideCall != null
+        catchEntry != null
+        insideCall.outgoing.any { CfgEdge edge ->
+            edge.kind == CfgEdgeKind.EXCEPTION && edge.target.is(catchEntry)
+        }
+        outsideCall != null
+        outsideCall.outgoing.any { CfgEdge edge ->
+            edge.kind == CfgEdgeKind.EXCEPTION && edge.target.is(outside.exceptionExit)
+        }
     }
 
     private static ControlFlowGraph graphFor(String methodName) {

@@ -81,6 +81,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   `@Pure`/`@SideEffectFree` calls preserve them, and a field assignment invalidates the same
   field name on other receivers; local-alias invalidation remains future D6 work.
 
+- **Exceptional CFG is complete at statement granularity.** Call/constructor expressions now
+  have exceptional edges to the enclosing catch/finally or the exceptional exit; exception types
+  are not labelled.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
