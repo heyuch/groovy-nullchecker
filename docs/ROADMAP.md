@@ -30,7 +30,7 @@ is only reconsidered after the method-local work is complete and a real project 
 - Phase 0 + F1-F7 are implemented. `FlowState` is the per-variable `Nullness` map; the visitor
   still projects it at some branch boundaries while the CFG owns strict analysis.
 - `dualRun` is informational; upstream parity is not a release gate.
-- The latest published release is `0.12.0`.
+- The latest published release is `0.12.1`.
 
 ## Order
 

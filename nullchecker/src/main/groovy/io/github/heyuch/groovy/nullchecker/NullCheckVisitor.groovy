@@ -309,11 +309,14 @@ class NullCheckVisitor extends CheckingVisitor {
         if (!call.safe && !call.implicitThis) {
             checkDereference(call.objectExpression, call)
         }
+        // Arguments are evaluated before the callee can mutate any field. Keeping the
+        // invalidation after this check preserves a guard on an argument such as
+        // `factoryOf(call.receiver)`.
+        checkMethodArguments(call)
         if (!isPureCall(call)) {
             // Without an alias analysis, a non-pure call may mutate any field.
             invalidateAllPaths()
         }
-        checkMethodArguments(call)
         applyCallNarrowing(call)
     }
 
@@ -691,11 +694,11 @@ class NullCheckVisitor extends CheckingVisitor {
     @Override
     void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
         super.visitStaticMethodCallExpression(call)
+        clearEscapedClosures(call.arguments)
+        checkMethodArguments(call)
         if (!isPureCall(call)) {
             invalidateAllPaths()
         }
-        clearEscapedClosures(call.arguments)
-        checkMethodArguments(call)
         applyCallNarrowing(call)
     }
 
@@ -814,10 +817,14 @@ class NullCheckVisitor extends CheckingVisitor {
         if (isEarlyExit(ifElse.ifBlock)) {
             applyFacts(facts.whenFalse)
             applyNonEmptyFacts(facts.nonEmptyFalse)
+            applyPathFacts(facts.pathsFalse)
+            applyLookupFacts(facts.lookupsFalse)
         }
         if (isEarlyExit(ifElse.elseBlock)) {
             applyFacts(facts.whenTrue)
             applyNonEmptyFacts(facts.nonEmptyTrue)
+            applyPathFacts(facts.pathsTrue)
+            applyLookupFacts(facts.lookupsTrue)
         }
     }
 

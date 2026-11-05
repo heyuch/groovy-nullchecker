@@ -69,6 +69,7 @@ class CorpusRules {
             N27: 'a property-path != null guard narrows the rhs of &&',
             N28: 'a map.get(k) != null guard narrows the same lookup on the rhs',
             N29: 'an assert applies access-path and lookup facts',
+            N30: 'call arguments are checked before field facts are invalidated',
     ] as Map<String, String>
 
     static boolean isKnown(String rule) {

@@ -5,6 +5,15 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-05
+
+### Fixed
+
+- **Guarded call arguments stay non-null.** A non-pure call no longer invalidates field
+  facts before its arguments are checked; annotation-mode early-exit guards also apply path
+  and lookup facts. This fixes the 0.12.0 regression where
+  `factoryOf(call.receiver)` was reported after `call.receiver == null` had already returned.
+
 ## [0.12.0] - 2026-11-05
 
 ### Fixed

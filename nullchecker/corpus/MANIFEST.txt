@@ -257,6 +257,12 @@ strict=any
 expect=none
 note=a guarded Boolean wrapper is truth-tested, not unboxed
 
+negative/guarded_nullable_field_argument.groovy
+rule=N30
+strict=any
+expect=none
+note=a guarded @Nullable field stays non-null when passed to a call
+
 negative/assert_field_path.groovy
 rule=N29
 strict=any
