@@ -271,11 +271,12 @@
 
 ### P2-10 收紧语料阳性用例的期望
 
-- Status: open
+- Status: done
 - 证据: `corpus/MANIFEST.txt` 中大量 `expect=some`（例如 `positive/nonnull_local_declaration.groovy:63-67`、`positive/nonnull_nullable_declaration.groovy:169-173`）
 - 问题: `expect=some` 只要求 "至少一条且匹配声明规则"，额外 finding 不算失败；确定性场景新增的噪声不会被门禁发现。
 - 动作: 对输出稳定的 fixture 改为精确计数；只有确实依赖版本/类型推断差异的用例保留 `some`，并在 `note` 中说明原因。
 - 验收: 审计全部 `expect=some`，每个保留项都有理由；确定性用例多报会失败。
+- 完成证据: 45 个 `expect=some` 全部改为精确计数；`NullCheckerCorpusSpec` 通过。
 
 ### P2-11 文档与注释 drift
 

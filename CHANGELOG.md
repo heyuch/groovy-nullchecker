@@ -61,6 +61,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   unused corpus helpers; the plugin functional fixture now takes the project version instead of
   a stale constant.
 
+- **Corpus positives use exact counts.** All `expect=some` fixtures were audited and pinned to
+  their current finding counts, so an extra finding can no longer slip through a positive test.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

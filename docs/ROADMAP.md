@@ -337,8 +337,8 @@ These are suitable for incremental, module-local work.
   Javadoc, collapsed the duplicate declaration report path, removed unused
   `AccessPath.isRootedAt`/`FlowAnalysis.outState`/corpus strict-only helpers, and made the
   plugin functional version follow `project.version`.
-- **H2-8 (`P2-10`)**: audit all `expect=some` corpus positives; use exact counts unless the
-  mismatch is genuinely version/type-inference dependent, and document why.
+- **H2-8 (`P2-10`)**: done. Audited all `expect=some` fixtures; every current fixture now
+  uses an exact count. `some` remains documented as reserved for genuinely variable cases.
 - **H2-9 (`P2-11`)**: fix the duplicate `PORT.md` headings, ROADMAP status contradictions,
   `allprojects`/`subprojects` comments, and stale symbol/line references.
 - **H2-10 (`P3-6`)**: special-case `return`/`break`/`continue` through `finally` in the CFG, or
