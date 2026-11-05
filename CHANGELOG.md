@@ -103,6 +103,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   `nullcheckAutofixProviders` configuration load user providers. The SPI is a documented
   prototype, not a frozen public API.
 
+- **Groovy 5/6 compile spike.** The main checker sources compile against Groovy 5.0.2 and 6.0.0
+  after portable `setProperty`/`count` fixes. Corpus/runtime/plugin support is not claimed.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

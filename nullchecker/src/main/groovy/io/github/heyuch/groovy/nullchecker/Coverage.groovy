@@ -43,7 +43,7 @@ class Coverage {
         if (scopes.isAnyNonNullByDefault(cn)) {
             last.nonNullByDefaultClasses++
         }
-        last.methodsWithReturnType += cn.methods.count { MethodNode m -> m.returnType != VOID_TYPE }
+        last.methodsWithReturnType += (cn.methods.count { MethodNode m -> m.returnType != VOID_TYPE } as int)
         String findingsFile = System.getProperty('groovy.nullchecker.findingsFile')
         if (findingsFile) {
             File coverageFile = new File(findingsFile + '.coverage')

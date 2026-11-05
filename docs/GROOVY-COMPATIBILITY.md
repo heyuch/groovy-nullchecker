@@ -12,8 +12,8 @@
 | --- | --- |
 | 4.0.x | supported; main release lane |
 | 3.x | not supported |
-| 5.x | not supported |
-| 6.x | reference/dualRun only; not shipped as a supported checker |
+| 5.0.2 | **compile spike only**: main checker compiles; no corpus/runtime/plugin support |
+| 6.0.0 | **compile spike only**: main checker compiles; no corpus/runtime/plugin support |
 
 Do not change this table without corpus and plugin-functional evidence for the named line.
 
@@ -77,10 +77,36 @@ For each advertised line:
 
 The main Groovy 4 lane must remain free of behavioral and performance regressions.
 
+## Compile spike results
+
+Run with the existing build but an overridden compiler version:
+
+```bash
+./gradlew :nullchecker:compileGroovy -PgroovyVersion=5.0.2 --rerun-tasks
+./gradlew :nullchecker:compileGroovy -PgroovyVersion=6.0.0 --rerun-tasks
+```
+
+Both compilations now succeed after three portable fixes:
+
+- replace ambiguous `System.properties.with { setProperty(...) }` calls in `NullCheckCli` with
+  an explicit helper;
+- cast Groovy 6's `Number` result from `Collection.count(Closure)` in `Coverage` and
+  `NullableAnnotator`.
+
+This is a **compile spike only**. It does not prove:
+
+- corpus behavior under 5/6;
+- type-checking extension registration/runtime behavior;
+- package-info or marker metadata differences;
+- Gradle plugin resolution and functional behavior;
+- artifact compatibility.
+
+The next gate is a corpus/CLI spike, not a release claim.
+
 ## Work order
 
 1. **Inventory** (this document): API surface and known differences.
-2. **Compile spike**: try the checker against the next candidate major without promising a
+2. **Compile spike** (done for 5.0.2/6.0.0 main sources; runtime pending): try the checker against the next candidate major without promising a
    release; record exact failures.
 3. **Compatibility layer**: isolate marker/carrier/phase differences; no duplicated visitor
    or contract parser.

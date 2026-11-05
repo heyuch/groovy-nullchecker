@@ -120,7 +120,7 @@ class NullableAnnotator {
             if (edits.isEmpty()) {
                 continue
             }
-            result.added += edits.count { Edit edit -> edit.annotation }
+            result.added += (edits.count { Edit edit -> edit.annotation } as int)
             for (Edit edit : edits.findAll { Edit e -> e.annotation }) {
                 result.messages.add(("${dryRun ? 'would add' : 'added'} @Nullable to ${edit.description} " +
                         "(${file.absolutePath}:${edit.line})").toString())
@@ -245,7 +245,7 @@ class NullableAnnotator {
             if (edits.isEmpty()) {
                 continue
             }
-            result.added += edits.count { Edit edit -> edit.annotation }
+            result.added += (edits.count { Edit edit -> edit.annotation } as int)
             for (Edit edit : edits.findAll { Edit e -> e.annotation }) {
                 result.messages.add(("${dryRun ? 'would add' : 'added'} @Nullable to ${edit.description} " +
                         "(${file.absolutePath}:${edit.line})").toString())

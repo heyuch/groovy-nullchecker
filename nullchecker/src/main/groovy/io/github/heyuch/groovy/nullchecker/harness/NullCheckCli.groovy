@@ -231,15 +231,13 @@ but does not fail the run by default, because it is not a nullness claim.'''
         }
 
         applyGuards(guardsTrue, guardsFalse)
-        System.properties.with {
-            setProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
-            setProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
-            setProperty('groovy.nullchecker.contracts', contracts.join(';'))
-            setProperty('groovy.nullchecker.checks', checks.join(','))
-            setProperty('groovy.nullchecker.nonnullannotations', nonNullAnnotations.join(','))
-            setProperty('groovy.nullchecker.assertsTrue', assertsTrue.join(','))
-            setProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
-        }
+        setSystemProperty('groovy.nullchecker.neverreturns', neverReturns.join(','))
+        setSystemProperty('groovy.nullchecker.containerlookups', String.valueOf(containerLookups))
+        setSystemProperty('groovy.nullchecker.contracts', contracts.join(';'))
+        setSystemProperty('groovy.nullchecker.checks', checks.join(','))
+        setSystemProperty('groovy.nullchecker.nonnullannotations', nonNullAnnotations.join(','))
+        setSystemProperty('groovy.nullchecker.assertsTrue', assertsTrue.join(','))
+        setSystemProperty('groovy.nullchecker.markedonly', String.valueOf(markedOnly))
 
         List<File> files = []
         List<String> missing = []
@@ -424,6 +422,10 @@ but does not fail the run by default, because it is not a nullness claim.'''
     private static void applyGuards(List<String> guardsTrue, List<String> guardsFalse) {
         System.setProperty('groovy.nullchecker.guards.true', guardsTrue.join(','))
         System.setProperty('groovy.nullchecker.guards.false', guardsFalse.join(','))
+    }
+
+    private static void setSystemProperty(String key, String value) {
+        System.setProperty(key, value)
     }
 
     /**
