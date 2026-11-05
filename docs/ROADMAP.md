@@ -342,8 +342,8 @@ These are suitable for incremental, module-local work.
 - **H2-9 (`P2-11`)**: done. Removed the duplicate `PORT.md` heading, reconciled
   `ROADMAP`/`NULLNESS-FLOW` statuses, fixed the plugin `subprojects` comment and replaced stale
   line-number references with symbol names.
-- **H2-10 (`P3-6`)**: deferred to D2. The abrupt-`finally` limitation is documented by F3 and
-  will be implemented with the exceptional CFG; do not duplicate the work here.
+- **H2-10 (`P3-6`)**: done via D2. `return`/`break`/`continue` now build finally copies before
+  reaching their target; `ControlFlowGraphSpec` covers all three.
 
 ### 6.4 H3: cleanup, CLI and performance
 
@@ -385,9 +385,9 @@ feature change.
 - **D1. Conditional flow rules** (precision): model explicit then/else condition states and
   flow-rule inheritance for nested `&&`/`||`, ternary, assert and switch; start with the
   statement-level CFG, not an expression-level rewrite.
-- **D2. Exceptional CFG** (correctness, in progress): `exceptionExit` and `throw` routing to
-  catch/finally are implemented and covered by `ControlFlowGraphSpec`. Remaining: per-operation
-  edges from calls and abrupt `return`/`break`/`continue` through finally.
+- **D2. Exceptional CFG** (correctness, in progress): `exceptionExit`, `throw` routing to
+  catch/finally, and abrupt `return`/`break`/`continue` through finally are implemented and
+  covered by `ControlFlowGraphSpec`. Remaining: per-operation exception edges from calls.
 - **D3. Fixed-point discipline** (robustness): replace the low visitor loop cap with
   convergence plus a global safety budget; keep the H0-2 diagnostic when a budget is hit.
 - **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression

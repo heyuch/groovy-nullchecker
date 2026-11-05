@@ -41,6 +41,9 @@ class ControlFlowGraph {
     /** Exception targets for the currently built try/catch bodies, innermost first. */
     private final Deque<CfgNode> exceptionTargets = new ArrayDeque<CfgNode>()
 
+    /** Finally blocks surrounding the statement being built, innermost first. */
+    private final Deque<Statement> finallyBlocks = new ArrayDeque<Statement>()
+
     private ControlFlowGraph(Statement body) {
         entry = newNode(null)
         exit = newNode(null)
@@ -98,11 +101,11 @@ class ControlFlowGraph {
         } else if (statement instanceof ThrowStatement) {
             node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
         } else if (statement instanceof ReturnStatement) {
-            node.connect(exit, CfgEdgeKind.NORMAL)
+            node.connect(throughFinally(exit, breakTarget, continueTarget), CfgEdgeKind.NORMAL)
         } else if (statement instanceof BreakStatement) {
-            node.connect(breakTarget ?: exit, CfgEdgeKind.NORMAL)
+            node.connect(throughFinally(breakTarget ?: exit, breakTarget, continueTarget), CfgEdgeKind.NORMAL)
         } else if (statement instanceof ContinueStatement) {
-            node.connect(continueTarget ?: exit, CfgEdgeKind.NORMAL)
+            node.connect(throughFinally(continueTarget ?: exit, breakTarget, continueTarget), CfgEdgeKind.NORMAL)
         } else if (statement instanceof AssertStatement) {
             node.connect(after, CfgEdgeKind.TRUE)
             node.connect(currentExceptionTarget(), CfgEdgeKind.EXCEPTION)
@@ -110,6 +113,30 @@ class ControlFlowGraph {
             node.connect(after, CfgEdgeKind.NORMAL)
         }
         return node
+    }
+
+    /**
+     * Builds copies of enclosing finally blocks for an abrupt jump, outermost first so the
+     * returned entry executes every finally block before reaching {@code target}.
+     */
+    private CfgNode throughFinally(CfgNode target, CfgNode breakTarget, CfgNode continueTarget) {
+        if (finallyBlocks.isEmpty()) {
+            return target
+        }
+        List<Statement> blocks = new ArrayList<Statement>(finallyBlocks)
+        finallyBlocks.clear()
+        try {
+            CfgNode current = target
+            for (int index = blocks.size() - 1; index >= 0; index--) {
+                current = buildStatement(blocks.get(index), current, breakTarget, continueTarget)
+            }
+            return current ?: target
+        } finally {
+            finallyBlocks.clear()
+            for (int index = blocks.size() - 1; index >= 0; index--) {
+                finallyBlocks.push(blocks.get(index))
+            }
+        }
     }
 
     private CfgNode currentExceptionTarget() {
@@ -166,10 +193,16 @@ class ControlFlowGraph {
         }
         CfgNode tryExceptionTarget = catchEntries ? catchEntries.get(0) : finallyEntry
         exceptionTargets.push(tryExceptionTarget)
+        if (statement.finallyStatement != null) {
+            finallyBlocks.push(statement.finallyStatement)
+        }
         CfgNode tryEntry
         try {
             tryEntry = buildStatement(statement.tryStatement, finallyEntry, breakTarget, continueTarget)
         } finally {
+            if (statement.finallyStatement != null) {
+                finallyBlocks.pop()
+            }
             exceptionTargets.pop()
         }
         node.connect(tryEntry ?: finallyEntry, CfgEdgeKind.NORMAL)
@@ -177,10 +210,16 @@ class ControlFlowGraph {
             CatchStatement catchStatement = statement.catchStatements.get(i)
             CfgNode catchEntry = catchEntries.get(i)
             exceptionTargets.push(finallyEntry)
+            if (statement.finallyStatement != null) {
+                finallyBlocks.push(statement.finallyStatement)
+            }
             CfgNode catchBody
             try {
                 catchBody = buildStatement(catchStatement.code, finallyEntry, breakTarget, continueTarget)
             } finally {
+                if (statement.finallyStatement != null) {
+                    finallyBlocks.pop()
+                }
                 exceptionTargets.pop()
             }
             catchEntry.connect(catchBody ?: finallyEntry, CfgEdgeKind.NORMAL)

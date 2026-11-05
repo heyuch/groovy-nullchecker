@@ -3,10 +3,13 @@ package io.github.heyuch.groovy.nullchecker
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.builder.AstBuilder
+import org.codehaus.groovy.ast.stmt.BlockStatement
 import org.codehaus.groovy.ast.stmt.BreakStatement
+import org.codehaus.groovy.ast.stmt.ContinueStatement
 import org.codehaus.groovy.ast.stmt.DoWhileStatement
 import org.codehaus.groovy.ast.stmt.ForStatement
 import org.codehaus.groovy.ast.stmt.IfStatement
+import org.codehaus.groovy.ast.stmt.ReturnStatement
 import org.codehaus.groovy.ast.stmt.SwitchStatement
 import org.codehaus.groovy.ast.stmt.ThrowStatement
 import org.codehaus.groovy.ast.stmt.TryCatchStatement
@@ -73,6 +76,34 @@ class Sample {
             throw new RuntimeException('inside')
         } finally {
             println 'done'
+        }
+    }
+
+    void returnsThroughFinally() {
+        try {
+            return
+        } finally {
+            println 'done'
+        }
+    }
+
+    void breaksThroughFinally(boolean c) {
+        while (c) {
+            try {
+                break
+            } finally {
+                println 'done'
+            }
+        }
+    }
+
+    void continuesThroughFinally(boolean c) {
+        while (c) {
+            try {
+                continue
+            } finally {
+                println 'done'
+            }
         }
     }
 }
@@ -166,6 +197,24 @@ class Sample {
         tryNode != null
         thrown.outgoing.every { CfgEdge edge -> edge.kind == CfgEdgeKind.EXCEPTION }
         thrown.outgoing.first().target != graph.exit
+    }
+
+    def 'return and break/continue execute a finally copy first'() {
+        when:
+        ControlFlowGraph returnGraph = graphFor('returnsThroughFinally')
+        ControlFlowGraph breakGraph = graphFor('breaksThroughFinally')
+        ControlFlowGraph continueGraph = graphFor('continuesThroughFinally')
+        CfgNode returned = returnGraph.nodes.find { CfgNode current -> current.statement instanceof ReturnStatement }
+        CfgNode broken = breakGraph.nodes.find { CfgNode current -> current.statement instanceof BreakStatement }
+        CfgNode continued = continueGraph.nodes.find { CfgNode current -> current.statement instanceof ContinueStatement }
+
+        then:
+        returned.outgoing.first().target != returnGraph.exit
+        returned.outgoing.first().target.statement instanceof BlockStatement
+        broken.outgoing.first().target != breakGraph.exit
+        broken.outgoing.first().target.statement instanceof BlockStatement
+        continued.outgoing.first().target != continueGraph.exit
+        continued.outgoing.first().target.statement instanceof BlockStatement
     }
 
     private static ControlFlowGraph graphFor(String methodName) {
