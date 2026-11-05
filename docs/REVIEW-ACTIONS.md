@@ -245,11 +245,13 @@
 
 ### P2-8 `NullableAnnotator` 的文本编辑边界
 
-- Status: open
+- Status: done
 - 证据: `NullableAnnotator.groovy:447-524`（按行正则定位、按 offset 插入）
 - 问题: 多行声明、复杂泛型、Tab/Unicode、注解换行等形态会被跳过或定位错误；当前是 opt-in 原型（ROADMAP N3 也标注 design not final）。
 - 动作: 保持原型定位，但补强安全网：默认 dry-run 输出 diff；遇到无法安全定位的声明明确跳过并计数；补充幂等性与多行声明测试。
 - 验收: 对含 Tab、CRLF、多行声明的样例不产生损坏；重复运行结果稳定。
+- 完成证据: dry-run 输出版本级 diff；`NullableAnnotatorSpec` 覆盖幂等、Tab/CRLF、多行声明；
+  skip 计数仍由 `Result.skipped` 输出。
 
 ### P2-9 代码级清理
 

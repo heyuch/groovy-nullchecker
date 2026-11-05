@@ -331,8 +331,8 @@ These are suitable for incremental, module-local work.
   missing files and failing/clean categories.
 - **H2-5 (`P2-5`)**: done. `FileWriteLocks` provides one lock per canonical path; both
   `FileFindingsSink` and `Coverage` use it. `NullCheckSinkSpec` covers concurrent writers.
-- **H2-6 (`P2-8`)**: keep the nullable annotator conservative; add diff output, explicit skip
-  counts, idempotency and multi-line/Tab/CRLF tests.
+- **H2-6 (`P2-8`)**: done. Dry-run prints a line-level diff; idempotency, multiline
+  declarations, tabs and CRLF are covered; the existing skip counters remain explicit.
 - **H2-7 (`P2-9`)**: remove the duplicate `@Override`, duplicate import, stale Javadoc, duplicate
   non-null-assignment path, and unused rules; update the plugin functional version constant.
 - **H2-8 (`P2-10`)**: audit all `expect=some` corpus positives; use exact counts unless the

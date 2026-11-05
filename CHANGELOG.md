@@ -54,6 +54,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Concurrent file writers share a lock.** Findings and coverage writers use a per-path lock,
   so separate sink/coverage instances cannot interleave TSV or coverage lines.
 
+- **Nullable annotator dry-run shows diffs.** Planned annotations include a before/after line,
+  and multiline/Tab/CRLF/idempotency cases are covered before source edits are applied.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

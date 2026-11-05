@@ -162,6 +162,9 @@ class NullableAnnotator {
             for (Edit edit : edits.findAll { Edit e -> e.annotation }) {
                 result.messages.add(("${dryRun ? 'would add' : 'added'} @Nullable to ${edit.description} " +
                         "(${file.absolutePath}:${edit.line})").toString())
+                if (dryRun && edit.before) {
+                    result.messages.add(("--- ${file.name}:${edit.line}\n- ${edit.before}\n+ ${edit.after}").toString())
+                }
             }
             if (!dryRun) {
                 apply(file, source, edits)
@@ -284,6 +287,9 @@ class NullableAnnotator {
             for (Edit edit : edits.findAll { Edit e -> e.annotation }) {
                 result.messages.add(("${dryRun ? 'would add' : 'added'} @Nullable to ${edit.description} " +
                         "(${file.absolutePath}:${edit.line})").toString())
+                if (dryRun && edit.before) {
+                    result.messages.add(("--- ${file.name}:${edit.line}\n- ${edit.before}\n+ ${edit.after}").toString())
+                }
             }
             if (!dryRun) {
                 apply(file, source, edits)
@@ -474,8 +480,11 @@ class NullableAnnotator {
                 continue
             }
             int offset = lineOffset(lines, lineIndex) + typeIndex
+            String before = line.replace('\r', '')
+            String after = before.substring(0, typeIndex) + text + before.substring(typeIndex)
             edits.add(new Edit(offset: offset, line: target.line, text: text,
-                    description: target.description, annotation: true))
+                    description: target.description, annotation: true,
+                    before: before, after: after))
         }
         if (!edits.isEmpty() && addImport) {
             int importOffset = importOffset(lines)
@@ -539,6 +548,8 @@ class NullableAnnotator {
         String text = ''
         String description = ''
         boolean annotation
+        String before = ''
+        String after = ''
 
     }
 
