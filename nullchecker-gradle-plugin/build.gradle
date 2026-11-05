@@ -78,15 +78,13 @@ gradlePlugin {
             // and will be rejected in a future version), and once a feature is declared for a
             // plugin every later version has to keep declaring it.
             //
-            // Both are declared false because that is the state of the code, not a guess:
-            // apply() schedules work in afterEvaluate and the task's doLast captures the task
-            // and its extension, which are configuration-cache violations. Declaring false
-            // costs nothing here -- Gradle documents no penalty for it -- whereas declaring
-            // true would hand consumers a badge for a guarantee the plugin cannot keep.
-            // Flipping either to true requires moving the state into task properties first.
+            // All four task paths are covered by functional tests that run twice with
+            // --configuration-cache and assert store/reuse. Isolated projects remains false:
+            // the plugin still reads project state during configuration and is not tested for
+            // cross-project isolation.
             compatibility(it) {
                 features {
-                    configurationCache = false
+                    configurationCache = true
                     isolatedProjects = false
                 }
             }

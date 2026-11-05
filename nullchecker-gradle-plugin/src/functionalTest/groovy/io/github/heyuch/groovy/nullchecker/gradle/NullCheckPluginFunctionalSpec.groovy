@@ -465,6 +465,73 @@ tasks.register('runRepro', JavaExec) {
         result.output.contains('findings=1')
     }
 
+    def 'configuration cache covers the report-driven autofix (dry run)'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { autofixDryRun = true }')
+        writeAnnotation()
+        writeMarkedViolation()
+
+        when:
+        BuildResult first = run('nullcheckAutofix', '--configuration-cache')
+
+        then:
+        first.task(':nullcheckAutofix').outcome == TaskOutcome.SUCCESS
+        first.output.contains('Configuration cache entry stored')
+
+        when:
+        BuildResult second = run('nullcheckAutofix', '--configuration-cache')
+
+        then:
+        second.task(':nullcheckAutofix').outcome == TaskOutcome.SUCCESS
+        second.output.contains('Configuration cache entry reused')
+    }
+
+    def 'configuration cache covers compile mode'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { compileCheck = true }')
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult first = run('nullcheck', '--configuration-cache')
+
+        then:
+        first.task(':compileGroovy').outcome == TaskOutcome.SUCCESS
+        first.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        first.output.contains('Configuration cache entry stored')
+
+        when:
+        BuildResult second = run('nullcheck', '--configuration-cache')
+
+        then:
+        second.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        second.output.contains('Configuration cache entry reused')
+    }
+
+    def 'configuration cache covers the nullable annotator (dry run)'() {
+        given:
+        writeSettings()
+        writeBuild('nullcheck { nullableDryRun = true }')
+        writeMarkedAnnotation()
+        writeNullableField()
+
+        when:
+        BuildResult first = run('nullcheckAddNullable', '--configuration-cache')
+
+        then:
+        first.task(':nullcheckAddNullable').outcome == TaskOutcome.SUCCESS
+        first.output.contains('Configuration cache entry stored')
+
+        when:
+        BuildResult second = run('nullcheckAddNullable', '--configuration-cache')
+
+        then:
+        second.task(':nullcheckAddNullable').outcome == TaskOutcome.SUCCESS
+        second.output.contains('Configuration cache entry reused')
+    }
+
     def 'compile mode only injects static checking into static classes'() {
         given: 'a static violation and a dynamic class with an unresolved call'
         writeSettings()

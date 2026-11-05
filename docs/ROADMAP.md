@@ -347,9 +347,10 @@ These are suitable for incremental, module-local work.
 
 ### 6.4 H3: cleanup, CLI and performance
 
-- **H3-1 (`P3-1`)**: in progress. `NullCheckPluginFunctionalSpec` verifies that the standalone
-  `nullcheck` task stores and reuses a configuration cache. The metadata declaration stays
-  false until the annotate/autofix/compile-mode paths and their task state are verified.
+- **H3-1 (`P3-1`)**: done for configuration cache. Functional tests cover `nullcheck` in both
+  standalone and compile modes, `nullcheckAddNullable` and `nullcheckAutofix`; each runs twice
+  with `--configuration-cache` and asserts store/reuse. The plugin metadata now declares
+  `configurationCache = true`; isolated projects remains false.
 - **H3-2 (`P3-2`/`P3-3`)**: done. `NullCheckCli` rejects missing values and options used as
   values (except the intentional `->` contract literal); `NullCheckCliSpec` covers both.
   `NullCheckFindingsCli` was aligned in H2-4.

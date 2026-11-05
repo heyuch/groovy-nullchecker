@@ -94,9 +94,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **FlowState microbenchmark and refreshed local baseline.** `FlowStateBench` records join and
   copy/restore timings; `docs/PERF.md` also has current compile/test wall times.
 
-- **Configuration-cache verification started.** A functional test proves the standalone
-  `nullcheck` task stores and reuses Gradle's configuration cache; other plugin paths remain
-  to verify before the plugin metadata can claim the feature.
+- **Configuration cache is supported.** Functional tests prove store/reuse for standalone and
+  compile-mode `nullcheck`, `nullcheckAddNullable` and `nullcheckAutofix`; the plugin metadata
+  now declares `configurationCache = true`. Isolated projects remains unsupported.
 
 ### Changed
 
