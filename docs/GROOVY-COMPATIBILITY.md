@@ -93,20 +93,18 @@ Both compilations now succeed after three portable fixes:
 - cast Groovy 6's `Number` result from `Collection.count(Closure)` in `Coverage` and
   `NullableAnnotator`.
 
-This is a **compile spike only**. It does not prove:
+This is a **compile spike only**. A CLI runtime spike against Groovy 5.0.2 and 6.0.0 produced
+`coverage classes=0` and a resolution finding for the same source; the extension was not
+registered/visited. Therefore runtime/corpus behavior is **not** supported yet.
 
-- corpus behavior under 5/6;
-- type-checking extension registration/runtime behavior;
-- package-info or marker metadata differences;
-- Gradle plugin resolution and functional behavior;
-- artifact compatibility.
-
-The next gate is a corpus/CLI spike, not a release claim.
+The next gate is diagnosing the customizer/extension lifecycle under each major, then rerunning
+the corpus. Do not turn the compile spike into a release claim.
 
 ## Work order
 
 1. **Inventory** (this document): API surface and known differences.
-2. **Compile spike** (done for 5.0.2/6.0.0 main sources; runtime pending): try the checker against the next candidate major without promising a
+2. **Compile spike** (done for 5.0.2/6.0.0 main sources; runtime CLI currently reports no
+   visited classes, so registration/lifecycle diagnosis is next): try the checker against the next candidate major without promising a
    release; record exact failures.
 3. **Compatibility layer**: isolate marker/carrier/phase differences; no duplicated visitor
    or contract parser.
