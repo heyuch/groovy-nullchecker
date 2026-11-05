@@ -85,6 +85,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   have exceptional edges to the enclosing catch/finally or the exceptional exit; exception types
   are not labelled.
 
+- **One fixed-point budget.** Visitor loop fixed points use the same global 10000-step budget
+  as the CFG worklist, with the existing exhaustion diagnostic.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

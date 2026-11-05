@@ -389,8 +389,9 @@ feature change.
   abrupt `return`/`break`/`continue` through finally, and statement-level exceptional edges for
   call/constructor expressions are implemented. Exception types are not labelled; that remains
   outside the current precision goal.
-- **D3. Fixed-point discipline** (robustness): replace the low visitor loop cap with
-  convergence plus a global safety budget; keep the H0-2 diagnostic when a budget is hit.
+- **D3. Fixed-point discipline** (robustness): done. The visitor loop fixed points use the
+  same 10000-step global safety budget as `FlowAnalysis`; exhaustion still routes through the
+  H0-2 diagnostic.
 - **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression
   tests and CFG diagnostics.
 - **D6. Alias/purity invalidation** (correctness, in progress): non-pure calls now kill all

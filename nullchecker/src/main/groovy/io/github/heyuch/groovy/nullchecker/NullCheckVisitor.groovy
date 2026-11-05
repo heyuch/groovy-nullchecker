@@ -335,9 +335,6 @@ class NullCheckVisitor extends CheckingVisitor {
     /** What the closure body currently being visited receives; innermost last. */
     private final List<ClosureHint> closureContexts = new ArrayList<>()
 
-    /** Upper bound for loop fixed-point iterations; exceeding it must not look clean. */
-    private static final int MAX_LOOP_ITERATIONS = 8
-
     /** Non-zero while visiting a closure body; a return there is not the method's return. */
     private int closureDepth
 
@@ -382,7 +379,7 @@ class NullCheckVisitor extends CheckingVisitor {
             FlowState previous = null
             int iterations = 0
             boolean converged = false
-            while (iterations < MAX_LOOP_ITERATIONS) {
+            while (iterations < FlowAnalysis.DEFAULT_MAX_STEPS) {
                 restoreState(header)
                 statement.loopBlock.visit(this)
                 FlowState body = captureState()
@@ -396,7 +393,7 @@ class NullCheckVisitor extends CheckingVisitor {
                 iterations++
             }
             if (!converged) {
-                reportBudgetExceeded('for-loop fixed point', MAX_LOOP_ITERATIONS)
+                reportBudgetExceeded('for-loop fixed point', FlowAnalysis.DEFAULT_MAX_STEPS)
             }
             restoreState(header)
         } finally {
@@ -832,7 +829,7 @@ class NullCheckVisitor extends CheckingVisitor {
         FlowState previous = null
         int iterations = 0
         boolean converged = false
-        while (iterations < MAX_LOOP_ITERATIONS) {
+        while (iterations < FlowAnalysis.DEFAULT_MAX_STEPS) {
             restoreState(header)
             applyFacts(facts.whenTrue)
             applyNonEmptyFacts(facts.nonEmptyTrue)
@@ -849,7 +846,7 @@ class NullCheckVisitor extends CheckingVisitor {
             iterations++
         }
         if (!converged) {
-            reportBudgetExceeded('while-loop fixed point', MAX_LOOP_ITERATIONS)
+            reportBudgetExceeded('while-loop fixed point', FlowAnalysis.DEFAULT_MAX_STEPS)
         }
         restoreState(header)
     }
