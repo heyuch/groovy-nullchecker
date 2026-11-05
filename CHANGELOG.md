@@ -100,8 +100,8 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 - **Autofix provider hook and loading.** Built-in return/parameter rules run through
   `NullFixProvider`; CLI `--provider` and the plugin's `autofixProviders` /
-  `nullcheckAutofixProviders` configuration load user providers. The API is not final; conflict
-  and idempotency policy remains pending.
+  `nullcheckAutofixProviders` configuration load user providers. The SPI is a documented
+  prototype, not a frozen public API.
 
 ### Changed
 
