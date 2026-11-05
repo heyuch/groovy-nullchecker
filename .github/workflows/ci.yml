@@ -48,6 +48,33 @@ jobs:
             nullchecker-gradle-plugin/build/reports/tests/functionalTest/
           if-no-files-found: warn
 
+  compat:
+    name: compat (${{ matrix.groovy }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        groovy: ['5.0.2', '6.0.0']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # Exact per-fixture CorpusGate under an experimental compiler. Test classes stay on the
+      # Groovy 4 toolchain; the script rebuilds main sources and support stubs for the matrix
+      # version and excludes Spock/JUnit so their global transforms cannot run under 5/6.
+      - name: Run compatibility corpus gate
+        run: ./tools/groovy-compat-check.sh ${{ matrix.groovy }}
+
   check:
     name: check
     runs-on: ubuntu-latest

@@ -137,9 +137,11 @@ The artifact boundary is now implemented as same-coordinate, classifier-selected
   `toolGroovyVersion`.
 
 A local Maven publication and consumer build passed for both classifiers in standalone and
-compile modes. These classifiers are experimental: they are not in the default `assemble`/release
-lane, there is no CI matrix or long-term maintenance commitment, and package-info coverage under
-5/6 is still unverified.
+compile modes. `.github/workflows/ci.yml` now has a `compat` matrix job for 5.0.2/6.0.0 that runs
+`tools/groovy-compat-check.sh` (exact per-fixture CorpusGate). These classifiers are still
+experimental: they are not in the default `assemble`/release lane, there is no long-term
+maintenance commitment, and package-info coverage under 5/6 is not separately asserted beyond
+the corpus package fixtures.
 
 A single bulk CLI compilation of all positive fixtures previously hit a Groovy 6 closure
 interaction; the per-fixture gate is the accepted corpus model.
