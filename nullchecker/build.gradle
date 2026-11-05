@@ -325,8 +325,6 @@ publishing {
         maven(MavenPublication) {
             artifactId = 'groovy-nullchecker'
             from components.java
-            artifact groovy5Jar
-            artifact groovy6Jar
             pom {
                 name = 'groovy-nullchecker'
                 description = 'Groovy 6 NullChecker back-ported to Groovy 4.0.x'

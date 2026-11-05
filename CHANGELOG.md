@@ -5,6 +5,8 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-05
+
 ### Fixed
 
 - **Compile-mode sink reuse fixed.** A worker that compiles two tasks no longer leaves the
