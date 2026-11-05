@@ -1,6 +1,6 @@
 # Autofix provider SPI: design proposal
 
-- Status: proposal, no public API frozen.
+- Status: minimal provider hook implemented; built-in rule migration and provider loading pending.
 - Related: [ROADMAP.md](ROADMAP.md) N3 / H3-5, [DATAFLOW-COMPARISON.md](DATAFLOW-COMPARISON.md).
 - Current implementation: report-driven autofix in `NullableAnnotator.runFromFindings` plus
   the AST-only `nullcheckAddNullable` migration.

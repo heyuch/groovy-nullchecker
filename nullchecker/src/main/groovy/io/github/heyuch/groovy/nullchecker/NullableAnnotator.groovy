@@ -58,7 +58,8 @@ class NullableAnnotator {
      * parameter for null.
      */
     static Result runFromFindings(List<File> files, List<FixFinding> findings, String annotation,
-                                  boolean dryRun, PrintStream out) {
+                                  boolean dryRun, PrintStream out,
+                                  List<NullFixProvider> providers = []) {
         Result result = new Result(files: files.size())
         Map<String, CompilationUnit> units = new LinkedHashMap<>()
         Map<String, File> byPath = new LinkedHashMap<>()
@@ -150,6 +151,20 @@ class NullableAnnotator {
                             description: "parameter '${param.name}' of '${target.owner.name}#${method.name}'"))
                 }
             }
+            if (providers) {
+                NullFixContext context = new NullFixContext(file, finding, unit, methods)
+                for (NullFixProvider provider : providers) {
+                    for (NullFixProposal proposal : provider.propose(context)) {
+                        String key = "provider|${provider.getClass().name}|${proposal.kind}|" +
+                                "${proposal.line}|${proposal.name}"
+                        if (seen.add(key)) {
+                            addTarget(targetsByFile, file, new Target(kind: proposal.kind,
+                                    name: proposal.name, line: proposal.line,
+                                    description: proposal.description ?: "provider target '${proposal.name}'"))
+                        }
+                    }
+                }
+            }
         }
         for (Map.Entry<File, List<Target>> entry : targetsByFile.entrySet()) {
             File file = entry.key
@@ -187,7 +202,7 @@ class NullableAnnotator {
         entries.add(target)
     }
 
-    private static class MethodRef {
+    static class MethodRef {
 
         final File file
         final ClassNode owner

@@ -98,6 +98,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   compile-mode `nullcheck`, `nullcheckAddNullable` and `nullcheckAutofix`; the plugin metadata
   now declares `configurationCache = true`. Isolated projects remains unsupported.
 
+- **Minimal autofix provider hook.** `NullFixProvider` can append declaration targets to the
+  report-driven autofix pipeline. The API is not final; built-in migration and provider loading
+  are still pending.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
