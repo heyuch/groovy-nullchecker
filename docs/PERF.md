@@ -29,6 +29,25 @@ Observed wall time:
 The corpus includes the strict flow fixtures and the plugin's checker tests. A future CFG change
 must re-run these commands and record the delta rather than claiming "linear" from theory.
 
+## 0.11.0 local hardening baseline
+
+Date: 2026-11-05.
+
+Same machine and command shape as the original coarse baseline, after the H0/H1/H2 and
+D1/D2/D3/D6 changes:
+
+| Command | real | user | sys |
+| --- | ---: | ---: | ---: |
+| `compileGroovy --rerun-tasks` | 2.78 s | 0.49 s | 0.05 s |
+| `test --rerun-tasks` | 6.47 s | 0.54 s | 0.05 s |
+
+These are wall-clock samples including Gradle/daemon overhead, not isolated checker timings.
+The external nine-module numbers below remain the reference for real-project behavior; do not
+compare this local sample to them as if the workloads were equal.
+
+Microbenchmarks for `FlowState.join` / capture/restore are still pending; this section records
+the runnable baseline only.
+
 ## 0.5.0 vs 0.6.0 on an external service
 
 A six-module external Groovy service (251 files, 397 classes; anonymized) was checked with the
