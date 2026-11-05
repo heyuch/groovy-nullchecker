@@ -103,7 +103,11 @@ A positive-corpus run with compiled support stubs:
 | Groovy | Result |
 | --- | --- |
 | 5.0.2 | 51 findings, `classes=37`, no internal error |
-| 6.0.0 | internal error in `ElementIterationDeref#closureWithImplicitIt` (`MultipleCompilationErrorsException`); result not trusted |
+| 6.0.0 | per-fixture positive/negative runs complete without internal errors; a single bulk CLI compilation of all positive fixtures hit a closure `MultipleCompilationErrorsException` |
+
+The Groovy 6 bulk failure is not reproduced when fixtures are checked one at a time, which is how
+`CorpusGate` runs them. It is therefore a bulk-compilation interaction to investigate, not yet a
+per-fixture checker failure.
 
 This is a **runtime/corpus spike**, not a support claim. Remaining before any release claim:
 Groovy 6 closure error, full positive/negative corpus, plugin functional tests, package-info and
