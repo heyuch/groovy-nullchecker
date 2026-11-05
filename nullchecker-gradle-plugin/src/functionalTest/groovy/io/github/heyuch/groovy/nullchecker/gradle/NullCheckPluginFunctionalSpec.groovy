@@ -606,6 +606,28 @@ tasks.named('compileGroovy') {
         result.output.contains('would check nothing')
     }
 
+    def 'stores and reuses the configuration cache for the standalone report'() {
+        given:
+        writeSettings()
+        writeBuild()
+        writeAnnotation()
+        writeViolation()
+
+        when:
+        BuildResult first = run('nullcheck', '--configuration-cache')
+
+        then:
+        first.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        first.output.contains('Configuration cache entry stored')
+
+        when:
+        BuildResult second = run('nullcheck', '--configuration-cache')
+
+        then:
+        second.task(':nullcheck').outcome == TaskOutcome.SUCCESS
+        second.output.contains('Configuration cache entry reused')
+    }
+
     def 'honours a package-level default, so package-info is read'() {
         given: 'a @NullMarked package whose class carries no annotation of its own'
         writeSettings()

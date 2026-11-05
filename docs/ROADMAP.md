@@ -347,8 +347,9 @@ These are suitable for incremental, module-local work.
 
 ### 6.4 H3: cleanup, CLI and performance
 
-- **H3-1 (`P3-1`)**: move task state to serializable `Property`/`ConfigurableFileCollection`
-  and enable configuration-cache verification incrementally.
+- **H3-1 (`P3-1`)**: in progress. `NullCheckPluginFunctionalSpec` verifies that the standalone
+  `nullcheck` task stores and reuses a configuration cache. The metadata declaration stays
+  false until the annotate/autofix/compile-mode paths and their task state are verified.
 - **H3-2 (`P3-2`/`P3-3`)**: done. `NullCheckCli` rejects missing values and options used as
   values (except the intentional `->` contract literal); `NullCheckCliSpec` covers both.
   `NullCheckFindingsCli` was aligned in H2-4.

@@ -94,6 +94,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **FlowState microbenchmark and refreshed local baseline.** `FlowStateBench` records join and
   copy/restore timings; `docs/PERF.md` also has current compile/test wall times.
 
+- **Configuration-cache verification started.** A functional test proves the standalone
+  `nullcheck` task stores and reuses Gradle's configuration cache; other plugin paths remain
+  to verify before the plugin metadata can claim the feature.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
