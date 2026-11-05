@@ -5,7 +5,6 @@ import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE
 
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
-import org.codehaus.groovy.ast.ASTNode
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.ast.MethodNode
 import org.codehaus.groovy.ast.Parameter
@@ -60,16 +59,7 @@ class NullCheckSession {
             boolean methodNonNull = method.returnType != VOID_TYPE &&
                     (hasNonNullAnno(method, config.nonNullAnnotations) ||
                             (classNonNullByDefault && !hasNullableAnno(method)))
-            if (methodNonNull) {
-                Object stash = method.getNodeMetaData('INFERRED_NON_NULL_RETURN_VIOLATIONS' /* PORT: marker absent in Groovy 4 */)
-                if (stash instanceof List) {
-                    List<?> violations = (List<?>) stash
-                    for (Object node : violations) {
-                        reporter.report("Cannot return null from @NonNull method '${method.name}'",
-                            (ASTNode) node, NullCheckCategories.NULL)
-                    }
-                }
-            }
+
             Set<Variable> initialNullable = method.parameters.findAll { Parameter parameter ->
                 hasNullableAnno(parameter)
             } as Set<Variable>

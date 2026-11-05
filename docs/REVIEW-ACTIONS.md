@@ -203,10 +203,11 @@
 
 ### P2-3 清理 Groovy 4 下不可达的 marker 分支
 
-- Status: open
+- Status: done
 - 证据: `NullCheckSession.groovy:63-70` 读取 `INFERRED_NON_NULL_RETURN_VIOLATIONS`，注释自述 Groovy 4 没有该 marker
 - 动作: 删除，或只在 Groovy 6 兼容路径保留并加显式版本判断。
 - 验收: Groovy 4 路径不再查询该 metadata；测试全绿。
+- 完成证据: `NullCheckSession` 的不可达 marker 分支已删除，现有测试通过。
 
 ### P2-4 统一 CLI 的可测试入口
 

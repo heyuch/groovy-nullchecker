@@ -324,8 +324,8 @@ These are suitable for incremental, module-local work.
   lookup failure.
 - **H2-2 (`P2-2`)**: done. `NullCheckReporter.guard` records the failure and rethrows any
   `VirtualMachineError`; `NullCheckReporterSpec` covers a synthetic `StackOverflowError`.
-- **H2-3 (`P2-3`)**: delete the Groovy-4-unreachable
-  `INFERRED_NON_NULL_RETURN_VIOLATIONS` branch or guard it behind an explicit version check.
+- **H2-3 (`P2-3`)**: done. Removed the Groovy-4-unreachable
+  `INFERRED_NON_NULL_RETURN_VIOLATIONS` branch from `NullCheckSession`.
 - **H2-4 (`P2-4`)**: split `NullCheckFindingsCli.main` into `run(args, out, err)` and `main`;
   test exit codes, `--help` and unknown arguments.
 - **H2-5 (`P2-5`)**: make findings/coverage writers safe across sink instances sharing a file;

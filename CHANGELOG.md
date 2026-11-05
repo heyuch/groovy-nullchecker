@@ -45,6 +45,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Fatal VM errors are rethrown.** `NullCheckReporter.guard` still records a failure, but a
   `VirtualMachineError` now aborts compilation instead of being treated as recoverable.
 
+- **Removed an unreachable Groovy 4 marker branch.** `NullCheckSession` no longer queries the
+  upstream `INFERRED_NON_NULL_RETURN_VIOLATIONS` metadata that Groovy 4 does not provide.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
