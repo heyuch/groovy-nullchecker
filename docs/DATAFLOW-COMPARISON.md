@@ -62,7 +62,24 @@ equality and copy operations. Only stores at key points (typically block starts)
 the framework recomputes intermediate points on demand. `AnalysisResult` maps nodes/trees to
 values and lets clients query the store before/after a tree. See manual 2.2.7, 2.2.10 and 4.1.
 
-### 2.5 Other properties
+### 2.5 Default analysis and store invalidation
+
+The manual also describes the default flow-sensitive analysis (section 9), not just the CFG:
+
+- assignments propagate abstract values from the right-hand side;
+- equality/inequality tests propagate facts to true/false successors;
+- method postconditions are applied after calls;
+- the store tracks locals and field accesses;
+- on a field assignment or local assignment, field facts whose receiver might alias the
+  target are removed;
+- on a non-pure method call, **all** field facts are discarded;
+- `@SideEffectFree`, `@Deterministic` and `@Pure` calls are treated specially;
+- because there is no alias analysis, `might_alias` is approximated by type compatibility.
+
+This is directly relevant to nullness: stale field facts can hide a dereference after an
+aliased write or a mutating call.
+
+### 2.6 Other properties
 
 - forward **and backward** analyses;
 - exceptional edges and an exceptional exit;
@@ -99,6 +116,7 @@ existing visitor own Groovy-specific rules. It is not a full expression-level da
 | Exception flow | exception blocks/edges + exceptional exit | catch edges from try node only; one exit | catch state is conservative; finally/throw paths incomplete |
 | Abrupt finally | duplicated finally for jumps | not special-cased | documented F3 limitation |
 | Store | expression -> abstract value, LUB/copy/equality | fixed `FlowState` fields | sufficient for nullness, not reusable for other analyses |
+| Alias/purity invalidation | removes type-compatible aliases; non-pure calls kill all fields | invalidates only the receiver root | stale field facts can cause false negatives |
 | Analysis result | node/tree values and stores | no query API | harder to debug/test post-hoc |
 | Fixed point | worklist to convergence | worklist with 10000-step cap; visitor loop cap 8 | cap is now diagnosed, but still a hard cutoff |
 | Direction | forward/backward | forward only | backward not needed for nullness |
@@ -153,6 +171,29 @@ not be a prerequisite for D1/D2.
 These improve reuse and granularity, but are a substantial rewrite. The current statement-level
 CFG is adequate for nullness rules; revisit only if D1/D2 show a concrete need.
 
+### D6. Alias/purity invalidation (correctness, high value)
+
+The current visitor invalidates only paths rooted at the receiver:
+
+- `b.f = value` does not invalidate a fact for `a.f`, even when `a` and `b` may have
+  compatible types;
+- a non-pure call on one receiver does not invalidate facts for fields reached through another
+  receiver, while the Checker Framework deliberately kills all field facts after a non-pure
+  call;
+- there is no `@SideEffectFree` / `@Pure` distinction.
+
+Borrow the conservative rules from manual section 9.3, adapted to Groovy:
+
+- field assignment: invalidate facts whose receiver might alias the target;
+- local assignment: invalidate field facts whose receiver might alias the local;
+- non-pure method call: invalidate all field facts (or require an explicit purity contract to
+  retain them);
+- pure/side-effect-free calls: preserve field facts;
+- use type compatibility as the `might_alias` approximation; this is intentionally conservative.
+
+This is a correctness improvement, not only a precision one. It prevents stale non-null field
+facts from suppressing a warning after an aliased write.
+
 ## 6. What not to copy
 
 - javac `Tree`/`Element`/`Symbol` APIs and Java desugaring;
@@ -167,7 +208,8 @@ Keep the current statement-level CFG and the visitor's Groovy-specific rules. Bo
 ideas, in this order:
 
 1. **exceptional control flow** (D2) because it affects correctness around `try`/`catch`/`finally`;
-2. **explicit conditional states / flow rules** (D1) because it improves precision without a
+2. **alias/purity invalidation** (D6) because stale field facts can suppress real warnings;
+3. **explicit conditional states / flow rules** (D1) because it improves precision without a
    full CFG rewrite.
 
 D3 is a useful robustness cleanup. D4/D5 wait for a concrete debugging or performance need.
