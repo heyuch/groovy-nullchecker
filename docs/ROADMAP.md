@@ -1,6 +1,8 @@
 # Roadmap
 
-Status: active. Last updated: 2026-11-05.
+Status: current actionable queue complete. Last updated: 2026-11-05. D5 remains deliberately
+deferred; Groovy 5/6 official promotion is a separate product decision (experimental support is
+already covered).
 
 This is the execution order for the remaining work. It is intentionally ordered: finish the
 method-local nullness flow work, then the plugin and the smaller items, then release.
@@ -443,8 +445,8 @@ Status: done (0.9.0).
 
 ### N3. Autofix provider framework
 
-Status: prototype implemented; SPI design documented in
-[AUTOFIX-SPI.md](AUTOFIX-SPI.md), implementation deferred.
+Status: done as a documented prototype. Built-in rules and CLI/plugin provider loading are
+implemented; the public API is intentionally not frozen. See [AUTOFIX-SPI.md](AUTOFIX-SPI.md).
 
 - A controlled `FixProvider` SPI: built-in high-confidence fixes and user providers share the
   same proposal/apply path.
