@@ -118,12 +118,22 @@ a closure, because Groovy 5 generated an unloadable
 `<UnionType:MethodCallExpression+TernaryExpression>` class for that closure. Explicit
 `pushGuards`/`popGuards` preserves the same behavior without the generated type.
 
-This is still a **runtime/corpus spike**, not a support claim. The Gradle plugin now exposes
-`toolGroovyVersion` (default `4.0.30`) separately from `toolVersion`, so a future 5/6 artifact can
-be selected without changing plugin code. No 5/6 artifact is published, and plugin functional
-tests under 5/6, package-info coverage and the artifact boundary remain. A single bulk CLI
-compilation of all positive fixtures previously hit a Groovy 6 closure interaction; the
-per-fixture gate is the accepted corpus model.
+This is still a **runtime/corpus spike**, not a support claim. The Gradle plugin exposes
+`toolGroovyVersion` (default `4.0.30`) separately from `toolVersion`.
+
+A local-only plugin spike published `0.11.0-g5` / `0.11.0-g6` artifacts into Maven Local and ran
+a real TestKit-style consumer project with the corresponding Groovy version:
+
+| Groovy | standalone `nullcheck` | compile mode |
+| --- | --- | --- |
+| 5.0.2 | passed; canary/coverage/finding | passed; compileGroovy + findings sink |
+| 6.0.0 | passed; canary/coverage/finding | passed; compileGroovy + findings sink |
+
+The g5/g6 coordinates are **not published release artifacts**; they exist only in the local
+verification environment. Remaining work is the real artifact boundary (classifier or separate
+coordinates), a reproducible CI matrix, package-info coverage under 5/6, and a decision on how
+long the experimental lane is maintained. A single bulk CLI compilation of all positive fixtures
+previously hit a Groovy 6 closure interaction; the per-fixture gate is the accepted corpus model.
 
 ## Work order
 
