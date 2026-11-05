@@ -119,7 +119,7 @@
 
 ### P1-3 绑定 `AstSupport` 缓存的生命周期
 
-- Status: open
+- Status: done
 - 类型: 内存泄漏风险
 - 证据: `AstSupport.groovy:80-88` 使用强引用 `IdentityHashMap<AnnotatedNode, Set<String>>`；`NullChecker.resetCaches()` 在 `NullChecker.groovy:200-204`；只有 `NullCheckHarness.groovy:299-301` 调用。
 - 问题: compile mode 不调用 `resetCaches()`。Gradle worker 常驻且 classloader 复用时，旧 compilation 的 AST 节点会被缓存持续持有。
@@ -130,6 +130,8 @@
 - 验收:
   - 在同一个 classloader 里连续编译多次，断言缓存大小不随编译次数增长。
   - 增加一个重复编译的回归测试。
+- 完成证据: `NullCheckCustomizer` 在 compilation 开始/OUTPUT 清理 `NullChecker` 与
+  `AstSupport` 缓存；`AstSupportCacheSpec` 连续编译两次并断言 annotation caches 为空。
 
 ### P1-4 收敛全局系统属性配置总线
 

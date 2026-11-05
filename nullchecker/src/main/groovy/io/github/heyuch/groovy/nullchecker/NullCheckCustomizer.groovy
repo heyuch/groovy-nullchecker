@@ -124,7 +124,11 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         // previous task cannot receive this task's findings, and register a final clear so the
         // thread-local does not retain the sink after compilation.
         NullCheckSinks.clearFileSink()
+        // A worker can compile several tasks. Drop caches left by the previous compilation
+        // before registering this one, and clear them again after analysis.
+        NullChecker.resetCaches()
         unit.addPhaseOperation(new ClearSinkOperation(), CompilePhase.OUTPUT.phaseNumber)
+        unit.addPhaseOperation(new ClearCompilationStateOperation(), CompilePhase.OUTPUT.phaseNumber)
         inner.setCompilationUnit(unit)
         staticInner.setCompilationUnit(unit)
     }
@@ -134,6 +138,15 @@ class NullCheckCustomizer extends CompilationCustomizer implements CompilationUn
         @Override
         void call(SourceUnit source) {
             NullCheckSinks.clearFileSink()
+        }
+
+    }
+
+    private static class ClearCompilationStateOperation implements CompilationUnit.ISourceUnitOperation {
+
+        @Override
+        void call(SourceUnit source) {
+            NullChecker.resetCaches()
         }
 
     }

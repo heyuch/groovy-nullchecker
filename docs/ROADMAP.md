@@ -278,10 +278,13 @@ Start after H0 is green.
 
 #### H1-1. Bind `AstSupport` caches to a compilation (`P1-3`)
 
-- Status: open.
-- Clear or weakly reference the annotation caches at compilation/session end; evaluate the
-  same lifecycle for `SESSIONS`, `PORT_OPTIONS` and `lastCoverage`.
-- Add a repeated-compilation test that asserts cache sizes do not grow across runs.
+- Status: done.
+- `NullCheckCustomizer` clears `NullChecker`/`AstSupport` caches at compilation start and
+  registers an output-phase cleanup, matching the sink lifecycle.
+- `SESSIONS` and annotation caches are cleared by that reset. `PORT_OPTIONS` remains the
+  caller-owned transport for H1-4, and `lastCoverage` is retained for report consumers.
+- `AstSupportCacheSpec` runs two compilations and asserts both annotation caches are empty
+  after each.
 
 #### H1-2. Remove test scaffolding from the published jar (`P1-5`)
 

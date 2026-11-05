@@ -24,6 +24,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   `initialization` or `resolution` explicitly instead of being reclassified from message
   substrings; compiler messages retain the fallback table.
 
+- **Annotation caches no longer survive a compilation.** The compile-mode customizer clears the
+  checker session and annotation caches at compilation start and output, preventing a reused
+  Gradle worker from retaining old AST nodes.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and
