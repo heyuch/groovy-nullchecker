@@ -230,6 +230,7 @@ class NullCheckVisitor extends CheckingVisitor {
             AccessPath path = AccessPath.from(leftExpr)
             if (path != null) {
                 invalidatePath(path.text)
+                invalidateSameField(path.text)
                 if (isNullExpr(rightExpr)) {
                     pathFacts.put(path.text, Nullness.NULL)
                 } else if (flowSensitive && (canBeNull(rightExpr) || isKnownNullable(rightExpr))) {
@@ -304,16 +305,9 @@ class NullCheckVisitor extends CheckingVisitor {
         if (!call.safe && !call.implicitThis) {
             checkDereference(call.objectExpression, call)
         }
-        AccessPath receiverPath = AccessPath.from(call.objectExpression)
-        if (receiverPath != null) {
-            invalidatePaths(receiverPath.root)
-        } else if (call.objectExpression instanceof VariableExpression) {
-            VariableExpression receiverVariable = (VariableExpression) call.objectExpression
-            if (receiverVariable.isThisExpression()) {
-                invalidatePaths('this')
-            } else {
-                invalidatePaths(receiverVariable.name)
-            }
+        if (!isPureCall(call)) {
+            // Without an alias analysis, a non-pure call may mutate any field.
+            invalidateAllPaths()
         }
         checkMethodArguments(call)
         applyCallNarrowing(call)
@@ -696,6 +690,9 @@ class NullCheckVisitor extends CheckingVisitor {
     @Override
     void visitStaticMethodCallExpression(StaticMethodCallExpression call) {
         super.visitStaticMethodCallExpression(call)
+        if (!isPureCall(call)) {
+            invalidateAllPaths()
+        }
         clearEscapedClosures(call.arguments)
         checkMethodArguments(call)
         applyCallNarrowing(call)
@@ -1249,6 +1246,35 @@ class NullCheckVisitor extends CheckingVisitor {
     private void invalidatePath(String path) {
         pathFacts.remove(path)
         invalidatePaths(path)
+    }
+
+    /** Assigning one receiver's field may invalidate the same field on an alias. */
+    private void invalidateSameField(String path) {
+        int dot = path.lastIndexOf('.')
+        if (dot < 0) {
+            return
+        }
+        String suffix = path.substring(dot)
+        Iterator<String> iterator = pathFacts.keySet().iterator()
+        while (iterator.hasNext()) {
+            String candidate = iterator.next()
+            if (candidate.endsWith(suffix)) {
+                iterator.remove()
+            }
+        }
+    }
+
+    private void invalidateAllPaths() {
+        pathFacts.clear()
+    }
+
+    private boolean isPureCall(MethodCall call) {
+        Object target = ((Expression) call).getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)
+        if (!(target instanceof MethodNode)) {
+            return false
+        }
+        return AstSupport.hasAnno((AnnotatedNode) target,
+                ['Pure', 'SideEffectFree'] as Set<String>)
     }
 
     /**
