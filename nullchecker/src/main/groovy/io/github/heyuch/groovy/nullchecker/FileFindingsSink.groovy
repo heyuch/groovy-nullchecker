@@ -27,7 +27,7 @@ class FileFindingsSink implements NullCheckSink {
 
     @Override
     void report(NullCheckFinding finding) {
-        synchronized (this) {
+        synchronized (FileWriteLocks.forFile(file)) {
             file.append(NullCheckFindingTsv.toTsv(finding) + '\n', 'UTF-8')
         }
     }

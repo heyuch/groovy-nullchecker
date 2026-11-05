@@ -48,7 +48,9 @@ class Coverage {
         if (findingsFile) {
             File coverageFile = new File(findingsFile + '.coverage')
             coverageFile.getParentFile()?.mkdirs()
-            coverageFile.append(cn.name + '\n', 'UTF-8')
+            synchronized (FileWriteLocks.forFile(coverageFile)) {
+                coverageFile.append(cn.name + '\n', 'UTF-8')
+            }
         }
     }
 

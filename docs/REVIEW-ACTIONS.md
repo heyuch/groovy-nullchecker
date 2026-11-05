@@ -219,11 +219,13 @@
 
 ### P2-5 并发写入 findings/coverage 文件
 
-- Status: open
+- Status: done
 - 证据: `FileFindingsSink.groovy:29-33` 只对单个 sink 实例 `synchronized (this)`；`Coverage.groovy:47-52` 直接 `File.append`
 - 问题: 不同 sink 实例写同一文件时锁不互斥；并发编译可能产生交错的 TSV 行或 coverage 行。
 - 动作: 使用按文件路径的静态锁，或让每个 compilation 只有一个 writer；考虑写入临时文件后原子合并。
 - 验收: 并发写入测试产生完整、可解析的行，无交错。
+- 完成证据: `FileWriteLocks` 按文件 canonical path 共享锁；`FileFindingsSink` / `Coverage`
+  使用它；`NullCheckSinkSpec` 用两个并发 sink 写入同一文件并校验行数/字段数。
 
 ### P2-6 默认 annotation mode 的分支流精度
 

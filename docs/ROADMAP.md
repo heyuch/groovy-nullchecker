@@ -329,8 +329,8 @@ These are suitable for incremental, module-local work.
 - **H2-4 (`P2-4`)**: done. `NullCheckFindingsCli.main` delegates to
   `run(args, out, err)`; `NullCheckFindingsCliSpec` covers help, unknown/missing options,
   missing files and failing/clean categories.
-- **H2-5 (`P2-5`)**: make findings/coverage writers safe across sink instances sharing a file;
-  use a per-path lock or per-compilation writer.
+- **H2-5 (`P2-5`)**: done. `FileWriteLocks` provides one lock per canonical path; both
+  `FileFindingsSink` and `Coverage` use it. `NullCheckSinkSpec` covers concurrent writers.
 - **H2-6 (`P2-8`)**: keep the nullable annotator conservative; add diff output, explicit skip
   counts, idempotency and multi-line/Tab/CRLF tests.
 - **H2-7 (`P2-9`)**: remove the duplicate `@Override`, duplicate import, stale Javadoc, duplicate

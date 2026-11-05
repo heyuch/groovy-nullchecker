@@ -51,6 +51,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Findings CLI is testable in-process.** `NullCheckFindingsCli.main` now delegates to
   `run(args, out, err)`; exit codes and help/error paths are covered by a spec.
 
+- **Concurrent file writers share a lock.** Findings and coverage writers use a per-path lock,
+  so separate sink/coverage instances cannot interleave TSV or coverage lines.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

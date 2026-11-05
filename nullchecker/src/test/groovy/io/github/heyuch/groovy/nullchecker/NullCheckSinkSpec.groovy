@@ -2,6 +2,11 @@ package io.github.heyuch.groovy.nullchecker
 
 import io.github.heyuch.groovy.nullchecker.harness.NullCheckCanary
 import io.github.heyuch.groovy.nullchecker.harness.NullCheckHarness
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 import org.codehaus.groovy.control.CompilationUnit
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.Phases
@@ -125,6 +130,44 @@ class NullCheckSinkSpec extends Specification {
 
         then:
         !NullCheckSinks.hasFileSink()
+    }
+
+    def "two sinks sharing one file do not interleave rows"() {
+        given:
+        File file = new File(File.createTempDir(), 'shared.tsv')
+        FileFindingsSink first = new FileFindingsSink(file)
+        FileFindingsSink second = new FileFindingsSink(file)
+        int count = 40
+        CountDownLatch start = new CountDownLatch(1)
+        ExecutorService pool = Executors.newFixedThreadPool(2)
+        List<Future<?>> futures = []
+
+        when:
+        futures.add(pool.submit({
+            start.await()
+            for (int i = 0; i < count; i++) {
+                first.report(NullCheckFinding.of('/tmp/A.groovy', i, NullCheckFinding.NULL, 'first'))
+            }
+        } as Runnable))
+        futures.add(pool.submit({
+            start.await()
+            for (int i = 0; i < count; i++) {
+                second.report(NullCheckFinding.of('/tmp/A.groovy', i, NullCheckFinding.NULL, 'second'))
+            }
+        } as Runnable))
+        start.countDown()
+        for (Future<?> future : futures) {
+            future.get(10, TimeUnit.SECONDS)
+        }
+        pool.shutdown()
+
+        then:
+        pool.awaitTermination(10, TimeUnit.SECONDS)
+        List<String> rows = file.readLines('UTF-8')
+        rows.size() == count * 2
+        rows.every { String row -> row.split('\t', -1).length == 4 }
+        rows.count { String row -> row.contains('first') } == count
+        rows.count { String row -> row.contains('second') } == count
     }
 
     def "a finding row round-trips through TSV"() {
