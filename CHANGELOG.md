@@ -38,6 +38,10 @@ versions follow [Semantic Versioning](https://semver.org/).
   `NullCheckConfig` containing checks, annotations, guards, contracts, asserts-true entries and
   the classpath; system properties remain the transport layer.
 
+- **Package-scope fallbacks are visible.** Failures while reading source/classpath
+  `package-info` metadata are recorded as internal diagnostics instead of silently disabling
+  package defaults.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

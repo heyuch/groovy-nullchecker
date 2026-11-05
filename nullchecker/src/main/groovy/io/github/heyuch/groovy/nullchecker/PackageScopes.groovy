@@ -96,9 +96,11 @@ class PackageScopes {
                     }
                 }
             }
-        } catch (Throwable ignored) {
-            // Best effort: an unreachable AST must not break the check itself, it only
-            // means package defaults are unavailable and class-level marking applies.
+        } catch (Throwable failure) {
+            // Best effort: an unreachable AST must not break the check itself, but the
+            // fallback means package defaults are unavailable, so the run is incomplete.
+            NullCheckReporter.recordDiagnostic(
+                    "package-scope source scan failed: ${failure.getClass().name}: ${failure.message}")
         }
         return found
     }
@@ -281,8 +283,12 @@ class PackageScopes {
                     byPackage.put(packageName, names)
                     return names
                 }
-            } catch (Throwable ignored) {
+            } catch (ClassNotFoundException ignored) {
                 // this loader cannot see it; try the next one
+            } catch (Throwable failure) {
+                NullCheckReporter.recordDiagnostic(
+                        "package-info lookup failed for '${packageName}' via " +
+                                "${loader.getClass().name}: ${failure.getClass().name}: ${failure.message}")
             }
         }
         byPackage.put(packageName, null)
@@ -326,8 +332,11 @@ class PackageScopes {
                     loaders << new URLClassLoader(urls as URL[], null)
                 }
             }
-        } catch (Throwable ignored) {
-            // an opt-in classpath hint must never break the check
+        } catch (Throwable failure) {
+            // an opt-in classpath hint must never break the check, but losing it means
+            // package defaults may be unavailable; surface the incomplete run.
+            NullCheckReporter.recordDiagnostic(
+                    "classpath hint could not be read: ${failure.getClass().name}: ${failure.message}")
         }
         loaders << Thread.currentThread().contextClassLoader
         loaders << PackageScopes.classLoader

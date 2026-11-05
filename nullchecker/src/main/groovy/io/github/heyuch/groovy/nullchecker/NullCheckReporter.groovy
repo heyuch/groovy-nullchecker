@@ -76,7 +76,7 @@ class NullCheckReporter {
         recordDiagnostic(where + ': ' + failure.getClass().name + ': ' + failure.message)
     }
 
-    private static void recordDiagnostic(String message) {
+    static void recordDiagnostic(String message) {
         List<String> errors = INTERNAL_ERRORS.get()
         if (errors == null) {
             errors = new ArrayList<String>()

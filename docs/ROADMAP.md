@@ -319,8 +319,9 @@ Start after H0 is green.
 
 These are suitable for incremental, module-local work.
 
-- **H2-1 (`P2-1`)**: report `PackageScopes` package-info failures as diagnostics instead of
-  silently falling back to "no default"; test a forced read failure.
+- **H2-1 (`P2-1`)**: done. `PackageScopes` records source-scan, package-info lookup and
+  classpath-hint failures through the internal-error channel; `PackageScopesSpec` forces a
+  lookup failure.
 - **H2-2 (`P2-2`)**: do not swallow `VirtualMachineError` in `NullCheckReporter.guard`; rethrow
   fatal VM errors, keep ordinary recoverable failures visible.
 - **H2-3 (`P2-3`)**: delete the Groovy-4-unreachable

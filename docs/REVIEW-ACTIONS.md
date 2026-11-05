@@ -183,11 +183,14 @@
 
 ### P2-1 `PackageScopes` 的静默兜底要可见
 
-- Status: open
+- Status: done
 - 证据: `PackageScopes.groovy:92-95`（源码 package-info 扫描）、`:277-280`（classpath package-info 读取）、`:322-324`（classpath hint）
 - 问题: `catch (Throwable ignored)` 会让 package default 解析失败静默降级为 "没有默认"，属于漏报，与 fail-closed 主张冲突。
 - 动作: 保留 best-effort 行为，但把失败记录到 `NullCheckReporter` 的 internal errors（或独立的诊断），让 harness 能拒绝结果。
 - 验收: 人为制造 package-info 读取失败，断言产生诊断而不是干净结果。
+- 完成证据: source scan / classpath lookup / classpath hint 的失败都记录到
+  `NullCheckReporter.recordDiagnostic`；`PackageScopesSpec` 用抛 `LinkageError` 的
+  ClassLoader 强制验证。
 
 ### P2-2 `NullCheckReporter.guard` 对 `Throwable` 的处理
 
