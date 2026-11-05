@@ -98,9 +98,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   compile-mode `nullcheck`, `nullcheckAddNullable` and `nullcheckAutofix`; the plugin metadata
   now declares `configurationCache = true`. Isolated projects remains unsupported.
 
-- **Minimal autofix provider hook.** `NullFixProvider` can append declaration targets to the
-  report-driven autofix pipeline. The API is not final; built-in migration and provider loading
-  are still pending.
+- **Autofix provider hook and CLI loading.** Built-in return/parameter rules now run through
+  `NullFixProvider`; `--provider <fqcn>` loads additional providers. The API is not final;
+  plugin provider classpath wiring is still pending.
 
 ### Changed
 

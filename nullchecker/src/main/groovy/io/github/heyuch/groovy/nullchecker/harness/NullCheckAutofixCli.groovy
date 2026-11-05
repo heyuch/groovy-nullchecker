@@ -1,6 +1,7 @@
 package io.github.heyuch.groovy.nullchecker.harness
 
 import groovy.transform.CompileStatic
+import io.github.heyuch.groovy.nullchecker.NullFixProvider
 import io.github.heyuch.groovy.nullchecker.NullableAnnotator
 
 /** Report-driven, opt-in source fixes; separate from the checking task. */
@@ -11,6 +12,7 @@ class NullCheckAutofixCli {
   --dry-run              print planned fixes without changing files
   --strict               use strict checking before proposing fixes
   --annotation <fqcn>    annotation to add (default: org.jspecify.annotations.Nullable)
+  --provider <fqcn>      user NullFixProvider class; repeatable
   --help                 show this message
 
 Rules:
@@ -28,6 +30,7 @@ Rules:
         boolean strict = false
         String annotation = NullableAnnotator.DEFAULT_ANNOTATION
         List<String> paths = []
+        List<NullFixProvider> providers = []
         for (int i = 0; i < argv.size(); i++) {
             String argument = argv[i]
             switch (argument) {
@@ -47,6 +50,24 @@ Rules:
                         return 2
                     }
                     annotation = argv[++i]
+                    break
+                case '--provider':
+                    if (i + 1 >= argv.size()) {
+                        err.println('autofix: --provider needs a value')
+                        return 2
+                    }
+                    String providerName = argv[++i]
+                    try {
+                        Object instance = NullCheckAutofixCli.classLoader.loadClass(providerName).getDeclaredConstructor().newInstance()
+                        if (!(instance instanceof NullFixProvider)) {
+                            err.println("autofix: provider is not a NullFixProvider: ${providerName}")
+                            return 2
+                        }
+                        providers.add((NullFixProvider) instance)
+                    } catch (Throwable failure) {
+                        err.println("autofix: cannot load provider ${providerName}: ${failure.message}")
+                        return 2
+                    }
                     break
                 default:
                     if (argument.startsWith('-')) {
@@ -79,7 +100,7 @@ Rules:
                 new NullableAnnotator.FixFinding(path: f.path, line: f.line,
                         category: f.category.label, message: f.message)
             }
-            NullableAnnotator.runFromFindings(files, findings, annotation, dryRun, out)
+            NullableAnnotator.runFromFindings(files, findings, annotation, dryRun, out, providers)
             return 0
         } catch (Throwable failure) {
             err.println("autofix: ${failure.message}")

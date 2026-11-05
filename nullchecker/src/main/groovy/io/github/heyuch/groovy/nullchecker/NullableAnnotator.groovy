@@ -61,6 +61,8 @@ class NullableAnnotator {
                                   boolean dryRun, PrintStream out,
                                   List<NullFixProvider> providers = []) {
         Result result = new Result(files: files.size())
+        List<NullFixProvider> allProviders = [new BuiltinProvider()]
+        allProviders.addAll(providers)
         Map<String, CompilationUnit> units = new LinkedHashMap<>()
         Map<String, File> byPath = new LinkedHashMap<>()
         List<MethodRef> methods = []
@@ -83,7 +85,6 @@ class NullableAnnotator {
         Map<File, List<Target>> targetsByFile = new LinkedHashMap<>()
         Set<String> seen = new HashSet<>()
         for (FixFinding finding : findings) {
-            String message = finding.message.replaceFirst('^\\[Static type checking\\] - ', '')
             File file = findFile(finding.path, files)
             if (file == null) {
                 result.skipped++
@@ -94,75 +95,21 @@ class NullableAnnotator {
                 result.skipped++
                 continue
             }
-            if (message.startsWith('Cannot return @Nullable value from @NonNull method')) {
-                String name = capture(message, /method '([^']+)'/)
-                if (name == null) {
-                    result.skipped++
-                    continue
-                }
-                MethodNode method = methodAt(unit, finding.line, name)
-                if (method == null) {
-                    result.skipped++
-                    continue
-                }
-                ClassNode owner = classOf(unit, method)
-                if (owner == null || !new PackageScopes(unit, null).isNullMarked(owner) ||
-                        method.returnType == ClassHelper.VOID_TYPE ||
-                        ClassHelper.isPrimitiveType(method.returnType) ||
-                        hasNullableAnno(method) || hasNonNullAnno(method)) {
-                    result.skipped++
-                    continue
-                }
-                String key = "method|${method.lineNumber}|${method.name}"
-                if (seen.add(key)) {
-                    addTarget(targetsByFile, file, new Target(kind: 'method', name: method.name,
-                            line: method.lineNumber,
-                            description: "method '${owner.name}#${method.name}'"))
-                }
-            } else if (message.startsWith('Cannot pass @Nullable value to @NonNull parameter')) {
-                String parameter = capture(message, /parameter '([^']+)'/)
-                String methodName = capture(message, /parameter '[^']+' of '([^']+)'/)
-                if (parameter == null || methodName == null) {
-                    result.skipped++
-                    continue
-                }
-                int arity = argumentCount(unit, finding.line, methodName)
-                List<MethodRef> candidates = methods.findAll { MethodRef ref ->
-                    ref.method.name == methodName && ref.method.parameters.length == arity
-                }
-                if (candidates.size() != 1) {
-                    result.skipped++
-                    continue
-                }
-                MethodRef target = candidates.first()
-                MethodNode method = target.method
-                Parameter param = method.parameters.find { Parameter p -> p.name == parameter }
-                if (param == null || method.code == null || ClassHelper.isPrimitiveType(param.type) ||
-                        hasNullableAnno(param) || hasNonNullAnno(param) ||
-                        !comparedToNull(method.code, param.name) ||
-                        !new PackageScopes(target.unit, null).isNullMarked(target.owner)) {
-                    result.skipped++
-                    continue
-                }
-                String key = "parameter|${param.lineNumber}|${param.name}"
-                if (seen.add(key)) {
-                    addTarget(targetsByFile, target.file, new Target(kind: 'parameter', name: param.name,
-                            line: param.lineNumber,
-                            description: "parameter '${param.name}' of '${target.owner.name}#${method.name}'"))
-                }
+            List<NullFixProposal> proposals = []
+            NullFixContext context = new NullFixContext(file, finding, unit, methods)
+            for (NullFixProvider provider : allProviders) {
+                proposals.addAll(provider.propose(context))
             }
-            if (providers) {
-                NullFixContext context = new NullFixContext(file, finding, unit, methods)
-                for (NullFixProvider provider : providers) {
-                    for (NullFixProposal proposal : provider.propose(context)) {
-                        String key = "provider|${provider.getClass().name}|${proposal.kind}|" +
-                                "${proposal.line}|${proposal.name}"
-                        if (seen.add(key)) {
-                            addTarget(targetsByFile, file, new Target(kind: proposal.kind,
-                                    name: proposal.name, line: proposal.line,
-                                    description: proposal.description ?: "provider target '${proposal.name}'"))
-                        }
-                    }
+            if (proposals.isEmpty()) {
+                result.skipped++
+                continue
+            }
+            for (NullFixProposal proposal : proposals) {
+                String key = "provider|${proposal.kind}|${proposal.line}|${proposal.name}"
+                if (seen.add(key)) {
+                    addTarget(targetsByFile, file, new Target(kind: proposal.kind,
+                            name: proposal.name, line: proposal.line,
+                            description: proposal.description ?: "target '${proposal.name}'"))
                 }
             }
         }
@@ -545,6 +492,65 @@ class NullableAnnotator {
             previous = edit.offset
         }
         file.setText(text.toString(), 'UTF-8')
+    }
+
+    /** The two high-confidence report-driven rules, expressed as a provider. */
+    private static class BuiltinProvider implements NullFixProvider {
+
+        @Override
+        List<NullFixProposal> propose(NullFixContext context) {
+            List<NullFixProposal> proposals = []
+            NullableAnnotator.FixFinding finding = context.finding
+            CompilationUnit unit = context.unit
+            String message = finding.message.replaceFirst('^\\[Static type checking\\] - ', '')
+            if (message.startsWith('Cannot return @Nullable value from @NonNull method')) {
+                String name = capture(message, /method '([^']+)'/)
+                if (name == null) {
+                    return proposals
+                }
+                MethodNode method = methodAt(unit, finding.line, name)
+                if (method == null) {
+                    return proposals
+                }
+                ClassNode owner = classOf(unit, method)
+                if (owner == null || !new PackageScopes(unit, null).isNullMarked(owner) ||
+                        method.returnType == ClassHelper.VOID_TYPE ||
+                        ClassHelper.isPrimitiveType(method.returnType) ||
+                        hasNullableAnno(method) || hasNonNullAnno(method)) {
+                    return proposals
+                }
+                proposals.add(new NullFixProposal(kind: 'method', name: method.name,
+                        line: method.lineNumber,
+                        description: "method '${owner.name}#${method.name}'"))
+            } else if (message.startsWith('Cannot pass @Nullable value to @NonNull parameter')) {
+                String parameter = capture(message, /parameter '([^']+)'/)
+                String methodName = capture(message, /parameter '[^']+' of '([^']+)'/)
+                if (parameter == null || methodName == null) {
+                    return proposals
+                }
+                int arity = argumentCount(unit, finding.line, methodName)
+                List<MethodRef> candidates = context.methods.findAll { MethodRef ref ->
+                    ref.method.name == methodName && ref.method.parameters.length == arity
+                }
+                if (candidates.size() != 1) {
+                    return proposals
+                }
+                MethodRef target = candidates.first()
+                MethodNode method = target.method
+                Parameter param = method.parameters.find { Parameter p -> p.name == parameter }
+                if (param == null || method.code == null || ClassHelper.isPrimitiveType(param.type) ||
+                        hasNullableAnno(param) || hasNonNullAnno(param) ||
+                        !comparedToNull(method.code, param.name) ||
+                        !new PackageScopes(target.unit, null).isNullMarked(target.owner)) {
+                    return proposals
+                }
+                proposals.add(new NullFixProposal(kind: 'parameter', name: param.name,
+                        line: param.lineNumber,
+                        description: "parameter '${param.name}' of '${target.owner.name}#${method.name}'"))
+            }
+            return proposals
+        }
+
     }
 
     private static class Target {
