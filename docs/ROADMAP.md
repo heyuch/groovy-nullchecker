@@ -356,6 +356,32 @@ Not in the executable queue:
 - **`P2-7` definite-null projection**: a precision improvement, not a correctness blocker;
   revisit after H0/H1.
 
+### 6.6 Dataflow/CFG evolution
+
+Source: [DATAFLOW-COMPARISON.md](DATAFLOW-COMPARISON.md). The Checker Framework dataflow
+implementation cannot be reused directly (javac Trees, qualifier framework, JavaExpression
+stores), but its CFG and flow-rule design is a useful reference.
+
+Start after H0/H1 and after the current flow/plugin work is stable. Do not mix these with a
+feature change.
+
+- **D1. Conditional flow rules** (precision): model explicit then/else condition states and
+  flow-rule inheritance for nested `&&`/`||`, ternary, assert and switch; start with the
+  statement-level CFG, not an expression-level rewrite.
+- **D2. Exceptional CFG** (correctness): add an exceptional exit and per-operation exception
+  edges; route `throw` inside `try` to catch/finally; model abrupt `return`/`break`/`continue`
+  through finally. This is the highest-value CFG change and needs its own corpus.
+- **D3. Fixed-point discipline** (robustness): replace the low visitor loop cap with
+  convergence plus a global safety budget; keep the H0-2 diagnostic when a budget is hit.
+- **D4. Analysis result/debug view** (optional): expose node/tree -> in/out state for regression
+  tests and CFG diagnostics.
+- **D5. Basic blocks/expression nodes** (deferred): a substantial rewrite; revisit only if D1
+  or D2 demonstrates a concrete need.
+
+Acceptance for D1/D2: new positive/negative corpus for the affected flow shapes, existing
+strict/annotation behavior unchanged except for explained findings, and no worklist budget
+exhaustion on the corpus. D3 keeps all existing gates green. D4/D5 are not release blockers.
+
 ## Future work
 
 ### N1. Closure return-nullness propagation
