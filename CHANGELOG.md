@@ -70,6 +70,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **CLI option values are validated.** A missing value or an option used as a value now returns
   exit 2 with a clear message; the contract `->` literal remains accepted.
 
+- **Repeated map lookups narrow.** `map.get(k) != null && map.get(k).isBlank()` no longer reports
+  the second lookup; a distinct call-result guard keeps `containsKey` presence semantics separate.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

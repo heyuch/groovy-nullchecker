@@ -257,6 +257,12 @@ strict=any
 expect=none
 note=a guarded Boolean wrapper is truth-tested, not unboxed
 
+negative/repeated_lookup_guard.groovy
+rule=N28
+strict=any
+expect=none
+note=a null check on map.get(k) guards the same repeated lookup
+
 negative/guarded_field_path.groovy
 rule=N27
 strict=any

@@ -1061,6 +1061,10 @@ class NullCheckVisitor extends CheckingVisitor {
                         (isNotEqual ? facts.pathsTrue : facts.pathsFalse).add(leftPath.text)
                     } else if (isNullExpr(left) && rightPath != null) {
                         (isNotEqual ? facts.pathsTrue : facts.pathsFalse).add(rightPath.text)
+                    } else if (isNotEqual && isNullExpr(right)) {
+                        addLookupComparisonGuard(left, facts)
+                    } else if (isNotEqual && isNullExpr(left)) {
+                        addLookupComparisonGuard(right, facts)
                     } else if (isNullExpr(right) && isSafeNav(left)) {
                         addSafeNavReceiverFacts(left, isNotEqual ? facts.whenTrue : facts.whenFalse)
                     } else if (isNullExpr(left) && isSafeNav(right)) {
@@ -1378,6 +1382,23 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
+    private boolean isCallLookupGuarded(Expression container, Expression key) {
+        if (lookupGuards.isEmpty()) {
+            return false
+        }
+        String expected = lookupKey(container, key)
+        if (expected == null) {
+            return false
+        }
+        String marker = 'value|' + expected
+        for (Set<String> frame : lookupGuards) {
+            if (frame.contains(marker)) {
+                return true
+            }
+        }
+        return false
+    }
+
     private boolean isLookupGuarded(Expression container, Expression key) {
         if (lookupGuards.isEmpty()) {
             return false
@@ -1392,6 +1413,27 @@ class NullCheckVisitor extends CheckingVisitor {
             }
         }
         return false
+    }
+
+    /** A {@code map.get(k) != null} check guards the same lookup on later calls. */
+    private void addLookupComparisonGuard(Expression expression, GuardFacts facts) {
+        if (!(expression instanceof MethodCallExpression)) {
+            return
+        }
+        MethodCallExpression call = (MethodCallExpression) expression
+        if (call.methodAsString != 'get' || !isMapLike(typeOfExpression(call.objectExpression))) {
+            return
+        }
+        Expression args = call.arguments
+        if (!(args instanceof TupleExpression) || ((TupleExpression) args).expressions.size() != 1) {
+            return
+        }
+        String key = lookupKey(call.objectExpression, ((TupleExpression) args).getExpression(0))
+        if (key != null) {
+            // Prefix distinguishes "this exact get() returned non-null" from containsKey
+            // presence, which is only enough when map values are non-null.
+            facts.lookupsTrue.add('value|' + key)
+        }
     }
 
     /**
@@ -1618,6 +1660,13 @@ class NullCheckVisitor extends CheckingVisitor {
         } else if (isNullableEntryCall(receiver)) {
             reportNull("Potential null dereference: '${receiver.text}' may be null", context)
         } else if (receiver instanceof MethodCallExpression && isNullableContainerLookup(receiver)) {
+            MethodCallExpression call = (MethodCallExpression) receiver
+            TupleExpression args = call.arguments instanceof TupleExpression
+                    ? (TupleExpression) call.arguments : null
+            if (args != null && args.expressions.size() == 1 &&
+                    isCallLookupGuarded(call.objectExpression, args.getExpression(0))) {
+                return
+            }
             reportNull("Potential null dereference: '${receiver.methodAsString}()' may return null", context)
         } else if (receiver instanceof MethodCallExpression || receiver instanceof StaticMethodCallExpression) {
             Object targetMethod = receiver.getNodeMetaData(StaticTypesMarker.DIRECT_METHOD_CALL_TARGET)

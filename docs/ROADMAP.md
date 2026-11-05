@@ -447,13 +447,13 @@ Status: prototype on the working tree (Unreleased); design not final.
 
 ### N4. Repeated lookup guard
 
-Status: future, low priority.
+Status: done.
 
-- `map.get(k) != null && map.get(k).isBlank()` currently reports on the second lookup.
-- Add the same lookup fact that `containsKey(k)` uses when a nullable lookup call is compared
-  with null, so the repeated call with the same receiver/key is narrowed.
-- Keep different keys reporting.
-- Corpus: same-key silent, different-key reported.
+- `map.get(k) != null` now records a distinct call-result guard; a later `map.get(k)` with the
+  same receiver/key is not reported.
+- `containsKey` presence remains separate, because a present key can still hold null.
+- Corpus: `negative/repeated_lookup_guard.groovy`; different keys still report through the
+  existing container-lookup positive.
 
 ## Long-term goal G1: broader Groovy version support
 
