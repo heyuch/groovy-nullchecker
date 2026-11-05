@@ -288,10 +288,12 @@ Start after H0 is green.
 
 #### H1-2. Remove test scaffolding from the published jar (`P1-5`)
 
-- Status: open.
-- Move `CorpusGate` / `CorpusRules` to test scope or a dedicated harness module; keep
-  `tools/dual-run.groovy` working.
-- Acceptance: the checker jar no longer contains those classes; corpus and `dualRun` still run.
+- Status: done.
+- `CorpusGate` / `CorpusRules` moved to `src/test/groovy/.../harness`; the checker jar no
+  longer contains them.
+- `tools/dual-run.groovy` has no dependency on these classes; corpus tests still import them
+  from the test source set.
+- Acceptance verified with `jar tf`; corpus tests and `dualRun` remain runnable.
 
 #### H1-3. Merge the finding DTOs (`P1-6`)
 

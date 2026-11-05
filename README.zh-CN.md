@@ -735,9 +735,10 @@ nullchecker/                 检查器本体
 │   └── harness/
 │       ├── NullCheckHarness.groovy  编译器调用的唯一入口
 │       ├── NullCheckCli.groovy      命令行入口
-│       ├── NullCheckCanary.groovy   内置自检样本
-│       ├── CorpusGate.groovy        测试使用的语料门禁
-│       └── CorpusRules.groovy       覆盖率门禁背后的规则清单
+│       └── NullCheckCanary.groovy   内置自检样本
+├── src/test/groovy/io/github/heyuch/groovy/nullchecker/harness/
+│   ├── CorpusGate.groovy            测试使用的语料门禁
+│   └── CorpusRules.groovy           覆盖率门禁背后的规则清单
 ├── corpus/                  配对样本：每条规则必须报出，每种守卫必须静默
 └── tools/                   CLI 包装脚本与对比探针
 

@@ -149,7 +149,7 @@
 
 ### P1-5 测试脚手架不要进入发布物
 
-- Status: open
+- Status: done
 - 类型: 打包 / 依赖面
 - 证据: `CorpusGate.groovy`、`CorpusRules.groovy` 位于 `src/main/groovy/.../harness/`，会随 `groovy-nullchecker` jar 发布
 - 问题: 它们只服务测试与 `tools/`，却成为消费者可见的 API 和依赖面。
@@ -159,6 +159,7 @@
 - 验收:
   - 发布 jar 中不再包含 `CorpusGate` / `CorpusRules`。
   - 测试与 `dualRun` 仍可运行。
+- 完成证据: 两个类已移到 `src/test/groovy`；`jar tf` 不再包含它们；corpus 测试通过。
 
 ### P1-6 合并三个 finding DTO
 

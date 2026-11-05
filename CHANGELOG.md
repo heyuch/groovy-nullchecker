@@ -28,6 +28,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   checker session and annotation caches at compilation start and output, preventing a reused
   Gradle worker from retaining old AST nodes.
 
+- **Test-only corpus tooling is no longer published.** `CorpusGate` and `CorpusRules` moved to
+  the test source set, so they are not part of the consumer-facing checker jar.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

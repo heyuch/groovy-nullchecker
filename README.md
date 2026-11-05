@@ -808,9 +808,10 @@ nullchecker/                 the checker itself
 │   └── harness/
 │       ├── NullCheckHarness.groovy  the compiler invocation, in one place
 │       ├── NullCheckCli.groovy      command-line entry point
-│       ├── NullCheckCanary.groovy   the built-in self-check sample
-│       ├── CorpusGate.groovy        corpus gate used by the tests
-│       └── CorpusRules.groovy       rule inventory behind the coverage gate
+│       └── NullCheckCanary.groovy   the built-in self-check sample
+├── src/test/groovy/io/github/heyuch/groovy/nullchecker/harness/
+│   ├── CorpusGate.groovy            corpus gate used by the tests
+│   └── CorpusRules.groovy           rule inventory behind the coverage gate
 ├── corpus/                  paired fixtures: every rule must report, every guard must stay silent
 └── tools/                   the CLI wrapper and the comparison probe
 
