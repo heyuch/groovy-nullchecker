@@ -93,21 +93,28 @@ Both compilations now succeed after three portable fixes:
 - cast Groovy 6's `Number` result from `Collection.count(Closure)` in `Coverage` and
   `NullableAnnotator`.
 
-This is a **compile spike only**. A CLI runtime spike against Groovy 5.0.2 and 6.0.0 produced
-`coverage classes=0` and a resolution finding for the same source; the extension was not
-registered/visited. Instrumentation showed `NullCheckCustomizer.setCompilationUnit` is called
-but its `call` method is not, so the customizer is attached but the class visit never happens.
-Trying `SEMANTIC_ANALYSIS` instead of `CANONICALIZATION` did not change that result, so this is
-not a one-line phase switch. Therefore runtime/corpus behavior is **not** supported yet.
+The earlier `classes=0` runtime result was traced to the **test classpath**: the Spock 4 global
+AST transform is discovered by Groovy 5/6 and fails the compilation before the extension runs.
+Using the main runtime classpath (without Spock/JUnit/test classes), a single fixture works under
+both 5.0.2 and 6.0.0 and reports the expected nullness finding with `classes=1`.
 
-The next gate is diagnosing the customizer/extension lifecycle under each major, then rerunning
-the corpus. Do not turn the compile spike into a release claim.
+A positive-corpus run with compiled support stubs:
+
+| Groovy | Result |
+| --- | --- |
+| 5.0.2 | 51 findings, `classes=37`, no internal error |
+| 6.0.0 | internal error in `ElementIterationDeref#closureWithImplicitIt` (`MultipleCompilationErrorsException`); result not trusted |
+
+This is a **runtime/corpus spike**, not a support claim. Remaining before any release claim:
+Groovy 6 closure error, full positive/negative corpus, plugin functional tests, package-info and
+artifact boundaries. The earlier phase experiment was not the cause and is not part of the
+default path.
 
 ## Work order
 
 1. **Inventory** (this document): API surface and known differences.
-2. **Compile spike** (done for 5.0.2/6.0.0 main sources; runtime CLI currently reports no
-   visited classes, so registration/lifecycle diagnosis is next): try the checker against the next candidate major without promising a
+2. **Compile/runtime spike** (done for 5.0.2/6.0.0 main sources and a single fixture; Groovy 5
+   positive corpus works, Groovy 6 has a closure-analysis internal error): try the checker against the next candidate major without promising a
    release; record exact failures.
 3. **Compatibility layer**: isolate marker/carrier/phase differences; no duplicated visitor
    or contract parser.

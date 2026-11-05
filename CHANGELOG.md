@@ -103,8 +103,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   `nullcheckAutofixProviders` configuration load user providers. The SPI is a documented
   prototype, not a frozen public API.
 
-- **Groovy 5/6 compile spike.** The main checker sources compile against Groovy 5.0.2 and 6.0.0
-  after portable `setProperty`/`count` fixes. Corpus/runtime/plugin support is not claimed.
+- **Groovy 5/6 compile and runtime spike.** Main sources compile and a single fixture reports
+  correctly under 5.0.2/6.0.0 with the main runtime classpath; Groovy 5 positive corpus works,
+  Groovy 6 has a closure-analysis internal error. Corpus/plugin support is not claimed.
 
 ### Changed
 

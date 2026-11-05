@@ -491,8 +491,8 @@ from release numbers.
 ### Work required
 
 1. **Compatibility inventory** (started; see [GROOVY-COMPATIBILITY.md](GROOVY-COMPATIBILITY.md));
-   a main-source compile spike passes for Groovy 5.0.2 and 6.0.0, but the runtime CLI still
-   reports `classes=0`, so extension registration under those majors is the next blocker
+   compile and single-fixture runtime spikes pass for Groovy 5.0.2/6.0.0; Groovy 5 positive
+   corpus works, while Groovy 6 hits a closure-analysis internal error
    - map every compiler API the checker depends on (type-checking extension SPI, AST nodes,
      `StaticTypesMarker`, phase/`CompilationUnit`, annotation/type-use handling, transforms);
    - record which APIs differ by Groovy major, with a source reference and a test.
