@@ -105,7 +105,8 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 - **Groovy 5/6 compile and runtime spike.** Main sources compile and exact CorpusGate passes for
   both 5.0.2 and 6.0.0 (94 results, 0 failures). The Groovy 5 ternary guard no longer uses a
-  closure that generated an unloadable union type. Plugin/artifact support is not claimed.
+  closure that generated an unloadable union type. The plugin exposes `toolGroovyVersion`
+  separately from `toolVersion`; plugin/artifact support is not claimed.
 
 ### Changed
 

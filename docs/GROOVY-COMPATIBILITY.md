@@ -118,10 +118,12 @@ a closure, because Groovy 5 generated an unloadable
 `<UnionType:MethodCallExpression+TernaryExpression>` class for that closure. Explicit
 `pushGuards`/`popGuards` preserves the same behavior without the generated type.
 
-This is still a **runtime/corpus spike**, not a support claim. Remaining before any release claim:
-Gradle plugin functional tests under 5/6, package-info/artifact boundaries, and a documented
-version/toolVersion mapping. A single bulk CLI compilation of all positive fixtures previously
-hit a Groovy 6 closure interaction; the per-fixture gate is the accepted corpus model.
+This is still a **runtime/corpus spike**, not a support claim. The Gradle plugin now exposes
+`toolGroovyVersion` (default `4.0.30`) separately from `toolVersion`, so a future 5/6 artifact can
+be selected without changing plugin code. No 5/6 artifact is published, and plugin functional
+tests under 5/6, package-info coverage and the artifact boundary remain. A single bulk CLI
+compilation of all positive fixtures previously hit a Groovy 6 closure interaction; the
+per-fixture gate is the accepted corpus model.
 
 ## Work order
 

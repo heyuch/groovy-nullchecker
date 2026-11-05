@@ -134,6 +134,14 @@ class NullCheckExtension {
     final Property<String> toolVersion
 
     /**
+     * Groovy version used to run the checker CLI. Must match the checker artifact's major.
+     *
+     * <p>Default is the released Groovy 4 line. Groovy 5/6 artifacts are experimental and
+     * have no published coordinate yet.
+     */
+    final Property<String> toolGroovyVersion
+
+    /**
      * Run the checker inside {@code compileGroovy} instead of a separate CLI compilation.
      *
      * <p>On, the checker shares the compilation the project already pays for, and findings are
@@ -195,6 +203,7 @@ class NullCheckExtension {
         this.containerLookups = project.objects.property(Boolean)
         this.contracts = project.objects.mapProperty(String, String)
         this.toolVersion = project.objects.property(String)
+        this.toolGroovyVersion = project.objects.property(String)
         this.compileCheck = project.objects.property(Boolean)
         this.markedOnly = project.objects.property(Boolean)
         this.reportToStdout = project.objects.property(Boolean)
@@ -222,6 +231,7 @@ class NullCheckExtension {
         containerLookups.convention(true)
         contracts.convention([:])
         toolVersion.convention(NullCheckPlugin.DEFAULT_TOOL_VERSION)
+        toolGroovyVersion.convention(NullCheckPlugin.TOOL_GROOVY_VERSION)
         compileCheck.convention(false)
         markedOnly.convention(false)
         reportToStdout.convention(false)

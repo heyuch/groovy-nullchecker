@@ -375,7 +375,7 @@ configuration.addCompilationCustomizers(new NullCheckCustomizer('${escape(extens
                 project.dependencies.create(
                         "${TOOL_GROUP}:${TOOL_NAME}:${extension.toolVersion.get()}".toString()),
                 project.dependencies.create(
-                        "org.apache.groovy:groovy:${TOOL_GROOVY_VERSION}".toString()))
+                        "org.apache.groovy:groovy:${extension.toolGroovyVersion.get()}".toString()))
         tool
     }
 
