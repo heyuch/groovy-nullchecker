@@ -37,13 +37,6 @@ class CorpusRules {
     ] as Map<String, String>
 
     /**
-     * Rule ids the checker only reaches in strict mode. Everything else must behave
-     * identically whether or not strict is on, which is what keeps the two modes from
-     * silently diverging.
-     */
-    static final Set<String> STRICT_ONLY_RULES = ['R05'] as Set<String>
-
-    /**
      * Rule ids for the negative (must-not-report) fixtures, one per guard family.
      * These have no message fragment: a negative fixture asserts absence, not presence.
      */
@@ -78,10 +71,6 @@ class CorpusRules {
 
     static boolean isKnown(String rule) {
         return RULES.containsKey(rule) || GUARD_RULES.containsKey(rule)
-    }
-
-    static boolean isStrictOnly(String rule) {
-        return STRICT_ONLY_RULES.contains(rule)
     }
 
     static String fragmentFor(String rule) {

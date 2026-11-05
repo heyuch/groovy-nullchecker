@@ -255,7 +255,7 @@
 
 ### P2-9 代码级清理
 
-- Status: open
+- Status: done
 - 证据与动作:
   - `NullCheckVisitor.groovy:709-713`：同一方法上两个 `@Override`，删除一个。
   - `NullCheckExtension.groovy:4/6`：重复 `import ListProperty`，删除一个。
@@ -266,6 +266,8 @@
   - `FlowAnalysis.groovy:83`：`outState` 无生产调用点，删除或保留给诊断。
   - `NullCheckPluginFunctionalSpec.groovy:32`：`PLUGIN_VERSION = '0.3.0'` 与当前版本脱节；改为从项目版本读取，或删除这个未生效的常量。
 - 验收: 编译、CodeNarc、SpotBugs、Spotless、语料全绿；无行为变化。
+- 完成证据: 重复 `@Override`/import、错位 Javadoc、重复声明报告路径和未使用 helper 已清理；
+  plugin functional 版本由 `project.version` 注入。
 
 ### P2-10 收紧语料阳性用例的期望
 

@@ -3,7 +3,6 @@ package io.github.heyuch.groovy.nullchecker.gradle
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
 /**
@@ -58,14 +57,6 @@ class NullCheckExtension {
     final ListProperty<String> failOn
 
     /**
-     * Guard methods that assert their first argument is non-null when they return true,
-     * as {@code com.acme.Utils#isNotEmpty}.
-     *
-     * <p>Only the first argument is considered, and the class must match exactly. The
-     * polarity is part of the declaration because it cannot be read off the name; getting
-     * it wrong would hide a real finding instead of adding noise.
-     */
-    /**
      * Whether the nullness rules run: dereference, return, assignment, argument.
      *
      * <p>On by default. Turning it off leaves only the initialisation rule, which is useful
@@ -85,6 +76,14 @@ class NullCheckExtension {
      */
     final Property<Boolean> initializationCheck
 
+    /**
+     * Guard methods that assert their first argument is non-null when they return true,
+     * as {@code com.acme.Utils#isNotEmpty}.
+     *
+     * <p>Only the first argument is considered, and the class must match exactly. The
+     * polarity is part of the declaration because it cannot be read off the name; getting
+     * it wrong would hide a real finding instead of adding noise.
+     */
     final ListProperty<String> guardNotNullWhenTrue
 
     /**

@@ -333,8 +333,10 @@ These are suitable for incremental, module-local work.
   `FileFindingsSink` and `Coverage` use it. `NullCheckSinkSpec` covers concurrent writers.
 - **H2-6 (`P2-8`)**: done. Dry-run prints a line-level diff; idempotency, multiline
   declarations, tabs and CRLF are covered; the existing skip counters remain explicit.
-- **H2-7 (`P2-9`)**: remove the duplicate `@Override`, duplicate import, stale Javadoc, duplicate
-  non-null-assignment path, and unused rules; update the plugin functional version constant.
+- **H2-7 (`P2-9`)**: done. Removed the duplicate `@Override`/import, reattached the guard
+  Javadoc, collapsed the duplicate declaration report path, removed unused
+  `AccessPath.isRootedAt`/`FlowAnalysis.outState`/corpus strict-only helpers, and made the
+  plugin functional version follow `project.version`.
 - **H2-8 (`P2-10`)**: audit all `expect=some` corpus positives; use exact counts unless the
   mismatch is genuinely version/type-inference dependent, and document why.
 - **H2-9 (`P2-11`)**: fix the duplicate `PORT.md` headings, ROADMAP status contradictions,

@@ -50,10 +50,6 @@ class AccessPath {
         return new AccessPath(root + '.' + fields.join('.'), root)
     }
 
-    boolean isRootedAt(String prefix) {
-        return text == prefix || text.startsWith(prefix + '.')
-    }
-
     @Override
     String toString() {
         return text

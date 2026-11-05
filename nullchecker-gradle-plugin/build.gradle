@@ -103,6 +103,7 @@ tasks.register('functionalTest', Test) {
     // The build under test pulls the plugin in with --include-build. The plugin is no longer a
     // build of its own, so that argument now names the ROOT build.
     systemProperty 'plugin.build.dir', rootProject.projectDir.absolutePath
+    systemProperty 'plugin.version', project.version
     // The inner builds resolve the checker from mavenLocal -- the same prerequisite a real
     // consumer has while it is not on a public repository yet. (The plugin itself comes from
     // source via --include-build, so only the checker needs installing.) Doing it here is what

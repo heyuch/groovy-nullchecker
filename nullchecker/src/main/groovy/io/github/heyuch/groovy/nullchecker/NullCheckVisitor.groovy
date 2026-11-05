@@ -184,9 +184,6 @@ class NullCheckVisitor extends CheckingVisitor {
         // PORT: locally declared annotations sit on a different node per Groovy
         // version (see declAnnoCarrier), so query both rather than only 've'.
         AnnotatedNode annotated = declAnnoCarrier(decl, ve)
-        if (hasNonNullAnno(annotated) && isNullExpr(decl.rightExpression)) {
-            reportNull("Cannot assign null to @NonNull variable '${ve.name}'", decl)
-        }
         if (checkUnboxing(decl.rightExpression, ve.originType, decl, "for '${ve.name}'")) {
             nullableVars.remove(ve)
             return
@@ -736,7 +733,6 @@ class NullCheckVisitor extends CheckingVisitor {
         }
     }
 
-    @Override
     /**
      * Stops walking a block once a statement cannot complete normally: what follows is
      * unreachable, and reporting it would be reporting code that never runs.

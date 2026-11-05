@@ -57,6 +57,10 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Nullable annotator dry-run shows diffs.** Planned annotations include a before/after line,
   and multiline/Tab/CRLF/idempotency cases are covered before source edits are applied.
 
+- **Small cleanup pass.** Removed duplicate annotations/imports, an unreachable helper path and
+  unused corpus helpers; the plugin functional fixture now takes the project version instead of
+  a stale constant.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

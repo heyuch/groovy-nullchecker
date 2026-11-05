@@ -96,8 +96,4 @@ class FlowAnalysis {
         return inStates.get(graph.exit)
     }
 
-    @Nullable FlowState outState(CfgNode node) {
-        return outStates.get(node)
-    }
-
 }
