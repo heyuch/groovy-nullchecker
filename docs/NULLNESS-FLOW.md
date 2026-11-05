@@ -1,8 +1,8 @@
 # 方法内空值流分析：现状、CFG 方案与落地计划
 
-- Status: Phase 0 + F1-F7 implemented; method-local flow work is complete. Next: P2 compile-mode canary in [ROADMAP.md](ROADMAP.md)
+- Status: Phase 0 + F1-F7 implemented; method-local flow work is complete. Current work is the H1/H2 hardening track in [ROADMAP.md](ROADMAP.md).
 - Scope: 先在 `strict` 落地的方内 nullness 分析；默认注解模式可逐步演进，但不再要求上游一致
-- Baseline: 0.5.0 工作树（`NullCheckVisitor` 当前实现）
+- Baseline: 0.11.0 工作树（`NullCheckVisitor` 当前实现）
 
 本文只讨论 **nullchecker 自己的方法内空值追踪**。这里的“CFG”指方法内控制流图，
 “数据流”指 nullness 格上的前向数据流分析（unknown-suppressing，见 5.3）；**不是** k-CFA / CFA2 / PDCFA 那类跨过程、
@@ -68,7 +68,7 @@
 
 | 状态 | 作用 |
 | --- | --- |
-| `nullableVars` | 流分析认为可能为空的变量（第 99 行） |
+| `nullableVars` | 流分析认为可能为空的变量 |
 | `guardedVars` | 当前分支上已证明非空的变量 |
 | `nonEmptyVars` | 当前已知非空的集合，用于 `max`/`min` |
 | `lookupGuards` | `containsKey(k)` 证明存在的 key |
@@ -88,14 +88,14 @@
 
 ### 3.2 控制流
 
-- `visitIfElse`（第 425 行）：先访问 `ifBlock`，再访问 `elseBlock`；
-- `visitWhileLoop`（第 449 行）：只在循环体上应用 true 条件事实；
-- `visitBlockStatement`（第 403 行）：遇到 `cannotCompleteNormally` 就停止访问后续语句；
-- `visitClosureExpression`（第 262 行）：保存/恢复 `nullableElements` 和 `entryVariables`，
+- `visitIfElse`：先访问 `ifBlock`，再访问 `elseBlock`；
+- `visitWhileLoop`：只在循环体上应用 true 条件事实；
+- `visitBlockStatement`：遇到 `cannotCompleteNormally` 就停止访问后续语句；
+- `visitClosureExpression`：保存/恢复 `nullableElements` 和 `entryVariables`，
   但**不保存/恢复 `nullableVars`**；
 - `visitReturnStatement`：检查返回值；
-- `applyFacts`（第 810 行）：在 early exit 后把 guard 事实写回全局状态；
-- `cannotCompleteNormally`（第 1222 行）：语法层面的“是否能正常结束”判断。
+- `applyFacts`：在 early exit 后把 guard 事实写回全局状态；
+- `cannotCompleteNormally`：语法层面的“是否能正常结束”判断。
 
 ### 3.3 已经做对的部分
 
@@ -176,10 +176,10 @@ static void unsafe(boolean c) {
 
 ### 4.3 根因
 
-- `nullableVars` 是单个可变集合（第 99 行）；
-- `visitIfElse` 没有 `copy` / `join`（第 425 行）；
-- `withGuards` 只保存 `guardedVars`（第 798 行），不保存 `nullableVars`；
-- `applyFacts` 在 early exit 时改的是同一个集合（第 810 行），没有排除已退出分支；
+- `nullableVars` 是单个可变集合；
+- `visitIfElse` 没有 `copy` / `join`；
+- `withGuards` 只保存 `guardedVars`，不保存 `nullableVars`；
+- `applyFacts` 在 early exit 时改的是同一个集合，没有排除已退出分支；
 - `cannotCompleteNormally` 是语法近似，不能替代 CFG 的 exit edge。
 
 ---

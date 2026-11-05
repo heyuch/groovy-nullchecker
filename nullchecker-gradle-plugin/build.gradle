@@ -19,7 +19,7 @@ plugins {
 
 def spockVersion = '2.3-groovy-4.0'
 
-// group 与 version 由根 build.gradle 的 allprojects 统一给出：两个模块共享同一个版本号，
+// group 与 version 由根 build.gradle 的 subprojects 统一给出：两个模块共享同一个版本号，
 // 因为插件的默认 toolVersion 必须指向与它配套的那个 checker 版本，分开版本只会多出
 // 第二种出错的方式。repositories 同样来自根工程。
 

@@ -280,7 +280,7 @@
 
 ### P2-11 文档与注释 drift
 
-- Status: open
+- Status: done
 - 证据与动作:
   - `PORT.md:446` 与 `:449` 重复 `## 6. What is not verified`，合并。
   - `ROADMAP.md`：F2 状态写 done，但 F2b 写 in progress；前文说 "not yet per-variable"，后文 F1 已 done。统一状态与措辞（约 29-70 行）。
@@ -288,6 +288,8 @@
   - `nullchecker-gradle-plugin/build.gradle:22` 注释同样写 `allprojects`。
   - `NULLNESS-FLOW.md` 中引用的行号（如 `visitIfElse` 425 行）已与当前文件不符，改为按符号引用或更新行号。
 - 验收: 文档中的状态、版本、符号位置与代码一致。
+- 完成证据: `PORT.md` 重复标题移除；`ROADMAP`/`NULLNESS-FLOW` 状态与 F2 进度对齐；插件
+  `subprojects` 注释修正；NULLNESS-FLOW 的行号引用改为符号名。
 
 ---
 

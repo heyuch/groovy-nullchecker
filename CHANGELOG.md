@@ -64,6 +64,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Corpus positives use exact counts.** All `expect=some` fixtures were audited and pinned to
   their current finding counts, so an extra finding can no longer slip through a positive test.
 
+- **Documentation drift fixed.** Reconciled roadmap/flow status, removed a duplicate PORT heading,
+  corrected the plugin build comment and replaced stale line-number references with symbols.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

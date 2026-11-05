@@ -1,6 +1,6 @@
 # Roadmap
 
-Status: active. Last updated: 2026-10-21.
+Status: active. Last updated: 2026-11-05.
 
 This is the execution order for the remaining work. It is intentionally ordered: finish the
 method-local nullness flow work, then the plugin and the smaller items, then release.
@@ -25,8 +25,8 @@ is only reconsidered after the method-local work is complete and a real project 
 
 - Phase 0 is implemented: strict-mode branch snapshots, may-null union, must-fact intersection,
   early-exit branch exclusion (`FlowState`, `FlowStateSpec`, `strict/flow_branch_merge.groovy`).
-- Phase 0 is deliberately a snapshot over the existing sets, not yet the per-variable
-  `Nullness` map described in NULLNESS-FLOW.
+- Phase 0 + F1-F7 are implemented. `FlowState` is the per-variable `Nullness` map; the visitor
+  still projects it at some branch boundaries while the CFG owns strict analysis.
 - `dualRun` is informational; upstream parity is not a release gate.
 - The latest published release is `0.11.0`.
 
@@ -55,17 +55,17 @@ Status: done.
 
 - F2a (done): strict `for`/`do-while`/`switch` state snapshots and joins; zero-iteration
   paths and switch outcomes are covered by `strict/flow_loop_switch.groovy`.
-- F2b (in progress): the structural CFG is in place (`CfgNode` / `CfgEdge` /
+- F2b (done): the structural CFG is in place (`CfgNode` / `CfgEdge` /
   `ControlFlowGraph`), with if/while/for/do/switch/break/continue/return/throw edges and
-  `ControlFlowGraphSpec`. Strict `while`/`for` bodies now iterate to a flow-state fixed point,
+  `ControlFlowGraphSpec`. Strict `while`/`for` bodies iterate to a flow-state fixed point,
   and duplicate findings are suppressed by the reporter (`flow_loop_report_once`).
   The generic `FlowAnalysis` worklist is in place (join at predecessors, fixed-point loop,
   `FlowAnalysisSpec`), and `NullnessFlowTransfer` now drives `strict` methods through the CFG;
   annotation mode keeps the old visitor. Condition facts are applied on TRUE/FALSE edges and
   no-return expressions stop propagation.
   Switch fall-through is modelled (a case's normal flow reaches the next case, `break` goes to
-  after), and the for-each variable receives the collection's nullable element facts. Remaining
-  F3 work is try/catch/finally; break/continue edges are structural and covered by the CFG
+  after), and the for-each variable receives the collection's nullable element facts.
+  try/catch/finally is covered by F3; break/continue edges are structural and covered by the CFG
   builder tests.
 - The `FlowState` map is ready; the visitor still projects it until the CFG owns the state.
 
@@ -339,8 +339,9 @@ These are suitable for incremental, module-local work.
   plugin functional version follow `project.version`.
 - **H2-8 (`P2-10`)**: done. Audited all `expect=some` fixtures; every current fixture now
   uses an exact count. `some` remains documented as reserved for genuinely variable cases.
-- **H2-9 (`P2-11`)**: fix the duplicate `PORT.md` headings, ROADMAP status contradictions,
-  `allprojects`/`subprojects` comments, and stale symbol/line references.
+- **H2-9 (`P2-11`)**: done. Removed the duplicate `PORT.md` heading, reconciled
+  `ROADMAP`/`NULLNESS-FLOW` statuses, fixed the plugin `subprojects` comment and replaced stale
+  line-number references with symbol names.
 - **H2-10 (`P3-6`)**: special-case `return`/`break`/`continue` through `finally` in the CFG, or
   record a permanent limitation with fixtures.
 

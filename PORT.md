@@ -444,9 +444,6 @@ customizer inside `compileGroovy` would pay the checking cost once instead of tw
 findings would have to be collected rather than raised as compiler errors.
 
 ## 6. What is not verified
----
-
-## 6. What is not verified
 
 - **Semantic equivalence beyond the corpus.** The comparison in §4 covers the fixtures in
   `corpus/`. Type inference in Groovy 4 and 6 is not identical, and the corpus is not a proof
