@@ -342,8 +342,8 @@ These are suitable for incremental, module-local work.
 - **H2-9 (`P2-11`)**: done. Removed the duplicate `PORT.md` heading, reconciled
   `ROADMAP`/`NULLNESS-FLOW` statuses, fixed the plugin `subprojects` comment and replaced stale
   line-number references with symbol names.
-- **H2-10 (`P3-6`)**: special-case `return`/`break`/`continue` through `finally` in the CFG, or
-  record a permanent limitation with fixtures.
+- **H2-10 (`P3-6`)**: deferred to D2. The abrupt-`finally` limitation is documented by F3 and
+  will be implemented with the exceptional CFG; do not duplicate the work here.
 
 ### 6.4 H3: cleanup, CLI and performance
 

@@ -338,6 +338,7 @@
 - Status: open
 - 证据: `ROADMAP.md` F3 已注明 "Abrupt exits through `finally` are not yet special-cased"
 - 动作: 为 `return`/`break`/`continue` 穿过 `finally` 的路径补 CFG 边和语料；或在文档中明确永久限制。
+- 状态: 已并入 ROADMAP D2（exceptional CFG），不在 H2 重复实现。
 - 验收: 对应语料通过，或限制被写入 PORT/ROADMAP。
 
 ### P3-7 Autofix provider SPI（ROADMAP N3）
