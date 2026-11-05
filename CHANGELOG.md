@@ -91,6 +91,9 @@ versions follow [Semantic Versioning](https://semver.org/).
 - **Assert applies path and lookup facts.** `assert this.value != null` and
   `assert map.get(k) != null` now narrow the following expression, not only local variables.
 
+- **FlowState microbenchmark and refreshed local baseline.** `FlowStateBench` records join and
+  copy/restore timings; `docs/PERF.md` also has current compile/test wall times.
+
 ### Changed
 
 - **Dogfood moved to `0.11.0`.** Central serves the release, so the self-check plugin and

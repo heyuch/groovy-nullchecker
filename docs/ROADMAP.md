@@ -354,8 +354,8 @@ These are suitable for incremental, module-local work.
   `NullCheckFindingsCli` was aligned in H2-4.
 - **H3-3 (`P3-4`)**: expand `NullCheckCategoriesSpec` into the full message table; new messages
   must fail until registered. Done with H0-4.
-- **H3-4 (`P3-5`)**: in progress. The local compile/test baseline is refreshed in
-  `docs/PERF.md`; `FlowState.join` / capture-restore microbenchmarks remain pending.
+- **H3-4 (`P3-5`)**: done. The local compile/test baseline is refreshed and
+  `FlowStateBench` records join/copy timings explicitly; it is not a CI gate.
 - **H3-5 (`P3-7`)**: autofix provider SPI; keep it behind N3 and do not freeze an API before
   the H0/H1 work is stable.
 

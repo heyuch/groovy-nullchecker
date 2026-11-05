@@ -45,8 +45,17 @@ These are wall-clock samples including Gradle/daemon overhead, not isolated chec
 The external nine-module numbers below remain the reference for real-project behavior; do not
 compare this local sample to them as if the workloads were equal.
 
-Microbenchmarks for `FlowState.join` / capture/restore are still pending; this section records
-the runnable baseline only.
+Microbenchmark (`FlowStateBench`, explicit, not a gate):
+
+```bash
+./gradlew :nullchecker:compileTestGroovy
+CP=$(./gradlew :nullchecker:printTestClasspath --console=plain -q)
+java -cp "$CP" io.github.heyuch.groovy.nullchecker.FlowStateBench
+```
+
+One local run: `join` 24.72 us/op, `copy/restore` 2.46 us/op over 100 variables and 100 paths;
+the JVM warmup run was intentionally not used. Treat this as a regression signal, not a
+cross-machine benchmark.
 
 ## 0.5.0 vs 0.6.0 on an external service
 
